@@ -1,0 +1,145 @@
+"use client";
+
+import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import {
+  RiDashboardLine,
+  RiFlashlightLine,
+  RiHistoryLine,
+  RiSettings4Line,
+  RiCloseLine,
+} from "@remixicon/react";
+import { cn } from "@/lib/utils";
+import { useWebSocket } from "@/providers/WebSocketProvider";
+import { useUnits } from "@/providers/UnitsProvider";
+
+const navItems = [
+  { href: "/", label: "Dashboard", icon: RiDashboardLine },
+  { href: "/lightning", label: "Lightning", icon: RiFlashlightLine },
+  { href: "/history", label: "History", icon: RiHistoryLine },
+  { href: "/settings", label: "Diagnostics", icon: RiSettings4Line },
+];
+
+export default function Sidebar({
+  open,
+  onClose,
+}: {
+  open: boolean;
+  onClose: () => void;
+}) {
+  const pathname = usePathname();
+  const { connected } = useWebSocket();
+  const { system, toggle } = useUnits();
+
+  // Close sidebar when navigating on mobile
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+  const [initialPath] = useState(pathname);
+  useEffect(() => {
+    if (pathname !== initialPath) {
+      onCloseRef.current();
+    }
+  }, [pathname, initialPath]);
+
+  return (
+    <>
+      {/* Mobile backdrop */}
+      <div
+        className={cn(
+          "fixed inset-0 z-40 bg-black/50 transition-opacity duration-300 md:hidden",
+          open ? "opacity-100" : "pointer-events-none opacity-0",
+        )}
+        onClick={onClose}
+      />
+
+      {/* Sidebar panel */}
+      <aside
+        className={cn(
+          "fixed z-50 flex h-full w-56 shrink-0 flex-col border-r border-border bg-surface-alt transition-transform duration-300 ease-out",
+          "md:relative md:z-auto md:translate-x-0",
+          open ? "translate-x-0" : "-translate-x-full",
+        )}
+      >
+        {/* Logo */}
+        <div className="flex h-16 items-center justify-between border-b border-border px-5">
+          <div className="flex items-center gap-3">
+            <span className="text-2xl drop-shadow-sm">&#x1F9C7;</span>
+            <span className="font-display text-lg font-semibold tracking-tight text-text">
+              WaffleWeather
+            </span>
+          </div>
+          {/* Mobile close button */}
+          <button
+            onClick={onClose}
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-text-muted hover:text-text md:hidden"
+            aria-label="Close menu"
+          >
+            <RiCloseLine className="h-5 w-5" />
+          </button>
+        </div>
+
+        {/* Nav links */}
+        <nav className="flex flex-1 flex-col gap-1 p-3">
+          {navItems.map(({ href, label, icon: Icon }) => {
+            const active = pathname === href;
+            return (
+              <Link
+                key={href}
+                href={href}
+                className={cn(
+                  "sidebar-nav-item flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium",
+                  active
+                    ? "bg-primary/10 text-primary"
+                    : "text-text-muted hover:text-text",
+                )}
+              >
+                <Icon className="h-5 w-5" />
+                {label}
+              </Link>
+            );
+          })}
+        </nav>
+
+        {/* Footer: connection status + unit toggle */}
+        <div className="space-y-3 border-t border-border p-4">
+          <div className="flex items-center gap-2.5 text-xs text-text-faint">
+            <span
+              className={cn(
+                "inline-block h-2 w-2 rounded-full",
+                connected ? "bg-success live-pulse" : "bg-danger",
+              )}
+            />
+            {connected ? "Live" : "Disconnected"}
+          </div>
+          <button
+            onClick={toggle}
+            className="flex w-full items-center rounded-lg border border-border bg-surface text-xs font-medium"
+            aria-label="Toggle unit system"
+          >
+            <span
+              className={cn(
+                "flex-1 rounded-md px-2 py-1.5 text-center transition-colors",
+                system === "metric"
+                  ? "bg-primary/15 text-primary"
+                  : "text-text-faint hover:text-text-muted",
+              )}
+            >
+              Metric
+            </span>
+            <span
+              className={cn(
+                "flex-1 rounded-md px-2 py-1.5 text-center transition-colors",
+                system === "imperial"
+                  ? "bg-primary/15 text-primary"
+                  : "text-text-faint hover:text-text-muted",
+              )}
+            >
+              Imperial
+            </span>
+          </button>
+        </div>
+      </aside>
+    </>
+  );
+}

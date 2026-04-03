@@ -1,0 +1,446 @@
+openapi: "3.1.0"
+info:
+  title: WaffleWeather API
+  description: Modern weather station API for live and historical weather data.
+  version: "1.0.0"
+
+servers:
+  - url: http://localhost:8000
+    description: Local development
+
+paths:
+  /api/v1/stations:
+    get:
+      summary: List registered weather stations
+      operationId: listStations
+      tags: [stations]
+      responses:
+        "200":
+          description: List of stations
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Station"
+
+  /api/v1/stations/{station_id}:
+    get:
+      summary: Get station details
+      operationId: getStation
+      tags: [stations]
+      parameters:
+        - name: station_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Station details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Station"
+        "404":
+          description: Station not found
+
+  /api/v1/observations/latest:
+    get:
+      summary: Get the most recent observation
+      operationId: getLatestObservation
+      tags: [observations]
+      parameters:
+        - name: station_id
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Most recent observation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Observation"
+        "404":
+          description: No observations found
+
+  /api/v1/observations:
+    get:
+      summary: Query raw observations with time range
+      operationId: listObservations
+      tags: [observations]
+      parameters:
+        - name: station_id
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: start
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - name: end
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 100
+            maximum: 10000
+        - name: offset
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 0
+      responses:
+        "200":
+          description: Paginated list of observations
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ObservationPage"
+
+  /api/v1/observations/hourly:
+    get:
+      summary: Hourly aggregated observations
+      operationId: listHourlyObservations
+      tags: [aggregates]
+      parameters:
+        - name: station_id
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: start
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date-time
+        - name: end
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date-time
+      responses:
+        "200":
+          description: Hourly aggregated observations
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AggregatedObservation"
+
+  /api/v1/observations/daily:
+    get:
+      summary: Daily aggregated observations
+      operationId: listDailyObservations
+      tags: [aggregates]
+      parameters:
+        - name: station_id
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: start
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date-time
+        - name: end
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date-time
+      responses:
+        "200":
+          description: Daily aggregated observations
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AggregatedObservation"
+
+  /api/v1/observations/monthly:
+    get:
+      summary: Monthly aggregated observations
+      operationId: listMonthlyObservations
+      tags: [aggregates]
+      parameters:
+        - name: station_id
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: start
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date-time
+        - name: end
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date-time
+      responses:
+        "200":
+          description: Monthly aggregated observations
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AggregatedObservation"
+
+components:
+  schemas:
+    Station:
+      type: object
+      required: [id]
+      properties:
+        id:
+          type: string
+          description: Device MAC or ID from ecowitt2mqtt
+        name:
+          type: string
+          nullable: true
+        model:
+          type: string
+          nullable: true
+        firmware_version:
+          type: string
+          nullable: true
+        last_seen:
+          type: string
+          format: date-time
+          nullable: true
+        latitude:
+          type: number
+          nullable: true
+        longitude:
+          type: number
+          nullable: true
+        altitude:
+          type: number
+          nullable: true
+          description: Station altitude in meters above sea level
+
+    Observation:
+      type: object
+      required: [timestamp, station_id]
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+        station_id:
+          type: string
+        # Temperature
+        temp_outdoor:
+          type: number
+          nullable: true
+          description: Outdoor temperature (°C)
+        temp_indoor:
+          type: number
+          nullable: true
+          description: Indoor temperature (°C)
+        dewpoint:
+          type: number
+          nullable: true
+          description: Dewpoint temperature (°C)
+        feels_like:
+          type: number
+          nullable: true
+          description: Feels-like temperature (°C)
+        heat_index:
+          type: number
+          nullable: true
+          description: Heat index (°C)
+        wind_chill:
+          type: number
+          nullable: true
+          description: Wind chill (°C)
+        frost_point:
+          type: number
+          nullable: true
+          description: Frost point (°C)
+        # Humidity
+        humidity_outdoor:
+          type: number
+          nullable: true
+          description: Outdoor relative humidity (%)
+        humidity_indoor:
+          type: number
+          nullable: true
+          description: Indoor relative humidity (%)
+        # Pressure
+        pressure_abs:
+          type: number
+          nullable: true
+          description: Absolute barometric pressure (hPa)
+        pressure_rel:
+          type: number
+          nullable: true
+          description: Relative barometric pressure (hPa)
+        # Wind
+        wind_speed:
+          type: number
+          nullable: true
+          description: Wind speed (km/h)
+        wind_gust:
+          type: number
+          nullable: true
+          description: Wind gust speed (km/h)
+        wind_dir:
+          type: number
+          nullable: true
+          description: Wind direction (degrees, 0-360)
+        # Rain
+        rain_rate:
+          type: number
+          nullable: true
+          description: Rain rate (mm/h)
+        rain_daily:
+          type: number
+          nullable: true
+          description: Daily rainfall total (mm)
+        rain_weekly:
+          type: number
+          nullable: true
+          description: Weekly rainfall total (mm)
+        rain_monthly:
+          type: number
+          nullable: true
+          description: Monthly rainfall total (mm)
+        rain_yearly:
+          type: number
+          nullable: true
+          description: Yearly rainfall total (mm)
+        rain_event:
+          type: number
+          nullable: true
+          description: Event rainfall total (mm)
+        # Solar / UV
+        solar_radiation:
+          type: number
+          nullable: true
+          description: Solar radiation (W/m²)
+        uv_index:
+          type: number
+          nullable: true
+          description: UV index
+        # Air Quality
+        pm25:
+          type: number
+          nullable: true
+          description: PM2.5 concentration (µg/m³)
+        pm10:
+          type: number
+          nullable: true
+          description: PM10 concentration (µg/m³)
+        co2:
+          type: number
+          nullable: true
+          description: CO2 concentration (ppm)
+        # Soil
+        soil_moisture_1:
+          type: number
+          nullable: true
+          description: Soil moisture channel 1 (%)
+        soil_moisture_2:
+          type: number
+          nullable: true
+          description: Soil moisture channel 2 (%)
+        # Lightning
+        lightning_count:
+          type: integer
+          nullable: true
+          description: Lightning strike count
+        lightning_distance:
+          type: number
+          nullable: true
+          description: Lightning distance (km)
+        lightning_time:
+          type: string
+          format: date-time
+          nullable: true
+          description: Last lightning strike time
+
+    AggregatedObservation:
+      type: object
+      required: [bucket, station_id]
+      properties:
+        bucket:
+          type: string
+          format: date-time
+          description: Start of the time bucket
+        station_id:
+          type: string
+        # Temperature
+        temp_outdoor_avg:
+          type: number
+          nullable: true
+        temp_outdoor_min:
+          type: number
+          nullable: true
+        temp_outdoor_max:
+          type: number
+          nullable: true
+        # Humidity
+        humidity_outdoor_avg:
+          type: number
+          nullable: true
+        # Pressure
+        pressure_rel_avg:
+          type: number
+          nullable: true
+        # Wind
+        wind_speed_avg:
+          type: number
+          nullable: true
+        wind_gust_max:
+          type: number
+          nullable: true
+        # Rain
+        rain_daily_max:
+          type: number
+          nullable: true
+        # Solar / UV
+        solar_radiation_avg:
+          type: number
+          nullable: true
+        uv_index_max:
+          type: number
+          nullable: true
+
+    ObservationPage:
+      type: object
+      required: [items, total, limit, offset]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Observation"
+        total:
+          type: integer
+          description: Total number of matching observations
+        limit:
+          type: integer
+        offset:
+          type: integer

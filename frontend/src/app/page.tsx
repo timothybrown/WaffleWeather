@@ -1,0 +1,54 @@
+"use client";
+
+import type { Observation } from "@/generated/models";
+import { useGetLatestObservation } from "@/generated/observations/observations";
+import { useWebSocket } from "@/providers/WebSocketProvider";
+import { timeAgo } from "@/lib/utils";
+import { useTrends } from "@/hooks/useTrends";
+import TemperatureCard from "@/components/dashboard/TemperatureCard";
+import HumidityCard from "@/components/dashboard/HumidityCard";
+import WindCard from "@/components/dashboard/WindCard";
+import PressureCard from "@/components/dashboard/PressureCard";
+import RainCard from "@/components/dashboard/RainCard";
+import SolarUVCard from "@/components/dashboard/SolarUVCard";
+import LightningCard from "@/components/dashboard/LightningCard";
+
+export default function DashboardPage() {
+  const { data: apiResponse, error } = useGetLatestObservation();
+  const { latestObservation: wsData } = useWebSocket();
+  const trends = useTrends();
+
+  // Orval wraps response as { data: Observation, status, headers }
+  const apiData = apiResponse?.data as Observation | undefined;
+  // WebSocket data takes precedence over REST data
+  const data: Observation | null = wsData ?? apiData ?? null;
+
+  return (
+    <div className="p-4 sm:p-6">
+      {/* Header */}
+      <div className="page-header mb-6 flex items-center justify-between">
+        <div>
+          <h1 className="font-display text-2xl font-semibold text-text">Dashboard</h1>
+          <p className="mt-1 text-sm text-text-muted">
+            {error
+              ? `Error: ${String(error)}`
+              : data
+                ? `Last update: ${timeAgo(data.timestamp)}`
+                : "Waiting for data..."}
+          </p>
+        </div>
+      </div>
+
+      {/* Card Grid */}
+      <div className="card-stagger grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        <TemperatureCard data={data} trend={trends.temp_outdoor} />
+        <HumidityCard data={data} trend={trends.humidity_outdoor} />
+        <WindCard data={data} trend={trends.wind_speed} />
+        <PressureCard data={data} trend={trends.pressure_rel} />
+        <RainCard data={data} trend={trends.rain_rate} />
+        <SolarUVCard data={data} solarTrend={trends.solar_radiation} uvTrend={trends.uv_index} />
+        <LightningCard data={data} />
+      </div>
+    </div>
+  );
+}

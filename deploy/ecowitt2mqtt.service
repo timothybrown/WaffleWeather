@@ -1,0 +1,22 @@
+[Unit]
+Description=ecowitt2mqtt - Ecowitt to MQTT bridge
+After=network.target mosquitto.service
+Requires=mosquitto.service
+
+[Service]
+Type=exec
+User=ecowitt2mqtt
+ExecStart=/opt/ecowitt2mqtt/venv/bin/ecowitt2mqtt \
+    --mqtt-broker localhost \
+    --mqtt-port 1883 \
+    --mqtt-topic ecowitt2mqtt \
+    --mqtt-retain \
+    --output-unit-system metric \
+    --port 8080 \
+    --endpoint /data/report \
+    -v
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

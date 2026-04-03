@@ -1,0 +1,16 @@
+[Unit]
+Description=WaffleWeather Backend
+After=network.target postgresql.service mosquitto.service
+Requires=postgresql.service mosquitto.service
+
+[Service]
+Type=exec
+User=waffleweather
+WorkingDirectory=/opt/waffleweather/backend
+ExecStart=/opt/waffleweather/backend/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000
+Restart=always
+RestartSec=5
+EnvironmentFile=/opt/waffleweather/.env
+
+[Install]
+WantedBy=multi-user.target

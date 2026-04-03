@@ -1,0 +1,17 @@
+[Unit]
+Description=WaffleWeather Frontend
+After=network.target waffleweather-backend.service
+
+[Service]
+Type=exec
+User=waffleweather
+WorkingDirectory=/opt/waffleweather/frontend
+ExecStart=/usr/bin/node .next/standalone/server.js
+Environment=PORT=3000
+Environment=HOSTNAME=127.0.0.1
+Restart=always
+RestartSec=5
+EnvironmentFile=/opt/waffleweather/.env
+
+[Install]
+WantedBy=multi-user.target
