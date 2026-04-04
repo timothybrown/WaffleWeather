@@ -12,6 +12,7 @@ ExecStart=/opt/ecowitt2mqtt/venv/bin/ecowitt2mqtt \
     --mqtt-topic Gateway \
     --mqtt-retain \
     --output-unit-system metric \
+    --disable-calculated-data \
     --port 8080 \
     --endpoint /data/report \
     -v
