@@ -27,9 +27,17 @@ export default function PressureCard({ data, trend }: { data: Observation | null
         <span className="text-lg text-text-faint">{rel.unit}</span>
         <TrendIndicator trend={trend} />
       </div>
-      <div className="mt-4 text-sm">
-        <p className="text-xs text-text-faint">Absolute</p>
-        <p className="font-mono font-medium tabular-nums text-text-muted">{fmt(abs.value, decimals)} {abs.unit}</p>
+      <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
+        <div>
+          <p className="text-xs text-text-faint">Absolute</p>
+          <p className="font-mono font-medium tabular-nums text-text-muted">{fmt(abs.value, decimals)} {abs.unit}</p>
+        </div>
+        {data?.zambretti_forecast && (
+          <div>
+            <p className="text-xs text-text-faint">Forecast</p>
+            <p className="text-sm font-medium text-text-muted">{data.zambretti_forecast}</p>
+          </div>
+        )}
       </div>
     </WeatherCard>
   );

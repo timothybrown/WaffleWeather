@@ -1,6 +1,6 @@
 """Observation API endpoints."""
 
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func, select
@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
 from app.models.observation import WeatherObservation
 from app.schemas.observation import ObservationPageSchema, ObservationSchema
+from app.services.derived import zambretti_forecast
 
 router = APIRouter(prefix="/observations", tags=["observations"])
 
@@ -26,7 +27,40 @@ async def get_latest_observation(
     obs = result.scalar_one_or_none()
     if obs is None:
         raise HTTPException(status_code=404, detail="No observations found")
-    return obs
+
+    schema = ObservationSchema.model_validate(obs)
+
+    # Zambretti forecast: look up pressure from ~3 hours ago
+    if schema.pressure_rel is not None:
+        three_h_ago = obs.timestamp - timedelta(hours=3)
+        window_start = three_h_ago - timedelta(minutes=15)
+        window_end = three_h_ago + timedelta(minutes=15)
+        past_q = (
+            select(WeatherObservation.pressure_rel)
+            .where(
+                WeatherObservation.station_id == obs.station_id,
+                WeatherObservation.timestamp.between(window_start, window_end),
+                WeatherObservation.pressure_rel.is_not(None),
+            )
+            .order_by(
+                func.abs(
+                    func.extract("epoch", WeatherObservation.timestamp)
+                    - func.extract("epoch", three_h_ago)
+                )
+            )
+            .limit(1)
+        )
+        past_result = await db.execute(past_q)
+        pressure_3h = past_result.scalar_one_or_none()
+        now = obs.timestamp
+        schema.zambretti_forecast = zambretti_forecast(
+            schema.pressure_rel,
+            pressure_3h,
+            wind_dir=schema.wind_dir,
+            month=now.month,
+        )
+
+    return schema
 
 
 @router.get("", response_model=ObservationPageSchema)

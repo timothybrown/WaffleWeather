@@ -2,6 +2,8 @@
 
 import asyncio
 import logging
+from collections import deque
+from datetime import datetime, timedelta, timezone
 
 import aiomqtt
 from sqlalchemy.dialects.postgresql import insert as pg_insert
@@ -11,9 +13,13 @@ from app.database import async_session
 from app.models.observation import WeatherObservation
 from app.models.station import Station
 from app.mqtt.parser import parse_ecowitt_payload
-from app.services.derived import enrich_observation
+from app.services.derived import enrich_observation, zambretti_forecast
 
 logger = logging.getLogger(__name__)
+
+# In-memory pressure history for Zambretti forecast (WebSocket path).
+# Stores (timestamp, pressure_hpa) tuples; pruned to 4h window on each insert.
+_pressure_history: deque[tuple[datetime, float]] = deque(maxlen=1000)
 
 
 async def mqtt_listener(settings: Settings, broadcast_fn=None) -> None:
@@ -118,6 +124,38 @@ async def _handle_message(
     if broadcast_fn:
         try:
             broadcast_data = enrich_observation(parsed)
+
+            # Zambretti: track pressure and compute forecast from 3h history
+            pressure = broadcast_data.get("pressure_rel")
+            ts = broadcast_data.get("timestamp")
+            if pressure is not None and ts is not None:
+                if isinstance(ts, str):
+                    ts_dt = datetime.fromisoformat(ts)
+                else:
+                    ts_dt = ts
+                _pressure_history.append((ts_dt, pressure))
+                # Prune entries older than 4 hours
+                cutoff = ts_dt - timedelta(hours=4)
+                while _pressure_history and _pressure_history[0][0] < cutoff:
+                    _pressure_history.popleft()
+                # Find closest reading to 3h ago
+                target = ts_dt - timedelta(hours=3)
+                best = None
+                best_delta = timedelta(minutes=20)  # max tolerance
+                for h_ts, h_p in _pressure_history:
+                    d = abs(h_ts - target)
+                    if d < best_delta:
+                        best_delta = d
+                        best = h_p
+                forecast = zambretti_forecast(
+                    pressure,
+                    best,
+                    wind_dir=broadcast_data.get("wind_dir"),
+                    month=ts_dt.month,
+                )
+                if forecast is not None:
+                    broadcast_data["zambretti_forecast"] = forecast
+
             broadcast_data["diagnostics"] = diagnostics
             await broadcast_fn(broadcast_data)
         except Exception:

@@ -3,11 +3,21 @@
 import { RiTempColdLine } from "@remixicon/react";
 import type { Observation } from "@/generated/models";
 import type { TrendDirection } from "@/hooks/useTrends";
-import { fmt } from "@/lib/utils";
+import { cn, fmt } from "@/lib/utils";
 import { convertTemp } from "@/lib/units";
 import { useUnits } from "@/providers/UnitsProvider";
 import WeatherCard from "./WeatherCard";
 import TrendIndicator from "./TrendIndicator";
+
+function dewpointComfort(dewC: number | null | undefined): { label: string; color: string } {
+  if (dewC == null) return { label: "\u2014", color: "text-text-muted" };
+  if (dewC < 10) return { label: "Dry", color: "text-primary" };
+  if (dewC < 15) return { label: "Comfortable", color: "text-success" };
+  if (dewC < 18) return { label: "Slightly humid", color: "text-text-muted" };
+  if (dewC < 21) return { label: "Humid", color: "text-warning" };
+  if (dewC < 24) return { label: "Oppressive", color: "text-danger" };
+  return { label: "Miserable", color: "text-danger" };
+}
 
 export default function TemperatureCard({ data, trend }: { data: Observation | null; trend: TrendDirection }) {
   const { system } = useUnits();
@@ -36,6 +46,7 @@ export default function TemperatureCard({ data, trend }: { data: Observation | n
         <div>
           <p className="text-xs text-text-faint">Dewpoint</p>
           <p className="font-mono font-medium tabular-nums text-text-muted">{fmt(dew.value)}&deg;</p>
+          <p className={cn("text-xs font-medium", dewpointComfort(data?.dewpoint).color)}>{dewpointComfort(data?.dewpoint).label}</p>
         </div>
         <div>
           <p className="text-xs text-text-faint">Indoor</p>

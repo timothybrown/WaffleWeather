@@ -84,6 +84,9 @@
 .card-stagger > *:nth-child(5) { animation-delay: 240ms; }
 .card-stagger > *:nth-child(6) { animation-delay: 300ms; }
 .card-stagger > *:nth-child(7) { animation-delay: 360ms; }
+.card-stagger > *:nth-child(8) { animation-delay: 420ms; }
+.card-stagger > *:nth-child(9) { animation-delay: 480ms; }
+.card-stagger > *:nth-child(10) { animation-delay: 540ms; }
 
 /* ── Live connection pulse ───────────────────────────────────── */
 

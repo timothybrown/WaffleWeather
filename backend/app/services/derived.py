@@ -4,6 +4,8 @@
 - Heat index: Full NWS Rothfusz algorithm with adjustments
 - Wind chill: NWS / Environment Canada formula
 - Feels like: Composite (wind chill < 10°C, heat index > 27°C, actual otherwise)
+- UTCI: Universal Thermal Climate Index (Bröde et al. 2012 polynomial)
+- Zambretti: Barometric pressure forecast (Negretti & Zambra, 1915)
 """
 
 import math
@@ -100,6 +102,302 @@ def feels_like(
     return round(temp_c, 1)
 
 
+# ── Zambretti barometric forecast ────────────────────────────────────────────
+
+# Forecast lookup tables from the original Zambretti Forecaster (1915)
+_ZAMBRETTI_RISING = [
+    "Settled fine",
+    "Fine weather",
+    "Becoming fine",
+    "Fine, becoming less settled",
+    "Fine, possible showers",
+    "Fairly fine, improving",
+    "Fairly fine, possible showers early",
+    "Fairly fine, showery later",
+    "Showery early, improving",
+    "Changeable, mending",
+    "Fairly fine",
+]
+
+_ZAMBRETTI_STEADY = [
+    "Settled fine",
+    "Fine weather",
+    "Fine, possibly showers",
+    "Fairly fine, showers likely",
+    "Showery, bright intervals",
+    "Changeable, some rain",
+    "Unsettled, rain later",
+    "Rain at times, worse later",
+    "Rain at times, becoming very unsettled",
+    "Very unsettled, rain",
+]
+
+_ZAMBRETTI_FALLING = [
+    "Settled fine",
+    "Fine weather",
+    "Fine, becoming less settled",
+    "Fairly fine, showery later",
+    "Showery, bright intervals",
+    "Changeable, some rain",
+    "Unsettled, short fine intervals",
+    "Unsettled, rain later",
+    "Unsettled, rain at times",
+    "Very unsettled, foul",
+    "Stormy, much rain",
+]
+
+
+def zambretti_forecast(
+    pressure_hpa: float,
+    pressure_3h_ago_hpa: float | None,
+    wind_dir: float | None = None,
+    month: int | None = None,
+) -> str | None:
+    """Zambretti barometric pressure forecast (Negretti & Zambra, 1915).
+
+    Uses the current sea-level pressure, 3-hour pressure trend, optional
+    wind direction, and month to produce a short-range weather forecast.
+
+    Returns None if pressure_3h_ago is not available (need history).
+    """
+    if pressure_3h_ago_hpa is None:
+        return None
+
+    delta = pressure_hpa - pressure_3h_ago_hpa
+
+    # Seasonal adjustment (Northern Hemisphere) — summer gets a slight boost
+    seasonal_adj = 0.0
+    if month is not None:
+        if month in (4, 5, 6, 7, 8, 9):  # Apr–Sep
+            seasonal_adj = 2.0
+        elif month in (10, 11, 12, 1, 2, 3):  # Oct–Mar
+            seasonal_adj = -2.0
+
+    # Wind direction adjustment — northerly winds tend to bring fair weather,
+    # southerly winds tend to bring unsettled weather (Northern Hemisphere)
+    wind_adj = 0.0
+    if wind_dir is not None:
+        if 315 <= wind_dir or wind_dir < 45:
+            wind_adj = -2.0  # N: fair bias
+        elif 135 <= wind_dir < 225:
+            wind_adj = 2.0   # S: unsettled bias
+
+    # Zambretti Z-number: map pressure (950–1050 hPa) to 0–(n-1) index
+    p = max(950.0, min(1050.0, pressure_hpa + seasonal_adj + wind_adj))
+
+    if delta > 1.6:
+        # Rising pressure
+        z = round(127.0 - 0.12 * p)
+        z = max(0, min(z, len(_ZAMBRETTI_RISING) - 1))
+        return _ZAMBRETTI_RISING[z]
+    elif delta < -1.6:
+        # Falling pressure
+        z = round(130.0 - 0.12 * p)
+        z = max(0, min(z, len(_ZAMBRETTI_FALLING) - 1))
+        return _ZAMBRETTI_FALLING[z]
+    else:
+        # Steady pressure
+        z = round(144.0 - 0.13 * p)
+        z = max(0, min(z, len(_ZAMBRETTI_STEADY) - 1))
+        return _ZAMBRETTI_STEADY[z]
+
+
+def _approximate_mrt(temp_c: float, solar_wm2: float) -> float:
+    """Approximate Mean Radiant Temperature (°C) from solar radiation.
+
+    TODO(BGT): When Black Globe Temperature sensor is available, replace
+    this approximation with the proper MRT formula:
+        MRT = [(Tg+273)^4 + 1.1e8 * Va^0.6 * (Tg-Ta) / (D^0.4)]^0.25 - 273
+    where Tg = black globe temp, Va = wind speed, Ta = air temp, D = globe
+    diameter (0.15m standard). BGT gives much more accurate MRT and thus
+    more accurate UTCI, especially in direct sunlight.
+    """
+    return temp_c + 1.5 * (solar_wm2 / 100.0)
+
+
+def utci(
+    temp_c: float,
+    rh_percent: float,
+    wind_kmh: float,
+    solar_wm2: float,
+) -> float | None:
+    """Universal Thermal Climate Index (°C) — Bröde et al. 2012 polynomial.
+
+    Approximates thermal stress using air temperature, humidity, wind speed,
+    and an estimated Mean Radiant Temperature (MRT) from solar radiation.
+
+    TODO(BGT): Accept optional `globe_temp_c` parameter. When provided,
+    compute MRT from BGT instead of the solar approximation, yielding a
+    significantly more accurate UTCI in sunny conditions.
+
+    Valid range: air temp -50..50°C, wind 0.5..17 m/s, MRT-Ta delta -30..70°C.
+    Returns None if inputs are outside these bounds.
+    """
+    Ta = temp_c
+    va = max(wind_kmh / 3.6, 0.5)  # km/h → m/s, clamp to minimum
+    if va > 17.0:
+        va = 17.0
+
+    Tmrt = _approximate_mrt(Ta, solar_wm2)
+    D_Tmrt = Tmrt - Ta  # MRT - air temp offset
+
+    if not (-50.0 <= Ta <= 50.0) or not (-30.0 <= D_Tmrt <= 70.0):
+        return None
+
+    # 6th-order polynomial regression (Bröde et al. 2012)
+    # Using water vapour pressure (kPa) derived from RH and Magnus formula
+    a, b = 17.625, 243.04
+    es = 6.112 * math.exp((a * Ta) / (Ta + b))
+    Pa = (rh_percent / 100.0) * es / 10.0  # hPa → kPa
+
+    result = (
+        Ta
+        + 0.607562052 + -0.0227712343 * Ta + 8.06470249e-4 * Ta * Ta
+        + -1.54271372e-4 * Ta * Ta * Ta + -3.24651735e-6 * Ta * Ta * Ta * Ta
+        + 7.32602852e-8 * Ta * Ta * Ta * Ta * Ta
+        + 1.35959073e-9 * Ta * Ta * Ta * Ta * Ta * Ta
+        + -2.25836520 * va + 0.0880326035 * Ta * va
+        + 0.00216844454 * Ta * Ta * va + -1.53347087e-5 * Ta * Ta * Ta * va
+        + -5.72983704e-7 * Ta * Ta * Ta * Ta * va
+        + -2.55090145e-9 * Ta * Ta * Ta * Ta * Ta * va
+        + -0.751269505 * va * va + -0.00408350271 * Ta * va * va
+        + -5.21670675e-5 * Ta * Ta * va * va
+        + 1.94544667e-6 * Ta * Ta * Ta * va * va
+        + 1.14099531e-8 * Ta * Ta * Ta * Ta * va * va
+        + 0.158137256 * va * va * va + -6.57263143e-5 * Ta * va * va * va
+        + 2.22697524e-7 * Ta * Ta * va * va * va
+        + -4.16117031e-8 * Ta * Ta * Ta * va * va * va
+        + -0.0127762753 * va * va * va * va
+        + 9.66891875e-6 * Ta * va * va * va * va
+        + 2.52785852e-9 * Ta * Ta * va * va * va * va
+        + 4.56306672e-4 * va * va * va * va * va
+        + -1.74202546e-7 * Ta * va * va * va * va * va
+        + -5.91491269e-6 * va * va * va * va * va * va
+        + 0.398374029 * D_Tmrt + 1.83945314e-4 * Ta * D_Tmrt
+        + -1.73754510e-4 * Ta * Ta * D_Tmrt
+        + -7.60781159e-7 * Ta * Ta * Ta * D_Tmrt
+        + 3.77830287e-8 * Ta * Ta * Ta * Ta * D_Tmrt
+        + 5.43079673e-10 * Ta * Ta * Ta * Ta * Ta * D_Tmrt
+        + -0.0200518269 * va * D_Tmrt + 8.92859837e-4 * Ta * va * D_Tmrt
+        + 3.45433048e-6 * Ta * Ta * va * D_Tmrt
+        + -3.77925774e-7 * Ta * Ta * Ta * va * D_Tmrt
+        + -1.69699377e-9 * Ta * Ta * Ta * Ta * va * D_Tmrt
+        + 1.69992415e-4 * va * va * D_Tmrt
+        + -4.99204314e-5 * Ta * va * va * D_Tmrt
+        + 2.47417178e-7 * Ta * Ta * va * va * D_Tmrt
+        + 1.07596466e-8 * Ta * Ta * Ta * va * va * D_Tmrt
+        + 8.49242932e-5 * va * va * va * D_Tmrt
+        + 1.35191328e-6 * Ta * va * va * va * D_Tmrt
+        + -6.21531254e-9 * Ta * Ta * va * va * va * D_Tmrt
+        + -4.99410301e-6 * va * va * va * va * D_Tmrt
+        + -1.89489258e-8 * Ta * va * va * va * va * D_Tmrt
+        + 8.15300114e-8 * va * va * va * va * va * D_Tmrt
+        + 6.36471531e-10 * va * va * va * va * va * va * D_Tmrt
+        + -2.14716971e-5 * D_Tmrt * D_Tmrt
+        + 3.45062716e-4 * Ta * D_Tmrt * D_Tmrt
+        + -8.99813200e-6 * Ta * Ta * D_Tmrt * D_Tmrt
+        + -1.14681769e-8 * Ta * Ta * Ta * D_Tmrt * D_Tmrt
+        + 1.27527767e-10 * Ta * Ta * Ta * Ta * D_Tmrt * D_Tmrt
+        + 5.66850796e-4 * va * D_Tmrt * D_Tmrt
+        + -5.21770879e-5 * Ta * va * D_Tmrt * D_Tmrt
+        + 1.99215737e-7 * Ta * Ta * va * D_Tmrt * D_Tmrt
+        + -2.18107553e-10 * Ta * Ta * Ta * va * D_Tmrt * D_Tmrt
+        + -1.03548927e-4 * va * va * D_Tmrt * D_Tmrt
+        + 1.55038128e-6 * Ta * va * va * D_Tmrt * D_Tmrt
+        + 1.14299044e-8 * Ta * Ta * va * va * D_Tmrt * D_Tmrt
+        + 2.50580797e-6 * va * va * va * D_Tmrt * D_Tmrt
+        + -1.63279339e-7 * Ta * va * va * va * D_Tmrt * D_Tmrt
+        + -2.97052166e-9 * va * va * va * va * D_Tmrt * D_Tmrt
+        + 7.04260808e-7 * D_Tmrt * D_Tmrt * D_Tmrt
+        + -2.23865990e-6 * Ta * D_Tmrt * D_Tmrt * D_Tmrt
+        + 1.11727233e-7 * Ta * Ta * D_Tmrt * D_Tmrt * D_Tmrt
+        + 1.03151905e-10 * Ta * Ta * Ta * D_Tmrt * D_Tmrt * D_Tmrt
+        + 1.35005441e-6 * va * D_Tmrt * D_Tmrt * D_Tmrt
+        + -6.93780420e-8 * Ta * va * D_Tmrt * D_Tmrt * D_Tmrt
+        + -3.98178648e-10 * Ta * Ta * va * D_Tmrt * D_Tmrt * D_Tmrt
+        + -1.18722148e-7 * va * va * D_Tmrt * D_Tmrt * D_Tmrt
+        + 4.55477982e-9 * Ta * va * va * D_Tmrt * D_Tmrt * D_Tmrt
+        + 1.72867550e-10 * va * va * va * D_Tmrt * D_Tmrt * D_Tmrt
+        + -4.44577670e-8 * D_Tmrt * D_Tmrt * D_Tmrt * D_Tmrt
+        + 5.92584395e-9 * Ta * D_Tmrt * D_Tmrt * D_Tmrt * D_Tmrt
+        + -1.00085954e-10 * Ta * Ta * D_Tmrt * D_Tmrt * D_Tmrt * D_Tmrt
+        + 8.67196153e-10 * va * D_Tmrt * D_Tmrt * D_Tmrt * D_Tmrt
+        + -1.33979747e-10 * va * va * D_Tmrt * D_Tmrt * D_Tmrt * D_Tmrt
+        + -3.00149419e-11 * D_Tmrt * D_Tmrt * D_Tmrt * D_Tmrt * D_Tmrt
+        + 2.07250580e-11 * Ta * D_Tmrt * D_Tmrt * D_Tmrt * D_Tmrt * D_Tmrt
+        + -2.24187101e-13 * va * D_Tmrt * D_Tmrt * D_Tmrt * D_Tmrt * D_Tmrt
+        + 7.30891703e-13 * D_Tmrt * D_Tmrt * D_Tmrt * D_Tmrt * D_Tmrt * D_Tmrt
+        + 2.42085524e-3 * Pa + -4.38767396e-3 * Ta * Pa
+        + 2.22566632e-5 * Ta * Ta * Pa + 4.39993950e-6 * Ta * Ta * Ta * Pa
+        + -2.55106670e-8 * Ta * Ta * Ta * Ta * Pa
+        + -6.32824288e-3 * va * Pa + 1.16254687e-4 * Ta * va * Pa
+        + -2.30556393e-6 * Ta * Ta * va * Pa
+        + 1.28897920e-7 * Ta * Ta * Ta * va * Pa
+        + 4.52893177e-4 * va * va * Pa + -1.97090227e-5 * Ta * va * va * Pa
+        + 6.36905553e-8 * Ta * Ta * va * va * Pa
+        + -4.27502176e-5 * va * va * va * Pa
+        + 1.24762588e-6 * Ta * va * va * va * Pa
+        + 5.64259327e-7 * va * va * va * va * Pa
+        + -7.72489348e-4 * D_Tmrt * Pa + 2.05040168e-4 * Ta * D_Tmrt * Pa
+        + -6.94921542e-6 * Ta * Ta * D_Tmrt * Pa
+        + 3.50103441e-8 * Ta * Ta * Ta * D_Tmrt * Pa
+        + -1.35011346e-4 * va * D_Tmrt * Pa
+        + 3.66348144e-6 * Ta * va * D_Tmrt * Pa
+        + 3.40669699e-8 * Ta * Ta * va * D_Tmrt * Pa
+        + 1.31746950e-5 * va * va * D_Tmrt * Pa
+        + -3.11801860e-7 * Ta * va * va * D_Tmrt * Pa
+        + -2.07884877e-7 * va * va * va * D_Tmrt * Pa
+        + -5.23898038e-6 * D_Tmrt * D_Tmrt * Pa
+        + 5.35740668e-7 * Ta * D_Tmrt * D_Tmrt * Pa
+        + -5.72025756e-9 * Ta * Ta * D_Tmrt * D_Tmrt * Pa
+        + 3.18149218e-6 * va * D_Tmrt * D_Tmrt * Pa
+        + -9.31315769e-8 * Ta * va * D_Tmrt * D_Tmrt * Pa
+        + 3.53764614e-8 * va * va * D_Tmrt * D_Tmrt * Pa
+        + 8.78554818e-8 * D_Tmrt * D_Tmrt * D_Tmrt * Pa
+        + -1.13998620e-8 * Ta * D_Tmrt * D_Tmrt * D_Tmrt * Pa
+        + -1.70973573e-9 * va * D_Tmrt * D_Tmrt * D_Tmrt * Pa
+        + 1.45117168e-10 * D_Tmrt * D_Tmrt * D_Tmrt * D_Tmrt * Pa
+        + 1.24451902e-3 * Pa * Pa + 5.72153685e-5 * Ta * Pa * Pa
+        + -2.63262256e-5 * Ta * Ta * Pa * Pa
+        + -8.60568484e-8 * Ta * Ta * Ta * Pa * Pa
+        + 4.68250903e-4 * va * Pa * Pa + -2.56745877e-5 * Ta * va * Pa * Pa
+        + 7.42591451e-7 * Ta * Ta * va * Pa * Pa
+        + -3.29782100e-5 * va * va * Pa * Pa
+        + 5.63967882e-7 * Ta * va * va * Pa * Pa
+        + -2.34461556e-7 * va * va * va * Pa * Pa
+        + 6.23952586e-5 * D_Tmrt * Pa * Pa
+        + -2.76820138e-6 * Ta * D_Tmrt * Pa * Pa
+        + -8.37554455e-8 * Ta * Ta * D_Tmrt * Pa * Pa
+        + -1.35469694e-5 * va * D_Tmrt * Pa * Pa
+        + 5.30372914e-7 * Ta * va * D_Tmrt * Pa * Pa
+        + 1.89882563e-8 * va * va * D_Tmrt * Pa * Pa
+        + -1.30315237e-7 * D_Tmrt * D_Tmrt * Pa * Pa
+        + 2.46256657e-8 * Ta * D_Tmrt * D_Tmrt * Pa * Pa
+        + 1.53569379e-9 * va * D_Tmrt * D_Tmrt * Pa * Pa
+        + -1.68135438e-10 * D_Tmrt * D_Tmrt * D_Tmrt * Pa * Pa
+        + -1.27575037e-4 * Pa * Pa * Pa + -5.63855688e-6 * Ta * Pa * Pa * Pa
+        + 3.70618498e-7 * Ta * Ta * Pa * Pa * Pa
+        + 1.44373466e-5 * va * Pa * Pa * Pa
+        + -5.31977690e-7 * Ta * va * Pa * Pa * Pa
+        + -4.23972399e-7 * va * va * Pa * Pa * Pa
+        + -7.47001923e-6 * D_Tmrt * Pa * Pa * Pa
+        + 7.31285703e-7 * Ta * D_Tmrt * Pa * Pa * Pa
+        + 2.49238547e-8 * va * D_Tmrt * Pa * Pa * Pa
+        + 1.61489905e-8 * D_Tmrt * D_Tmrt * Pa * Pa * Pa
+        + 3.15262888e-6 * Pa * Pa * Pa * Pa
+        + -1.62644525e-7 * Ta * Pa * Pa * Pa * Pa
+        + 3.71127970e-8 * va * Pa * Pa * Pa * Pa
+        + 1.37833782e-8 * D_Tmrt * Pa * Pa * Pa * Pa
+        + -5.44725157e-7 * Pa * Pa * Pa * Pa * Pa
+        + -2.74592244e-8 * Ta * Pa * Pa * Pa * Pa * Pa
+        + 2.40175241e-8 * va * Pa * Pa * Pa * Pa * Pa
+        + 4.45073498e-8 * D_Tmrt * Pa * Pa * Pa * Pa * Pa
+        + -2.29763424e-9 * Pa * Pa * Pa * Pa * Pa * Pa
+    )
+
+    return round(result, 1)
+
+
 def enrich_observation(obs: dict) -> dict:
     """Add derived fields to an observation dict (for WebSocket broadcast).
 
@@ -120,5 +418,15 @@ def enrich_observation(obs: dict) -> dict:
 
     if temp is not None and wind is not None and obs.get("wind_chill") is None:
         obs["wind_chill"] = wind_chill(temp, wind)
+
+    solar = obs.get("solar_radiation")
+    if (
+        temp is not None
+        and rh is not None
+        and wind is not None
+        and solar is not None
+        and obs.get("utci") is None
+    ):
+        obs["utci"] = utci(temp, rh, wind, solar)
 
     return obs

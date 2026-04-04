@@ -12,6 +12,9 @@ import PressureCard from "@/components/dashboard/PressureCard";
 import RainCard from "@/components/dashboard/RainCard";
 import SolarUVCard from "@/components/dashboard/SolarUVCard";
 import LightningCard from "@/components/dashboard/LightningCard";
+import UTCICard from "@/components/dashboard/UTCICard";
+import SunCard from "@/components/dashboard/SunCard";
+import MoonCard from "@/components/dashboard/MoonCard";
 
 export default function DashboardPage() {
   const { data: apiResponse, error } = useGetLatestObservation();
@@ -28,7 +31,7 @@ export default function DashboardPage() {
       {/* Header */}
       <div className="page-header mb-6 flex items-center justify-between">
         <div>
-          <h1 className="font-display text-2xl font-semibold text-text">Dashboard</h1>
+          <h1 className="font-display text-2xl font-semibold text-text">Observatory</h1>
           <p className="mt-1 text-sm text-text-muted">
             {error
               ? `Error: ${String(error)}`
@@ -48,6 +51,9 @@ export default function DashboardPage() {
         <RainCard data={data} trend={trends.rain_rate} />
         <SolarUVCard data={data} solarTrend={trends.solar_radiation} uvTrend={trends.uv_index} />
         <LightningCard data={data} />
+        <UTCICard data={data} />
+        <SunCard />
+        <MoonCard />
       </div>
     </div>
   );

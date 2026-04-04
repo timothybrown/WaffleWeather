@@ -1,10 +1,10 @@
 """Pydantic schemas for weather observations."""
 
-from datetime import datetime
+from datetime import date, datetime
 
 from pydantic import BaseModel, model_validator
 
-from app.services.derived import dew_point, feels_like, heat_index, wind_chill
+from app.services.derived import dew_point, feels_like, heat_index, utci, wind_chill
 
 
 class ObservationSchema(BaseModel):
@@ -49,6 +49,11 @@ class ObservationSchema(BaseModel):
     lightning_count: int | None = None
     lightning_distance: float | None = None
     lightning_time: datetime | None = None
+    # Derived — thermal comfort
+    utci: float | None = None
+    # Derived — Zambretti forecast (set explicitly, not in model_validator;
+    # requires 3h pressure history which needs DB/memory access)
+    zambretti_forecast: str | None = None
 
     model_config = {"from_attributes": True}
 
@@ -70,6 +75,16 @@ class ObservationSchema(BaseModel):
         if temp is not None and wind is not None and self.wind_chill is None:
             self.wind_chill = wind_chill(temp, wind)
 
+        solar = self.solar_radiation
+        if (
+            temp is not None
+            and rh is not None
+            and wind is not None
+            and solar is not None
+            and self.utci is None
+        ):
+            self.utci = utci(temp, rh, wind, solar)
+
         return self
 
 
@@ -78,6 +93,17 @@ class ObservationPageSchema(BaseModel):
     total: int
     limit: int
     offset: int
+
+
+class CalendarDataPointSchema(BaseModel):
+    date: date
+    value: float | None = None
+
+
+class WindRoseDataPointSchema(BaseModel):
+    direction: float
+    speed_range: str
+    count: int
 
 
 class AggregatedObservationSchema(BaseModel):

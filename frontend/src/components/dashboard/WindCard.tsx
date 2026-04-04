@@ -9,91 +9,67 @@ import { useUnits } from "@/providers/UnitsProvider";
 import WeatherCard from "./WeatherCard";
 import TrendIndicator from "./TrendIndicator";
 
-/** 30° major ticks (excluding cardinals which get labels) */
-const majorAngles = [30, 60, 120, 150, 210, 240, 300, 330];
-/** 15° minor ticks (excluding positions with major ticks or cardinals) */
-const minorAngles = [15, 45, 75, 105, 135, 165, 195, 225, 255, 285, 315, 345];
+function beaufort(kmh: number | null | undefined): { force: number; label: string } | null {
+  if (kmh == null) return null;
+  const scale: [number, string][] = [
+    [1, "Calm"], [6, "Light air"], [12, "Light breeze"],
+    [20, "Gentle breeze"], [29, "Moderate breeze"], [39, "Fresh breeze"],
+    [50, "Strong breeze"], [62, "Near gale"], [75, "Gale"],
+    [89, "Strong gale"], [103, "Storm"], [118, "Violent storm"],
+    [Infinity, "Hurricane force"],
+  ];
+  for (let i = 0; i < scale.length; i++) {
+    if (kmh < scale[i][0]) return { force: i, label: scale[i][1] };
+  }
+  return { force: 12, label: "Hurricane force" };
+}
 
-const cardinals: [number, string][] = [
-  [0, "N"],
-  [90, "E"],
-  [180, "S"],
-  [270, "W"],
-];
+const cardinals: [number, string][] = [[0, "N"], [90, "E"], [180, "S"], [270, "W"]];
+const intercardinals = [45, 135, 225, 315];
 
 function CompassRose({ degrees }: { degrees: number | null | undefined }) {
   const hasDeg = degrees != null;
   return (
-    <svg viewBox="0 0 120 120" className="compass-rose h-24 w-24 shrink-0">
+    <svg viewBox="0 0 100 100" className="h-20 w-20 shrink-0">
       <defs>
-        {/* Subtle inner shadow for glass depth */}
-        <radialGradient id="compass-bg" cx="50%" cy="50%" r="50%">
-          <stop offset="0%" stopColor="var(--color-surface-hover)" stopOpacity="0.5" />
-          <stop offset="100%" stopColor="var(--color-surface)" stopOpacity="0" />
-        </radialGradient>
-        {/* Warm glow behind needle tip */}
-        <radialGradient id="needle-glow" cx="50%" cy="20%" r="30%">
-          <stop offset="0%" stopColor="var(--color-primary)" stopOpacity="0.25" />
-          <stop offset="100%" stopColor="var(--color-primary)" stopOpacity="0" />
+        <radialGradient id="cmp-fill" cx="50%" cy="50%" r="50%">
+          <stop offset="55%" stopColor="var(--color-surface-hover)" stopOpacity="0.35" />
+          <stop offset="100%" stopColor="var(--color-surface-hover)" stopOpacity="0" />
         </radialGradient>
       </defs>
 
-      {/* Background fill */}
-      <circle cx="60" cy="60" r="52" fill="url(#compass-bg)" />
+      {/* Background disc */}
+      <circle cx="50" cy="50" r="43" fill="url(#cmp-fill)" />
 
-      {/* Outer ring — double stroke for depth */}
-      <circle cx="60" cy="60" r="52" fill="none" stroke="var(--color-border)" strokeWidth="1" />
-      <circle cx="60" cy="60" r="48" fill="none" stroke="var(--color-border)" strokeWidth="0.5" opacity="0.4" />
+      {/* Outer ring */}
+      <circle cx="50" cy="50" r="43" fill="none" stroke="var(--color-border)" strokeWidth="0.75" />
 
-      {/* Minor ticks — every 15° */}
-      {minorAngles.map((a) => (
+      {/* Intercardinal ticks */}
+      {intercardinals.map((a) => (
         <line
           key={a}
-          x1="60" y1="11" x2="60" y2="16"
+          x1="50" y1="9" x2="50" y2="15"
           stroke="var(--color-border)"
           strokeWidth="0.75"
-          transform={`rotate(${a} 60 60)`}
+          strokeLinecap="round"
+          transform={`rotate(${a} 50 50)`}
         />
       ))}
 
-      {/* Major ticks — every 30° (excluding cardinals) */}
-      {majorAngles.map((a) => (
-        <line
-          key={a}
-          x1="60" y1="10" x2="60" y2="18"
-          stroke="var(--color-text-faint)"
-          strokeWidth="1"
-          transform={`rotate(${a} 60 60)`}
-        />
-      ))}
-
-      {/* Cardinal ticks — thicker */}
-      {cardinals.map(([a]) => (
-        <line
-          key={a}
-          x1="60" y1="9" x2="60" y2="19"
-          stroke="var(--color-text-muted)"
-          strokeWidth="1.5"
-          transform={`rotate(${a} 60 60)`}
-        />
-      ))}
-
-      {/* Cardinal labels — all in SVG for precise placement */}
+      {/* Cardinal labels (no ticks — the letters are the markers) */}
       {cardinals.map(([angle, label]) => {
-        const r = 24;
+        const r = 36;
         const rad = ((angle - 90) * Math.PI) / 180;
-        const x = 60 + r * Math.cos(rad);
-        const y = 60 + r * Math.sin(rad);
         return (
           <text
             key={label}
-            x={x}
-            y={y}
+            x={50 + r * Math.cos(rad)}
+            y={50 + r * Math.sin(rad)}
             textAnchor="middle"
             dominantBaseline="central"
             className="font-mono"
-            fontSize="9"
-            fontWeight={label === "N" ? "700" : "500"}
+            fontSize="7.5"
+            fontWeight={label === "N" ? "700" : "400"}
             fill={label === "N" ? "var(--color-primary)" : "var(--color-text-faint)"}
           >
             {label}
@@ -101,32 +77,30 @@ function CompassRose({ degrees }: { degrees: number | null | undefined }) {
         );
       })}
 
-      {/* Needle group — rotates with wind direction */}
+      {/* Needle */}
       {hasDeg && (
         <g
           className="compass-needle"
-          style={{ transform: `rotate(${degrees}deg)`, transformOrigin: "60px 60px" }}
+          style={{ transform: `rotate(${degrees}deg)`, transformOrigin: "50px 50px" }}
         >
-          {/* Glow behind north tip */}
-          <circle cx="60" cy="60" r="30" fill="url(#needle-glow)" />
-          {/* North half — warm amber, tapered */}
+          {/* North — warm amber, tapered */}
           <polygon
-            points="60,18 57,58 60,54 63,58"
+            points="50,17 48.4,47 50,44 51.6,47"
             fill="var(--color-primary)"
-            opacity="0.85"
+            opacity="0.9"
           />
-          {/* South half — muted, thinner */}
+          {/* South — muted tail */}
           <polygon
-            points="60,102 57.5,62 60,66 62.5,62"
+            points="50,83 48.8,53 50,56 51.2,53"
             fill="var(--color-text-faint)"
-            opacity="0.35"
+            opacity="0.25"
           />
         </g>
       )}
 
-      {/* Center cap — layered for depth */}
-      <circle cx="60" cy="60" r="4" fill="var(--color-surface-alt)" stroke="var(--color-border)" strokeWidth="1" />
-      <circle cx="60" cy="60" r="2" fill="var(--color-primary)" />
+      {/* Center cap */}
+      <circle cx="50" cy="50" r="2.5" fill="var(--color-surface-alt)" stroke="var(--color-border)" strokeWidth="0.75" />
+      <circle cx="50" cy="50" r="1.25" fill="var(--color-primary)" />
     </svg>
   );
 }
@@ -154,6 +128,14 @@ export default function WindCard({ data, trend }: { data: Observation | null; tr
           <p className="mt-1 font-mono text-sm font-medium text-text-muted">
             {degToCompass(data?.wind_dir)} ({fmt(data?.wind_dir, 0)}&deg;)
           </p>
+          {(() => {
+            const bf = beaufort(data?.wind_speed);
+            return bf ? (
+              <p className="mt-0.5 text-xs text-text-faint">
+                Force {bf.force} &mdash; {bf.label}
+              </p>
+            ) : null;
+          })()}
         </div>
         <CompassRose degrees={data?.wind_dir} />
       </div>

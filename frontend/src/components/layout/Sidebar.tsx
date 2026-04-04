@@ -7,6 +7,7 @@ import {
   RiDashboardLine,
   RiFlashlightLine,
   RiHistoryLine,
+  RiCompassLine,
   RiSettings4Line,
   RiCloseLine,
 } from "@remixicon/react";
@@ -15,8 +16,9 @@ import { useWebSocket } from "@/providers/WebSocketProvider";
 import { useUnits } from "@/providers/UnitsProvider";
 
 const navItems = [
-  { href: "/", label: "Dashboard", icon: RiDashboardLine },
+  { href: "/", label: "Observatory", icon: RiDashboardLine },
   { href: "/lightning", label: "Lightning", icon: RiFlashlightLine },
+  { href: "/wind-rose", label: "Wind Rose", icon: RiCompassLine },
   { href: "/history", label: "History", icon: RiHistoryLine },
   { href: "/settings", label: "Diagnostics", icon: RiSettings4Line },
 ];

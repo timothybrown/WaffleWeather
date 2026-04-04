@@ -18,6 +18,9 @@ import { cn } from "@/lib/utils";
 import { convertTemp, convertSpeed, convertPressure, convertRain } from "@/lib/units";
 import { useUnits } from "@/providers/UnitsProvider";
 import { useHistoryData, type TimeRange } from "@/hooks/useHistoryData";
+import CalendarHeatmap from "@/components/history/CalendarHeatmap";
+
+type ViewMode = "charts" | "calendar";
 
 const tooltipFormatter = (
   value: string | number | readonly (string | number)[] | undefined,
@@ -68,6 +71,7 @@ function ChartPanel({
 }
 
 export default function HistoryPage() {
+  const [view, setView] = useState<ViewMode>("charts");
   const [range, setRange] = useState<TimeRange>("24h");
   const { data: rawData, isLoading, resolution } = useHistoryData(range);
   const { system } = useUnits();
@@ -98,26 +102,50 @@ export default function HistoryPage() {
   return (
     <div className="p-4 sm:p-6">
       <div className="page-header mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="font-display text-2xl font-semibold text-text">History</h1>
-        <div className="flex gap-1 rounded-lg border border-border bg-surface-alt p-1">
-          {RANGES.map((r) => (
-            <button
-              key={r.value}
-              onClick={() => setRange(r.value)}
-              className={cn(
-                "flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-all sm:flex-none",
-                range === r.value
-                  ? "bg-primary text-white shadow-sm"
-                  : "text-text-muted hover:text-text",
-              )}
-            >
-              {r.label}
-            </button>
-          ))}
+        <div className="flex items-center gap-4">
+          <h1 className="font-display text-2xl font-semibold text-text">History</h1>
+          <div className="flex gap-1 rounded-lg border border-border bg-surface-alt p-1">
+            {(["charts", "calendar"] as const).map((v) => (
+              <button
+                key={v}
+                onClick={() => setView(v)}
+                className={cn(
+                  "rounded-md px-3 py-1 text-xs font-medium capitalize transition-all",
+                  view === v
+                    ? "bg-primary/15 text-primary"
+                    : "text-text-faint hover:text-text-muted",
+                )}
+              >
+                {v}
+              </button>
+            ))}
+          </div>
         </div>
+        {view === "charts" && (
+          <div className="flex gap-1 rounded-lg border border-border bg-surface-alt p-1">
+            {RANGES.map((r) => (
+              <button
+                key={r.value}
+                onClick={() => setRange(r.value)}
+                className={cn(
+                  "flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-all sm:flex-none",
+                  range === r.value
+                    ? "bg-primary text-white shadow-sm"
+                    : "text-text-muted hover:text-text",
+                )}
+              >
+                {r.label}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
-      {isLoading ? (
+      {view === "calendar" ? (
+        <div className="weather-card rounded-xl p-5">
+          <CalendarHeatmap />
+        </div>
+      ) : isLoading ? (
         <div className="flex h-96 items-center justify-center text-text-muted">
           Loading...
         </div>

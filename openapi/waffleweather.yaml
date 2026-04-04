@@ -209,6 +209,77 @@ paths:
                 items:
                   $ref: "#/components/schemas/AggregatedObservation"
 
+  /api/v1/observations/calendar:
+    get:
+      summary: Daily metric values for calendar heatmap
+      operationId: getCalendarData
+      tags: [aggregates]
+      parameters:
+        - name: metric
+          in: query
+          required: true
+          schema:
+            type: string
+            enum:
+              - temp_outdoor_max
+              - rain_daily_max
+              - solar_radiation_avg
+              - wind_gust_max
+              - humidity_outdoor_avg
+        - name: year
+          in: query
+          required: false
+          schema:
+            type: integer
+          description: Year to query (defaults to current year)
+        - name: station_id
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Daily metric values for the year
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CalendarDataPoint"
+
+  /api/v1/observations/wind-rose:
+    get:
+      summary: Wind rose data (direction × speed bins)
+      operationId: getWindRoseData
+      tags: [aggregates]
+      parameters:
+        - name: start
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date-time
+        - name: end
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date-time
+        - name: station_id
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Wind rose bin data
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/WindRoseDataPoint"
+
 components:
   schemas:
     Station:
@@ -381,6 +452,15 @@ components:
           format: date-time
           nullable: true
           description: Last lightning strike time
+        # Derived — thermal comfort
+        utci:
+          type: number
+          nullable: true
+          description: Universal Thermal Climate Index (°C)
+        zambretti_forecast:
+          type: string
+          nullable: true
+          description: Zambretti barometric pressure forecast
 
     AggregatedObservation:
       type: object
@@ -428,6 +508,33 @@ components:
         uv_index_max:
           type: number
           nullable: true
+
+    CalendarDataPoint:
+      type: object
+      required: [date]
+      properties:
+        date:
+          type: string
+          format: date
+          description: Calendar date (YYYY-MM-DD)
+        value:
+          type: number
+          nullable: true
+          description: Metric value for the day
+
+    WindRoseDataPoint:
+      type: object
+      required: [direction, speed_range, count]
+      properties:
+        direction:
+          type: number
+          description: Center angle of direction sector (degrees)
+        speed_range:
+          type: string
+          description: "Speed band label (e.g. '0-5', '5-15')"
+        count:
+          type: integer
+          description: Number of observations in this bin
 
     ObservationPage:
       type: object
