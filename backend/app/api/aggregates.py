@@ -15,6 +15,9 @@ from app.schemas.observation import (
 
 router = APIRouter(prefix="/observations", tags=["aggregates"])
 
+# Allowlist of valid view names for aggregate queries (prevents SQL injection)
+_VALID_VIEWS = {"observations_hourly", "observations_daily", "observations_monthly"}
+
 # Column list shared across all aggregate views
 _AGG_COLUMNS = (
     "station_id, bucket, "
@@ -38,6 +41,9 @@ async def _query_aggregate(
     if station_id:
         where_clauses.append("station_id = :station_id")
         params["station_id"] = station_id
+
+    if view not in _VALID_VIEWS:
+        raise ValueError(f"Invalid aggregate view: {view}")
 
     where = " AND ".join(where_clauses)
     sql = text(f"SELECT {_AGG_COLUMNS} FROM {view} WHERE {where} ORDER BY bucket DESC")

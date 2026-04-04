@@ -126,8 +126,10 @@ fi
 # Restart PostgreSQL to load TimescaleDB
 sudo systemctl restart postgresql
 
-# Create waffleweather database and user
-sudo -u postgres psql -c "CREATE USER waffleweather WITH PASSWORD 'devpassword';" 2>/dev/null || echo "  User waffleweather already exists."
+# Create waffleweather database and user with random password
+DB_PASSWORD=$(openssl rand -base64 32 | tr -d '/+=' | head -c 32)
+sudo -u postgres psql -c "CREATE USER waffleweather WITH PASSWORD '${DB_PASSWORD}';" 2>/dev/null || echo "  User waffleweather already exists."
+echo "  Database password generated (will be written to .env)."
 sudo -u postgres psql -c "CREATE DATABASE waffleweather OWNER waffleweather;" 2>/dev/null || echo "  Database waffleweather already exists."
 sudo -u postgres psql -d waffleweather -c "CREATE EXTENSION IF NOT EXISTS timescaledb CASCADE;"
 
@@ -147,9 +149,31 @@ for f in /etc/mosquitto/conf.d/*.conf; do
     sudo rm -f "$f"
 done
 sudo cp "${SCRIPT_DIR}/mosquitto.conf" /etc/mosquitto/conf.d/waffleweather.conf
+
+# Create MQTT password file and user if not already present
+MQTT_PASSWORD=$(openssl rand -base64 32 | tr -d '/+=' | head -c 32)
+if [ ! -f /etc/mosquitto/passwd ]; then
+    sudo touch /etc/mosquitto/passwd
+    sudo mosquitto_passwd -b /etc/mosquitto/passwd waffleweather "${MQTT_PASSWORD}"
+    echo "  Created MQTT user 'waffleweather' with generated password."
+    echo "  MQTT password: ${MQTT_PASSWORD} (save this — needed for WW_MQTT_* env vars)"
+else
+    echo "  MQTT password file already exists, skipping user creation."
+fi
+
+# Create ACL file: waffleweather user can read/write ecowitt2mqtt topics
+if [ ! -f /etc/mosquitto/acls.conf ]; then
+    sudo tee /etc/mosquitto/acls.conf > /dev/null <<EOF
+# WaffleWeather MQTT ACLs
+user waffleweather
+topic readwrite #
+EOF
+    echo "  MQTT ACL file created."
+fi
+
 sudo systemctl restart mosquitto
 
-echo "  Mosquitto configured and restarted."
+echo "  Mosquitto configured with authentication and restarted."
 
 # -------------------------------------------
 # 6. Configure Nginx
@@ -216,9 +240,13 @@ sudo chown waffleweather:waffleweather /opt/waffleweather
 # Copy .env if it doesn't exist
 if [ ! -f /opt/waffleweather/.env ]; then
     cp "${PROJECT_DIR}/.env.example" /opt/waffleweather/.env
-    # Set a real password
-    sed -i 's/changeme/devpassword/g' /opt/waffleweather/.env
-    echo "  Created /opt/waffleweather/.env (edit passwords before production!)."
+    # Replace placeholder passwords with generated ones
+    sed -i "s/POSTGRES_PASSWORD=changeme/POSTGRES_PASSWORD=${DB_PASSWORD}/" /opt/waffleweather/.env
+    sed -i "s|waffleweather:changeme@|waffleweather:${DB_PASSWORD}@|g" /opt/waffleweather/.env
+    sed -i "s/MQTT_PASSWORD=changeme/MQTT_PASSWORD=${MQTT_PASSWORD}/" /opt/waffleweather/.env
+    sed -i "s/WW_MQTT_PASSWORD=changeme/WW_MQTT_PASSWORD=${MQTT_PASSWORD}/" /opt/waffleweather/.env
+    chmod 600 /opt/waffleweather/.env
+    echo "  Created /opt/waffleweather/.env with generated password (chmod 600)."
 fi
 
 # Install systemd service files

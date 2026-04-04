@@ -46,6 +46,8 @@ async def mqtt_listener(settings: Settings, broadcast_fn=None) -> None:
                 hostname=settings.mqtt_broker,
                 port=settings.mqtt_port,
                 identifier=settings.mqtt_client_id,
+                username=settings.mqtt_username,
+                password=settings.mqtt_password,
             ) as client:
                 logger.info(
                     "Connected to MQTT broker %s:%s", settings.mqtt_broker, settings.mqtt_port
