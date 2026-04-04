@@ -84,6 +84,7 @@ _CALENDAR_METRICS = {
     "solar_radiation_avg",
     "wind_gust_max",
     "humidity_outdoor_avg",
+    "lightning_strikes",
 }
 
 
@@ -101,19 +102,31 @@ async def get_calendar_data(
     start = datetime(target_year, 1, 1)
     end = datetime(target_year, 12, 31, 23, 59, 59)
 
-    where_clauses = ["bucket >= :start", "bucket <= :end"]
-    params: dict = {"start": start, "end": end}
-
-    if station_id:
-        where_clauses.append("station_id = :station_id")
-        params["station_id"] = station_id
-
-    where = " AND ".join(where_clauses)
-    # metric is from the allowlist so safe to interpolate
-    sql = text(
-        f"SELECT bucket::date AS date, {metric} AS value "
-        f"FROM observations_daily WHERE {where} ORDER BY date"
-    )
+    # Lightning strikes come from lightning_events table, not daily aggregates
+    if metric == "lightning_strikes":
+        where_clauses = ["timestamp >= :start", "timestamp <= :end"]
+        params: dict = {"start": start, "end": end}
+        if station_id:
+            where_clauses.append("station_id = :station_id")
+            params["station_id"] = station_id
+        where = " AND ".join(where_clauses)
+        sql = text(
+            f"SELECT timestamp::date AS date, SUM(new_strikes) AS value "
+            f"FROM lightning_events WHERE {where} "
+            f"GROUP BY timestamp::date ORDER BY date"
+        )
+    else:
+        where_clauses = ["bucket >= :start", "bucket <= :end"]
+        params = {"start": start, "end": end}
+        if station_id:
+            where_clauses.append("station_id = :station_id")
+            params["station_id"] = station_id
+        where = " AND ".join(where_clauses)
+        # metric is from the allowlist so safe to interpolate
+        sql = text(
+            f"SELECT bucket::date AS date, {metric} AS value "
+            f"FROM observations_daily WHERE {where} ORDER BY date"
+        )
 
     result = await db.execute(sql, params)
     rows = result.mappings().all()

@@ -10,6 +10,7 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from app.config import Settings
 from app.database import async_session
+from app.models.lightning import LightningEvent
 from app.models.observation import WeatherObservation
 from app.models.station import Station
 from app.mqtt.parser import parse_ecowitt_payload
@@ -20,6 +21,10 @@ logger = logging.getLogger(__name__)
 # In-memory pressure history for Zambretti forecast (WebSocket path).
 # Stores (timestamp, pressure_hpa) tuples; pruned to 4h window on each insert.
 _pressure_history: deque[tuple[datetime, float]] = deque(maxlen=1000)
+
+# In-memory lightning state for event detection.
+# Maps station_id -> (last_count, last_lightning_time)
+_last_lightning: dict[str, tuple[int, datetime | None]] = {}
 
 
 async def mqtt_listener(settings: Settings, broadcast_fn=None) -> None:
@@ -121,6 +126,9 @@ async def _handle_message(
         logger.exception("Failed to store observation for device %s", device_id)
         return
 
+    # Detect lightning events by comparing count/time with previous observation
+    await _detect_lightning_event(device_id, parsed)
+
     if broadcast_fn:
         try:
             broadcast_data = enrich_observation(parsed)
@@ -160,3 +168,56 @@ async def _handle_message(
             await broadcast_fn(broadcast_data)
         except Exception:
             logger.exception("Failed to broadcast observation")
+
+
+async def _detect_lightning_event(device_id: str, parsed: dict) -> None:
+    """Compare lightning count/time with previous observation and store events."""
+    count = parsed.get("lightning_count")
+    lt_time = parsed.get("lightning_time")
+    if count is None:
+        return
+
+    prev = _last_lightning.get(device_id)
+    _last_lightning[device_id] = (count, lt_time)
+
+    if prev is None:
+        # First observation for this station — just record baseline
+        return
+
+    prev_count, prev_lt_time = prev
+
+    # Detect new strikes: count increased, or lightning_time changed
+    if count > prev_count:
+        delta = count - prev_count
+    elif count < prev_count:
+        # Daily reset: count dropped. Treat the new count as new strikes since reset.
+        delta = count if count > 0 else 0
+    else:
+        # Count unchanged — check if lightning_time changed (rare edge case)
+        if lt_time is not None and lt_time != prev_lt_time:
+            delta = 1  # At least one strike if time changed but count somehow same
+        else:
+            return  # No new activity
+
+    if delta <= 0:
+        return
+
+    try:
+        async with async_session() as session:
+            async with session.begin():
+                event = LightningEvent(
+                    timestamp=parsed["timestamp"],
+                    station_id=device_id,
+                    new_strikes=delta,
+                    distance_km=parsed.get("lightning_distance"),
+                    cumulative_count=count,
+                )
+                session.add(event)
+        logger.info(
+            "Lightning event: %d new strikes at %.1f km for %s",
+            delta,
+            parsed.get("lightning_distance") or 0,
+            device_id,
+        )
+    except Exception:
+        logger.exception("Failed to store lightning event for %s", device_id)

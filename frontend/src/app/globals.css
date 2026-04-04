@@ -100,6 +100,23 @@
   animation: trend-float 2s ease-in-out infinite;
 }
 
+/* ── Lightning active pulse ──────────────────────────────────── */
+
+@keyframes lightning-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 transparent;
+    border-color: var(--color-border);
+  }
+  50% {
+    box-shadow: 0 0 16px -2px color-mix(in srgb, var(--color-warning) 30%, transparent);
+    border-color: var(--color-warning);
+  }
+}
+
+.lightning-active {
+  animation: lightning-pulse 2.5s ease-in-out infinite;
+}
+
 /* ── Noise / grain texture overlay ───────────────────────────── */
 
 body::after {

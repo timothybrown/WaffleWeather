@@ -13,6 +13,7 @@ const METRICS: { value: GetCalendarDataMetric; label: string; unitFn: string }[]
   { value: GetCalendarDataMetric.solar_radiation_avg, label: "Solar Radiation", unitFn: "none" },
   { value: GetCalendarDataMetric.wind_gust_max, label: "Wind Gust", unitFn: "speed" },
   { value: GetCalendarDataMetric.humidity_outdoor_avg, label: "Humidity", unitFn: "none" },
+  { value: GetCalendarDataMetric.lightning_strikes, label: "Lightning", unitFn: "none" },
 ];
 
 const DAY_LABELS = ["", "Mon", "", "Wed", "", "Fri", ""];

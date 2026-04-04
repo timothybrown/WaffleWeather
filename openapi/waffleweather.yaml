@@ -226,6 +226,7 @@ paths:
               - solar_radiation_avg
               - wind_gust_max
               - humidity_outdoor_avg
+              - lightning_strikes
         - name: year
           in: query
           required: false
@@ -246,6 +247,81 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/CalendarDataPoint"
+
+  /api/v1/observations/lightning/events:
+    get:
+      summary: List lightning strike events
+      operationId: listLightningEvents
+      tags: [lightning]
+      parameters:
+        - name: start
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - name: end
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - name: station_id
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 100
+            maximum: 10000
+        - name: offset
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 0
+      responses:
+        "200":
+          description: Paginated list of lightning events
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LightningEventPage"
+
+  /api/v1/observations/lightning/summary:
+    get:
+      summary: Lightning activity summary for a time period
+      operationId: getLightningSummary
+      tags: [lightning]
+      parameters:
+        - name: start
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date-time
+        - name: end
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date-time
+        - name: station_id
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Lightning activity summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LightningSummary"
 
   /api/v1/observations/wind-rose:
     get:
@@ -535,6 +611,85 @@ components:
         count:
           type: integer
           description: Number of observations in this bin
+
+    LightningEvent:
+      type: object
+      required: [timestamp, station_id, new_strikes, cumulative_count]
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+        station_id:
+          type: string
+        new_strikes:
+          type: integer
+          description: Number of new strikes detected in this interval
+        distance_km:
+          type: number
+          nullable: true
+          description: Distance to strike (km)
+        cumulative_count:
+          type: integer
+          description: Raw sensor count at time of detection
+
+    LightningEventPage:
+      type: object
+      required: [items, total, limit, offset]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/LightningEvent"
+        total:
+          type: integer
+        limit:
+          type: integer
+        offset:
+          type: integer
+
+    LightningDaily:
+      type: object
+      required: [date, strikes]
+      properties:
+        date:
+          type: string
+          format: date
+        strikes:
+          type: integer
+
+    LightningHourly:
+      type: object
+      required: [bucket, strikes]
+      properties:
+        bucket:
+          type: string
+          format: date-time
+        strikes:
+          type: integer
+        min_distance:
+          type: number
+          nullable: true
+
+    LightningSummary:
+      type: object
+      required: [total_strikes, event_count, daily, hourly]
+      properties:
+        total_strikes:
+          type: integer
+        event_count:
+          type: integer
+        closest_distance:
+          type: number
+          nullable: true
+          description: Closest strike distance (km) in the period
+        daily:
+          type: array
+          items:
+            $ref: "#/components/schemas/LightningDaily"
+        hourly:
+          type: array
+          items:
+            $ref: "#/components/schemas/LightningHourly"
 
     ObservationPage:
       type: object
