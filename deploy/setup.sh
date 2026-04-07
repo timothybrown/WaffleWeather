@@ -261,9 +261,22 @@ if [ ! -f /opt/waffleweather/.env ]; then
     echo "  Created /opt/waffleweather/.env with generated password (chmod 600)."
 fi
 
+# Create ecowitt2mqtt system user and venv
+if ! id ecowitt2mqtt &>/dev/null; then
+    sudo useradd --system --create-home --home-dir /opt/ecowitt2mqtt --shell /usr/sbin/nologin ecowitt2mqtt
+    echo "  Created ecowitt2mqtt system user."
+fi
+
+sudo mkdir -p /opt/ecowitt2mqtt
+sudo python3 -m venv /opt/ecowitt2mqtt/venv
+sudo /opt/ecowitt2mqtt/venv/bin/pip install --quiet ecowitt2mqtt
+sudo chown -R ecowitt2mqtt:ecowitt2mqtt /opt/ecowitt2mqtt
+echo "  ecowitt2mqtt installed in /opt/ecowitt2mqtt/venv."
+
 # Install systemd service files
 sudo cp "${SCRIPT_DIR}/waffleweather-backend.service" /etc/systemd/system/
 sudo cp "${SCRIPT_DIR}/waffleweather-frontend.service" /etc/systemd/system/
+sudo cp "${SCRIPT_DIR}/ecowitt2mqtt.service" /etc/systemd/system/
 sudo systemctl daemon-reload
 
 echo "  Systemd services installed (not started yet -- enable after deploying code)."

@@ -8,6 +8,7 @@ Usage:
 import argparse
 import asyncio
 import math
+import os
 import random
 from datetime import datetime, timedelta, timezone
 
@@ -23,7 +24,10 @@ from app.models.base import Base
 from app.models.observation import WeatherObservation
 from app.models.station import Station
 
-DEFAULT_DB_URL = "postgresql+asyncpg://waffleweather:devpassword@localhost:5432/waffleweather"
+DEFAULT_DB_URL = os.environ.get(
+    "WW_DATABASE_URL",
+    "postgresql+asyncpg://waffleweather:changeme@localhost:5432/waffleweather",
+)
 STATION_ID = "seed-station-001"
 INTERVAL_MINUTES = 5
 DAYS = 30

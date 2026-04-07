@@ -56,7 +56,7 @@ WW_ENABLE_DOCS=true          # Exposes /docs and /openapi.json
 WW_API_KEY=                   # Set to require X-API-Key header on all endpoints
 
 # Station metadata (used by Sun/Moon cards)
-WW_STATION_NAME=WaffleWeather
+WW_STATION_NAME=My Weather Station
 WW_STATION_LATITUDE=40.7128
 WW_STATION_LONGITUDE=-74.0060
 WW_STATION_ALTITUDE=10.0
