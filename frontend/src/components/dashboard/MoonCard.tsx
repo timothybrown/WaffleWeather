@@ -20,7 +20,7 @@ function getPhaseName(phase: number): string {
 
 function fmtTime(d: Date | undefined): string {
   if (!d) return "\u2014";
-  return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false });
 }
 
 function fmtDate(d: Date): string {

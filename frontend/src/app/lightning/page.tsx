@@ -44,7 +44,13 @@ const COLOR_VARS = [
 function formatBucket(unix: number, range: TimeRange): string {
   const d = new Date(unix * 1000);
   if (range === "24h") {
-    return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false });
+  }
+  if (range === "7d") {
+    if (d.getHours() === 0 && d.getMinutes() === 0) {
+      return d.toLocaleDateString([], { weekday: "short" });
+    }
+    return "";
   }
   return d.toLocaleDateString([], { month: "short", day: "numeric" });
 }
