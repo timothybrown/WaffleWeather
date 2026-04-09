@@ -267,6 +267,11 @@ body::after {
   box-shadow: 0 0 20px -4px color-mix(in srgb, var(--color-primary) 15%, transparent);
 }
 
+/* Elevate card when a tooltip is open so it paints above sibling cards */
+.weather-card:has(.info-tip-bubble) {
+  z-index: 10;
+}
+
 /* ── Sidebar styling ─────────────────────────────────────────── */
 
 .sidebar-nav-item {

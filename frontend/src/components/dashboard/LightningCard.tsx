@@ -76,7 +76,7 @@ export default function LightningCard({ data }: { data: Observation | null }) {
     <WeatherCard
       title="Lightning"
       icon={<RiFlashlightLine className="h-4 w-4" />}
-      info="Electromagnetic detection of lightning within ~40 km via the WH57 sensor. Estimates distance but not direction. Card pulses amber when a strike was detected in the last 30 minutes."
+      info={`Electromagnetic detection of lightning within ${system === "metric" ? "~40 km" : "~25 mi"} via the WH57 sensor. Estimates distance but not direction. Card pulses amber when a strike was detected in the last 30 minutes.`}
       className={active ? "lightning-active" : undefined}
     >
       <div className="flex items-center gap-1.5">
