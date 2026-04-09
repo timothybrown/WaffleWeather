@@ -176,42 +176,6 @@ If your sensor setup uses different field names, check `backend/app/mqtt/parser.
 
 Cards for sensors you don't have (e.g., lightning if you only have a WH32) will simply not render or will show "No data."
 
-## Project Structure
-
-```
-WaffleWeather/
-├── openapi/
-│   └── waffleweather.yaml        # OpenAPI 3.1 spec (API source of truth)
-├── backend/
-│   ├── pyproject.toml
-│   ├── alembic/                   # Database migrations
-│   └── app/
-│       ├── main.py                # FastAPI app + MQTT lifecycle
-│       ├── config.py              # Pydantic Settings (WW_ prefix)
-│       ├── models/                # SQLAlchemy models (hypertables)
-│       ├── schemas/               # Pydantic request/response schemas
-│       ├── api/                   # REST + WebSocket endpoints
-│       ├── services/              # Derived calculations, WS broadcast
-│       └── mqtt/                  # MQTT subscriber + field parser
-├── frontend/
-│   ├── orval.config.ts            # API client codegen config
-│   └── src/
-│       ├── app/                   # Next.js pages (Observatory, Lightning, etc.)
-│       ├── components/            # Dashboard cards, charts, UI primitives
-│       ├── hooks/                 # useHistoryData, useTrends
-│       ├── lib/                   # Units, utilities, fetch wrapper
-│       ├── providers/             # React contexts (Query, Units, WebSocket)
-│       └── generated/             # Orval output (gitignored)
-├── deploy/
-│   ├── setup.sh                   # One-time Pi setup
-│   ├── nginx.conf                 # Reverse proxy config
-│   ├── mosquitto.conf             # MQTT broker config
-│   └── *.service                  # systemd unit files
-└── scripts/
-    ├── mqtt-test-publish.py       # Dev: publish test MQTT messages
-    └── seed-data.py               # Dev: generate fake historical data
-```
-
 ## Database
 
 TimescaleDB powers the storage layer with two hypertables:
@@ -223,40 +187,10 @@ Three continuous aggregates (hourly, daily, monthly) roll up key metrics hierarc
 
 All derived values (dew point, heat index, wind chill, feels like, UTCI, Zambretti) are computed at query time, not stored. This keeps the schema clean and makes it easy to refine calculations without backfilling.
 
-## Development
+## Documentation
 
-### Backend
-
-```bash
-cd backend
-uv sync
-uv run uvicorn app.main:app --reload --host 0.0.0.0
-```
-
-### Frontend
-
-```bash
-cd frontend
-pnpm install
-pnpm dev
-```
-
-To regenerate the API client after changing the OpenAPI spec:
-
-```bash
-cd frontend
-pnpm orval
-```
-
-### Test data
-
-If you don't have a live station connected, you can seed fake historical data and publish test MQTT messages:
-
-```bash
-cd scripts
-uv run python seed-data.py
-uv run python mqtt-test-publish.py
-```
+- **[DEVELOPMENT.md](DEVELOPMENT.md)** — Local setup, testing, environment variables, project structure, and deployment
+- **[API.md](API.md)** — REST endpoints, WebSocket protocol, database schema, and frontend data flow
 
 ## Security Notes
 
