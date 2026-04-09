@@ -229,14 +229,27 @@ def zambretti_forecast(
 def _approximate_mrt(temp_c: float, solar_wm2: float) -> float:
     """Approximate Mean Radiant Temperature (°C) from solar radiation.
 
-    TODO(BGT): When Black Globe Temperature sensor is available, replace
-    this approximation with the proper MRT formula:
-        MRT = [(Tg+273)^4 + 1.1e8 * Va^0.6 * (Tg-Ta) / (D^0.4)]^0.25 - 273
-    where Tg = black globe temp, Va = wind speed, Ta = air temp, D = globe
-    diameter (0.15m standard). BGT gives much more accurate MRT and thus
-    more accurate UTCI, especially in direct sunlight.
+    Used as a fallback when no Black Globe Temperature sensor is available.
     """
     return temp_c + 1.5 * (solar_wm2 / 100.0)
+
+
+def _mrt_from_bgt(globe_temp_c: float, temp_c: float, wind_ms: float) -> float:
+    """Compute Mean Radiant Temperature (°C) from Black Globe Temperature.
+
+    Uses the standard globe thermometer formula (ISO 7726):
+        MRT = [(Tg+273)^4 + 1.1e8 * Va^0.6 * (Tg-Ta) / (D^0.4)]^0.25 - 273
+    where Tg = globe temp, Va = wind speed (m/s), Ta = air temp,
+    D = 0.15m (standard globe diameter).
+    """
+    Tg = globe_temp_c
+    Ta = temp_c
+    Va = max(wind_ms, 0.1)  # avoid zero
+    D = 0.15  # standard globe diameter (m)
+    return (
+        ((Tg + 273.0) ** 4 + 1.1e8 * Va**0.6 * (Tg - Ta) / D**0.4) ** 0.25
+        - 273.0
+    )
 
 
 def utci(
@@ -244,15 +257,14 @@ def utci(
     rh_percent: float,
     wind_kmh: float,
     solar_wm2: float,
+    globe_temp_c: float | None = None,
 ) -> float | None:
     """Universal Thermal Climate Index (°C) — Bröde et al. 2012 polynomial.
 
-    Approximates thermal stress using air temperature, humidity, wind speed,
-    and an estimated Mean Radiant Temperature (MRT) from solar radiation.
-
-    TODO(BGT): Accept optional `globe_temp_c` parameter. When provided,
-    compute MRT from BGT instead of the solar approximation, yielding a
-    significantly more accurate UTCI in sunny conditions.
+    Uses air temperature, humidity, wind speed, and Mean Radiant Temperature
+    (MRT) to compute thermal stress. When a Black Globe Temperature sensor
+    is available, MRT is computed precisely via ISO 7726; otherwise falls
+    back to a linear approximation from solar radiation.
 
     Valid range: air temp -50..50°C, wind 0.5..17 m/s, MRT-Ta delta -30..70°C.
     Returns None if inputs are outside these bounds.
@@ -262,7 +274,10 @@ def utci(
     if va > 17.0:
         va = 17.0
 
-    Tmrt = _approximate_mrt(Ta, solar_wm2)
+    if globe_temp_c is not None:
+        Tmrt = _mrt_from_bgt(globe_temp_c, Ta, va)
+    else:
+        Tmrt = _approximate_mrt(Ta, solar_wm2)
     D_Tmrt = Tmrt - Ta  # MRT - air temp offset
 
     if not (-50.0 <= Ta <= 50.0) or not (-30.0 <= D_Tmrt <= 70.0):
@@ -451,6 +466,6 @@ def enrich_observation(obs: dict) -> dict:
         and solar is not None
         and obs.get("utci") is None
     ):
-        obs["utci"] = utci(temp, rh, wind, solar)
+        obs["utci"] = utci(temp, rh, wind, solar, globe_temp_c=obs.get("bgt"))
 
     return obs

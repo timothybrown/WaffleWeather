@@ -514,6 +514,19 @@ components:
           type: number
           nullable: true
           description: Soil moisture channel 2 (%)
+        # Thermal — Black Globe
+        bgt:
+          type: number
+          nullable: true
+          description: Black Globe Temperature (°C)
+        wbgt:
+          type: number
+          nullable: true
+          description: Wet Bulb Globe Temperature (°C)
+        vpd:
+          type: number
+          nullable: true
+          description: Vapor Pressure Deficit (hPa)
         # Lightning
         lightning_count:
           type: integer

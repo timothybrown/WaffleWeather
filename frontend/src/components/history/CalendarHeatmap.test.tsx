@@ -24,7 +24,7 @@ vi.mock("@/generated/aggregates/aggregates", () => ({
 describe("CalendarHeatmap", () => {
   it("renders metric selector buttons", () => {
     renderWithProviders(<CalendarHeatmap />);
-    expect(screen.getByText("Max Temp")).toBeInTheDocument();
+    expect(screen.getByText("Temp")).toBeInTheDocument();
     expect(screen.getByText("Rainfall")).toBeInTheDocument();
     expect(screen.getByText("Solar Radiation")).toBeInTheDocument();
     expect(screen.getByText("Wind Gust")).toBeInTheDocument();

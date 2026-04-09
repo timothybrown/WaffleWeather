@@ -26,8 +26,11 @@ export default function TemperatureCard({ data, trend, dayMin, dayMax }: { data:
   const feels = convertTemp(data?.feels_like, system);
   const dew = convertTemp(data?.dewpoint, system);
   const indoor = convertTemp(data?.temp_indoor, system);
+  const globe = convertTemp(data?.bgt, system);
+  const wetBulb = convertTemp(data?.wbgt, system);
   const hi = convertTemp(dayMax, system);
   const lo = convertTemp(dayMin, system);
+  const hasBgt = data?.bgt != null;
 
   return (
     <WeatherCard
@@ -63,6 +66,22 @@ export default function TemperatureCard({ data, trend, dayMin, dayMax }: { data:
           <p className="text-xs text-text-faint">Indoor</p>
           <p className="font-mono font-medium tabular-nums text-text-muted">{fmt(indoor.value)}&deg;</p>
         </div>
+        {hasBgt && (
+          <>
+            <div>
+              <p className="text-xs text-text-faint">Globe <InfoTip text="Black Globe Temperature measures radiant heat from the sun and surroundings. Used to compute precise UTCI thermal comfort." side="bottom" /></p>
+              <p className="font-mono font-medium tabular-nums text-text-muted">{fmt(globe.value, 1)}&deg;</p>
+            </div>
+            <div>
+              <p className="text-xs text-text-faint">Wet Bulb <InfoTip text="Wet Bulb Globe Temperature combines heat, humidity, wind, and solar radiation into a single safety index. Used by OSHA and military for heat stress limits." side="bottom" /></p>
+              <p className="font-mono font-medium tabular-nums text-text-muted">{fmt(wetBulb.value, 1)}&deg;</p>
+            </div>
+            <div>
+              <p className="text-xs text-text-faint">VPD <InfoTip text="Vapor Pressure Deficit — the difference between how much moisture the air holds and how much it could hold. Higher values mean drier air and faster plant transpiration." side="bottom" /></p>
+              <p className="font-mono font-medium tabular-nums text-text-muted">{fmt(data?.vpd != null ? data.vpd / 10 : null, 2)} <span className="text-text-faint">kPa</span></p>
+            </div>
+          </>
+        )}
       </div>
     </WeatherCard>
   );

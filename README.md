@@ -16,7 +16,7 @@ WaffleWeather was built to fill that gap: a modern, good-looking dashboard that 
 
 ### Observatory
 
-The main dashboard with 10 live-updating cards: temperature (with daily high/low), humidity, wind (SVG compass rose and Beaufort scale), barometric pressure (with Zambretti forecast), rain, solar/UV, lightning, thermal comfort (UTCI), sun position, and moon phase. Every value updates in real time over WebSocket with 15-minute trend arrows. Click-to-toggle info tips on every card explain what each metric means and how it's calculated.
+The main dashboard with 10 live-updating cards: temperature (with daily high/low, Black Globe Temperature, Wet Bulb Globe Temperature, and VPD when a WH32 sensor is connected), humidity, wind (SVG compass rose and Beaufort scale), barometric pressure (with Zambretti forecast), rain, solar/UV, lightning, thermal comfort (UTCI with precise MRT from BGT sensor), sun position, and moon phase. Every value updates in real time over WebSocket with 15-minute trend arrows. Click-to-toggle info tips on every card explain what each metric means and how it's calculated.
 
 ### VFD Console
 
@@ -54,7 +54,7 @@ A GitHub-style calendar heatmap for any metric (temperature, humidity, rain, win
 
 **Unit Toggle** — Global metric/imperial switch in the sidebar that converts everything on the fly. All data is stored as metric; conversions happen in the browser with precision tuned to sensor resolution.
 
-**Derived Meteorology** — Dew point (Magnus-Tetens), heat index (full NWS Rothfusz), wind chill, composite feels-like, UTCI thermal comfort (Brode polynomial), and Zambretti barometric forecast (based on the [pywws implementation](https://github.com/jim-easterbrook/pywws) of the 1915 Negretti & Zambra algorithm, with 16-point wind direction table and automatic hemisphere detection from station latitude). Computed on the fly, never stored stale.
+**Derived Meteorology** — Dew point (Magnus-Tetens), heat index (full NWS Rothfusz), wind chill, composite feels-like, UTCI thermal comfort (precise MRT from Black Globe Temperature via ISO 7726 when available, otherwise approximated from solar radiation), and Zambretti barometric forecast (based on the [pywws implementation](https://github.com/jim-easterbrook/pywws) of the 1915 Negretti & Zambra algorithm, with 16-point wind direction table and automatic hemisphere detection from station latitude). Computed on the fly, never stored stale.
 
 ## Architecture
 
@@ -94,8 +94,10 @@ Everything runs natively on the Pi — no Docker, no containers. A Raspberry Pi 
 **Weather Station**: Any Ecowitt gateway with sensors. The MQTT parser handles field name variants across models, so most Ecowitt setups should work. Currently tested with:
 
 - **Gateway**: GW3000B (GW1000, GW1100, GW2000 should also work)
-- **Outdoor sensor**: WS80 / WS90 (temperature, humidity, wind, solar, UV, rain)
-- **Lightning**: Included in WS80/WS90 (AS3935 sensor)
+- **Outdoor sensor**: WS68 (temperature, humidity, wind, solar, UV)
+- **Rain gauge**: WH40H (piezo)
+- **Indoor sensor**: WH32 (temperature, humidity, Black Globe Temperature, WBGT, VPD)
+- **Lightning**: WH57 (AS3935 sensor)
 
 Sensors you don't have simply won't populate those cards — the dashboard gracefully handles missing data.
 
@@ -189,6 +191,7 @@ WaffleWeather's MQTT parser maps Ecowitt field names to database columns. It han
 | Solar/UV | `solarradiation`, `uv` |
 | Lightning | `lightning`, `lightning_time`, `lightning_num` |
 | Indoor temp/humidity | `tempinf`, `humidityin` |
+| Black Globe / WBGT / VPD | `bgt`, `wbgt`, `vpd` |
 
 If your sensor setup uses different field names, check `backend/app/mqtt/parser.py` — the mapping is straightforward to extend.
 

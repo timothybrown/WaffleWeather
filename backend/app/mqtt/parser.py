@@ -59,6 +59,10 @@ FIELD_MAP: dict[str, str] = {
     # Solar / UV
     "solarradiation": "solar_radiation",
     "uv": "uv_index",
+    # Thermal — Black Globe
+    "bgt": "bgt",
+    "wbgt": "wbgt",
+    "vpd": "vpd",
     # Air quality
     "pm25": "pm25",
     "pm25_ch1": "pm25",
@@ -80,6 +84,10 @@ INTEGER_FIELDS = {"lightning_count"}
 # Fields that should be parsed as datetime
 DATETIME_FIELDS = {"lightning_time"}
 
+# Fields that arrive in Fahrenheit and need conversion to Celsius
+# (GW3000B passes BGT/WBGT in °F regardless of gateway unit setting)
+FAHRENHEIT_FIELDS = {"bgt", "wbgt"}
+
 # Battery fields: ecowitt key -> (label, type)
 # Types: "boolean" (OFF=OK, ON=Low), "voltage" (V), "percentage" (%)
 BATTERY_MAP: dict[str, tuple[str, str]] = {
@@ -91,6 +99,7 @@ BATTERY_MAP: dict[str, tuple[str, str]] = {
     "wh80batt": ("Anemometer", "voltage"),
     "wh90batt": ("Weather Station", "voltage"),
     "wh57batt": ("Lightning Detector", "percentage"),
+    "bgtbatt": ("Globe Thermometer", "boolean"),
     "co2_batt": ("CO2 Sensor", "percentage"),
     **{f"batt{i}": (f"Sensor Ch{i}", "boolean") for i in range(1, 9)},
     **{f"soilbatt{i}": (f"Soil Sensor Ch{i}", "voltage") for i in range(1, 9)},
@@ -158,6 +167,8 @@ def parse_ecowitt_payload(
                     result[db_column] = datetime.fromtimestamp(float(raw_value), tz=timezone.utc)
             elif db_column in INTEGER_FIELDS:
                 result[db_column] = int(float(raw_value))
+            elif db_column in FAHRENHEIT_FIELDS:
+                result[db_column] = round((float(raw_value) - 32.0) * 5.0 / 9.0, 2)
             else:
                 result[db_column] = float(raw_value)
         except (ValueError, TypeError) as e:

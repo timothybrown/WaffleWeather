@@ -49,6 +49,10 @@ class ObservationSchema(BaseModel):
     lightning_count: int | None = None
     lightning_distance: float | None = None
     lightning_time: datetime | None = None
+    # Thermal — Black Globe
+    bgt: float | None = None
+    wbgt: float | None = None
+    vpd: float | None = None
     # Derived — thermal comfort
     utci: float | None = None
     # Derived — Zambretti forecast (set explicitly, not in model_validator;
@@ -83,7 +87,7 @@ class ObservationSchema(BaseModel):
             and solar is not None
             and self.utci is None
         ):
-            self.utci = utci(temp, rh, wind, solar)
+            self.utci = utci(temp, rh, wind, solar, globe_temp_c=self.bgt)
 
         return self
 

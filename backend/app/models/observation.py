@@ -52,6 +52,11 @@ class WeatherObservation(Base):
     soil_moisture_1 = Column(Float, nullable=True)
     soil_moisture_2 = Column(Float, nullable=True)
 
+    # Thermal — Black Globe
+    bgt = Column(Float, nullable=True)
+    wbgt = Column(Float, nullable=True)
+    vpd = Column(Float, nullable=True)
+
     # Lightning
     lightning_count = Column(Integer, nullable=True)
     lightning_distance = Column(Float, nullable=True)
