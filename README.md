@@ -109,7 +109,7 @@ This guide assumes you have a Raspberry Pi running Debian 13 (Bookworm or Trixie
 
 ```bash
 ssh your-user@your-pi
-git clone https://github.com/your-username/WaffleWeather.git /opt/waffleweather
+git clone https://github.com/timothybrown/WaffleWeather.git /opt/waffleweather
 cd /opt/waffleweather
 bash deploy/setup.sh
 ```

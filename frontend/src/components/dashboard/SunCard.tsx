@@ -94,7 +94,7 @@ export default function SunCard() {
         <>
           {/* Sun Arc SVG */}
           <svg
-            viewBox="0 0 200 80"
+            viewBox="0 -8 200 88"
             className="w-full"
             aria-label="Sun arc showing current sun position"
           >
