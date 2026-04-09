@@ -15,6 +15,8 @@ def _make_agg_row(**overrides):
         "temp_outdoor_min": 18.0,
         "temp_outdoor_max": 26.0,
         "humidity_outdoor_avg": 55.0,
+        "humidity_outdoor_min": 42.0,
+        "humidity_outdoor_max": 68.0,
         "pressure_rel_avg": 1013.0,
         "wind_speed_avg": 10.0,
         "wind_gust_max": 18.0,

@@ -20,12 +20,14 @@ function dewpointComfort(dewC: number | null | undefined): { label: string; colo
   return { label: "Miserable", color: "text-danger" };
 }
 
-export default function TemperatureCard({ data, trend }: { data: Observation | null; trend: TrendDirection }) {
+export default function TemperatureCard({ data, trend, dayMin, dayMax }: { data: Observation | null; trend: TrendDirection; dayMin?: number | null; dayMax?: number | null }) {
   const { system } = useUnits();
   const temp = convertTemp(data?.temp_outdoor, system);
   const feels = convertTemp(data?.feels_like, system);
   const dew = convertTemp(data?.dewpoint, system);
   const indoor = convertTemp(data?.temp_indoor, system);
+  const hi = convertTemp(dayMax, system);
+  const lo = convertTemp(dayMin, system);
 
   return (
     <WeatherCard
@@ -39,6 +41,13 @@ export default function TemperatureCard({ data, trend }: { data: Observation | n
         </span>
         <span className="text-lg text-text-faint">{temp.unit}</span>
         <TrendIndicator trend={trend} />
+        {(hi.value != null || lo.value != null) && (
+          <span className="ml-auto text-xs text-text-faint">
+            <span className="text-[#d47272]">{fmt(hi.value)}&deg;</span>
+            {" / "}
+            <span className="text-[#7aaccc]">{fmt(lo.value)}&deg;</span>
+          </span>
+        )}
       </div>
       <div className="mt-4 grid grid-cols-3 gap-3 text-sm">
         <div>

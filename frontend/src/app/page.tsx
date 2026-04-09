@@ -5,6 +5,7 @@ import { useGetLatestObservation } from "@/generated/observations/observations";
 import { useWebSocket } from "@/providers/WebSocketProvider";
 import { timeAgo } from "@/lib/utils";
 import { useTrends } from "@/hooks/useTrends";
+import { useTodayExtremes } from "@/hooks/useTodayExtremes";
 import TemperatureCard from "@/components/dashboard/TemperatureCard";
 import HumidityCard from "@/components/dashboard/HumidityCard";
 import WindCard from "@/components/dashboard/WindCard";
@@ -20,6 +21,7 @@ export default function DashboardPage() {
   const { data: apiResponse, error } = useGetLatestObservation();
   const { latestObservation: wsData } = useWebSocket();
   const trends = useTrends();
+  const extremes = useTodayExtremes();
 
   // Orval wraps response as { data: Observation, status, headers }
   const apiData = apiResponse?.data as Observation | undefined;
@@ -46,8 +48,8 @@ export default function DashboardPage() {
 
       {/* Card Grid */}
       <div className="card-stagger grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-        <TemperatureCard data={data} trend={trends.temp_outdoor} />
-        <HumidityCard data={data} trend={trends.humidity_outdoor} />
+        <TemperatureCard data={data} trend={trends.temp_outdoor} dayMin={extremes.tempMin} dayMax={extremes.tempMax} />
+        <HumidityCard data={data} trend={trends.humidity_outdoor} dayMin={extremes.humidityMin} dayMax={extremes.humidityMax} />
         <WindCard data={data} trend={trends.wind_speed} />
         <PressureCard data={data} trend={trends.pressure_rel} />
         <RainCard data={data} trend={trends.rain_rate} />

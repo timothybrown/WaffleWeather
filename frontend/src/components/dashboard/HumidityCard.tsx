@@ -15,7 +15,7 @@ function comfortLevel(humidity: number | null | undefined): string {
   return "Very humid";
 }
 
-export default function HumidityCard({ data, trend }: { data: Observation | null; trend: TrendDirection }) {
+export default function HumidityCard({ data, trend, dayMin, dayMax }: { data: Observation | null; trend: TrendDirection; dayMin?: number | null; dayMax?: number | null }) {
   return (
     <WeatherCard
       title="Humidity"
@@ -28,6 +28,13 @@ export default function HumidityCard({ data, trend }: { data: Observation | null
         </span>
         <span className="text-lg text-text-faint">%</span>
         <TrendIndicator trend={trend} />
+        {(dayMax != null || dayMin != null) && (
+          <span className="ml-auto text-xs text-text-faint">
+            <span className="text-[#5eada5]">{fmt(dayMax, 0)}%</span>
+            {" / "}
+            <span className="text-[#5eada5]/60">{fmt(dayMin, 0)}%</span>
+          </span>
+        )}
       </div>
       <p className="mt-1 text-sm text-text-muted">
         {comfortLevel(data?.humidity_outdoor)}

@@ -38,8 +38,15 @@ const COLOR_VARS = [
 
 function formatTime(unix: number, resolution: string): string {
   const d = new Date(unix * 1000);
-  if (resolution === "raw" || resolution === "hourly") {
-    return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  if (resolution === "raw") {
+    return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false });
+  }
+  if (resolution === "hourly") {
+    // 7d view: show weekday at midnight, 24h time otherwise
+    if (d.getHours() === 0 && d.getMinutes() === 0) {
+      return d.toLocaleDateString([], { weekday: "short" });
+    }
+    return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false });
   }
   if (resolution === "daily") {
     return d.toLocaleDateString([], { month: "short", day: "numeric" });

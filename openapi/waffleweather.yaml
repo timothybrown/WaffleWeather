@@ -562,6 +562,12 @@ components:
         humidity_outdoor_avg:
           type: number
           nullable: true
+        humidity_outdoor_min:
+          type: number
+          nullable: true
+        humidity_outdoor_max:
+          type: number
+          nullable: true
         # Pressure
         pressure_rel_avg:
           type: number
