@@ -39,6 +39,9 @@ htmlcov/
 # Local design docs (brainstorming specs, plans) — not for public repo
 docs/superpowers/
 
+# Git worktrees
+.worktrees/
+
 # Playwright testing artifacts
 *.png
 !screenshots/*.png
