@@ -4,7 +4,10 @@ A self-hosted weather station dashboard built for [Ecowitt](https://www.ecowitt.
 
 Named after a very good dog.
 
-![WaffleWeather Observatory](screenshots/observatory.png)
+<p align="center">
+  <img src="screenshots/observatory-dark.png" alt="WaffleWeather Observatory (dark)" width="48%" />
+  <img src="screenshots/observatory-light.png" alt="WaffleWeather Observatory (light)" width="48%" />
+</p>
 
 ## Why?
 
