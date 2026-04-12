@@ -48,6 +48,10 @@ A GitHub-style calendar heatmap for any metric (temperature, humidity, rain, win
 
 ![Calendar Heatmap](screenshots/calendar.png)
 
+### Install as an App
+
+WaffleWeather is a Progressive Web App — add it to your phone's home screen for a native app experience. On iOS, tap Share → "Add to Home Screen". On Android, tap the install prompt in Chrome. You get standalone mode (no browser chrome), a waffle icon, and app shortcuts for quick access to the Observatory, Console, Lightning, and History pages. If the Pi is unreachable, an offline fallback page tells you so instead of a browser error.
+
 ### Additional Features
 
 **Diagnostics** — Battery levels, gateway stats, firmware info, and connection status. Useful for keeping an eye on sensor health.
@@ -172,7 +176,7 @@ sudo chown -R waffleweather:waffleweather /opt/waffleweather
 sudo systemctl enable --now waffleweather-backend waffleweather-frontend
 ```
 
-The dashboard should now be accessible at `http://your-pi` on port 80.
+The dashboard should now be accessible at `http://your-pi` on port 80. For HTTPS (required for PWA service worker and install prompts), see the Tailscale TLS section in [DEVELOPMENT.md](DEVELOPMENT.md).
 
 ### 5. Verify data flow
 
@@ -217,7 +221,7 @@ All derived values (dew point, heat index, wind chill, feels like, UTCI, Zambret
 
 WaffleWeather is designed for local network use. If you're exposing it to the internet, you should address:
 
-- **HTTPS**: Configure TLS in Nginx (Let's Encrypt works well on a Pi)
+- **HTTPS**: Configure TLS in Nginx. If you use [Tailscale](https://tailscale.com/), `tailscale cert` provides free automatic certificates for your `.ts.net` domain — see [DEVELOPMENT.md](DEVELOPMENT.md) for setup. Alternatively, Let's Encrypt works well for public-facing setups
 - **Rate limiting**: Add Nginx rate limiting or application-level throttling
 - **Security headers**: CSP, HSTS, X-Frame-Options, etc.
 - **CORS**: Tighten the default `allow_methods=["*"]` in the backend config

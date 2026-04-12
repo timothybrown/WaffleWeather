@@ -67,10 +67,10 @@ WW_LIGHTNING_FILTER_DISTANCES=[12.0,14.0] # Distance blocklist in km (JSON array
 WW_LIGHTNING_FILTER_MAX_STRIKES=1         # Only filter events with this many strikes or fewer
 ```
 
-The frontend uses a single optional env var:
+The frontend uses two optional env vars:
 ```bash
 NEXT_PUBLIC_API_URL=          # Defaults to '' (same-origin)
-NEXT_PUBLIC_WS_URL=           # Defaults to ws://<current host>/ws/live
+NEXT_PUBLIC_WS_URL=           # Defaults to ws:// or wss:// based on page protocol
 ```
 
 ## Backend Setup
@@ -228,6 +228,50 @@ The project deploys to a Raspberry Pi 4 via rsync:
 ```
 
 This script syncs files, installs dependencies, builds the frontend, runs migrations, and restarts systemd services. See `deploy/` for service and nginx configuration files.
+
+## Tailscale HTTPS
+
+The PWA service worker requires a secure context (HTTPS or localhost). If you access WaffleWeather over [Tailscale](https://tailscale.com/), you can get free TLS certificates for your Pi's `.ts.net` domain:
+
+```bash
+# On the Pi: generate the certificate
+sudo tailscale cert your-hostname.your-tailnet.ts.net
+
+# Move certs to nginx
+sudo mkdir -p /etc/nginx/ssl
+sudo mv your-hostname.your-tailnet.ts.net.crt /etc/nginx/ssl/
+sudo mv your-hostname.your-tailnet.ts.net.key /etc/nginx/ssl/
+sudo chmod 600 /etc/nginx/ssl/*.key
+```
+
+Then add an HTTPS server block to `/etc/nginx/sites-available/waffleweather` alongside the existing HTTP block:
+
+```nginx
+server {
+    listen 443 ssl;
+    server_name your-hostname.your-tailnet.ts.net;
+
+    ssl_certificate /etc/nginx/ssl/your-hostname.your-tailnet.ts.net.crt;
+    ssl_certificate_key /etc/nginx/ssl/your-hostname.your-tailnet.ts.net.key;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers HIGH:!aNULL:!MD5;
+
+    # ... same location blocks as the HTTP server ...
+}
+```
+
+Reload nginx: `sudo nginx -t && sudo systemctl reload nginx`
+
+Tailscale certs expire after 90 days. Renew with:
+```bash
+sudo tailscale cert \
+  --cert-file /etc/nginx/ssl/your-hostname.your-tailnet.ts.net.crt \
+  --key-file /etc/nginx/ssl/your-hostname.your-tailnet.ts.net.key \
+  your-hostname.your-tailnet.ts.net \
+  && sudo systemctl reload nginx
+```
+
+Note: `scripts/deploy.sh` does not touch the nginx config — manual changes persist across deploys.
 
 ## Useful Scripts
 

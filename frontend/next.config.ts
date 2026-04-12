@@ -8,6 +8,21 @@ const nextConfig: NextConfig = {
   env: {
     NEXT_PUBLIC_FRONTEND_VERSION: pkg.version,
   },
+  headers: async () => [
+    {
+      source: "/sw.js",
+      headers: [
+        {
+          key: "Cache-Control",
+          value: "no-cache, no-store, must-revalidate",
+        },
+        {
+          key: "Service-Worker-Allowed",
+          value: "/",
+        },
+      ],
+    },
+  ],
   rewrites: async () => [
     {
       source: "/api/:path*",

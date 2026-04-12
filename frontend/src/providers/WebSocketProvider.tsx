@@ -42,8 +42,14 @@ export function useWebSocket() {
   return useContext(WebSocketContext);
 }
 
-const WS_URL =
-  process.env.NEXT_PUBLIC_WS_URL || `ws://${typeof window !== "undefined" ? window.location.host : "localhost:8000"}/ws/live`;
+function getWsUrl() {
+  if (process.env.NEXT_PUBLIC_WS_URL) return process.env.NEXT_PUBLIC_WS_URL;
+  if (typeof window === "undefined") return "ws://localhost:8000/ws/live";
+  const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
+  return `${proto}//${window.location.host}/ws/live`;
+}
+
+const WS_URL = getWsUrl();
 
 export default function WebSocketProvider({
   children,
