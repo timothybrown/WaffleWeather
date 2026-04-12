@@ -53,8 +53,9 @@ export default function SunCard() {
     const deltaStr = `${sign}${deltaMin}m ${deltaSRemaining}s`;
     const gaining = deltaSec >= 0;
 
-    // Altitude in degrees
-    const altitudeDeg = Math.round((position.altitude * 180) / Math.PI);
+    // Altitude in degrees (current)
+    const currentAltDeg = (position.altitude * 180) / Math.PI;
+    const altitudeDeg = Math.round(currentAltDeg);
 
     // Sun fraction along the arc
     const totalMs = sunset.getTime() - sunrise.getTime();
@@ -63,9 +64,32 @@ export default function SunCard() {
     const fraction = Math.max(0, Math.min(1, rawFraction));
     const isNight = rawFraction < 0 || rawFraction > 1;
 
-    // Sun position on arc
-    const sunX = 20 + fraction * 160;
-    const sunY = 65 - Math.sin(fraction * Math.PI) * 60;
+    // Arc geometry: 0° → horizon (y=65), 90° → top of card (y=-8).
+    const ARC_X0 = 20;
+    const ARC_WIDTH = 160;
+    const HORIZON_Y = 65;
+    const ZENITH_Y = -8;
+    const ALT_SPAN = HORIZON_Y - ZENITH_Y;
+    const altToY = (deg: number) =>
+      HORIZON_Y - Math.max(0, deg / 90) * ALT_SPAN;
+
+    // Sample the real astronomical altitude curve from sunrise to sunset.
+    const NUM_SAMPLES = 61;
+    const coords: string[] = [];
+    for (let i = 0; i < NUM_SAMPLES; i++) {
+      const t = i / (NUM_SAMPLES - 1);
+      const sampleTime = new Date(sunrise.getTime() + t * totalMs);
+      const sampleAlt =
+        (SunCalc.getPosition(sampleTime, lat, lon).altitude * 180) / Math.PI;
+      const x = ARC_X0 + t * ARC_WIDTH;
+      const y = altToY(sampleAlt);
+      coords.push(`${x.toFixed(1)},${y.toFixed(1)}`);
+    }
+    const arcPath = "M " + coords.join(" L ");
+
+    // Current sun position from the real altitude
+    const sunX = ARC_X0 + fraction * ARC_WIDTH;
+    const sunY = altToY(currentAltDeg);
 
     return {
       sunrise,
@@ -76,6 +100,7 @@ export default function SunCard() {
       deltaStr,
       gaining,
       altitudeDeg,
+      arcPath,
       sunX,
       sunY,
       isNight,
@@ -84,7 +109,7 @@ export default function SunCard() {
   }, [hasLocation, station?.latitude, station?.longitude, minuteKey]);
 
   return (
-    <WeatherCard title="Sun" icon={<RiSunLine className="h-4 w-4" />} info="Sunrise, sunset, and sun position calculated from your station's coordinates using astronomical algorithms. Updates every minute.">
+    <WeatherCard title="Sun" icon={<RiSunLine className="h-4 w-4" />} info="Sunrise, sunset, and sun position calculated from your station's coordinates using astronomical algorithms. The arc is the real altitude curve for today — steep near sunrise/sunset and flatter near solar noon, because the sun's vertical motion slows as it approaches its peak. Updates every minute.">
       {!hasLocation || !sunData ? (
         <p className="text-sm text-text-muted">
           Station location not configured. Set latitude and longitude to see sun
@@ -123,9 +148,9 @@ export default function SunCard() {
               strokeWidth="0.5"
             />
 
-            {/* Arc path */}
+            {/* Arc path — real astronomical altitude curve for today */}
             <path
-              d="M 20,65 Q 100,5 180,65"
+              d={sunData.arcPath}
               stroke="var(--color-border)"
               strokeWidth="1"
               fill="none"
