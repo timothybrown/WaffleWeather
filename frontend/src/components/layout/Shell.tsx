@@ -22,7 +22,7 @@ export default function Shell({ children }: { children: React.ReactNode }) {
           >
             <RiMenuLine className="h-5 w-5" />
           </button>
-          <span className="text-xl drop-shadow-sm">&#x1F9C7;</span>
+          <img src="/waffle-logo.png" alt="" width={24} height={24} className="drop-shadow-sm" />
           <span className="font-display text-base font-semibold tracking-tight text-text">
             WaffleWeather
           </span>

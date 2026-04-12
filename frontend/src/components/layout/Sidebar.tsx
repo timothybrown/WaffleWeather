@@ -73,7 +73,7 @@ export default function Sidebar({
         {/* Logo */}
         <div className="flex h-16 items-center justify-between border-b border-border px-5">
           <div className="flex items-center gap-3">
-            <span className="text-2xl drop-shadow-sm">&#x1F9C7;</span>
+            <img src="/waffle-logo.png" alt="" width={28} height={28} className="drop-shadow-sm" />
             <span className="font-display text-lg font-semibold tracking-tight text-text">
               WaffleWeather
             </span>

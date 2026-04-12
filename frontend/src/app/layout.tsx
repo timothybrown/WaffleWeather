@@ -30,6 +30,10 @@ const ibmPlexMono = IBM_Plex_Mono({
 export const metadata: Metadata = {
   title: "WaffleWeather",
   description: "Personal weather station dashboard",
+  icons: {
+    icon: "/favicon.ico",
+    apple: "/icon-180.png",
+  },
   appleWebApp: {
     title: "WaffleWeather",
     statusBarStyle: "black-translucent",

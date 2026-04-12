@@ -40,6 +40,8 @@ htmlcov/
 *.png
 !screenshots/*.png
 !frontend/public/icon-*.png
+!frontend/public/favicon.png
+!frontend/public/waffle-logo.png
 
 # Deploy (contains local hostname)
 scripts/deploy.sh
