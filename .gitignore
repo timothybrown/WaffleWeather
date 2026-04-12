@@ -36,6 +36,9 @@ htmlcov/
 .claude/
 .playwright-mcp/
 
+# Local design docs (brainstorming specs, plans) — not for public repo
+docs/superpowers/
+
 # Playwright testing artifacts
 *.png
 !screenshots/*.png
