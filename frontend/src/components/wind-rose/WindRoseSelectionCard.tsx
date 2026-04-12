@@ -23,6 +23,14 @@ const METRIC_BAND_LABELS: Record<string, string> = {
   "40+": "40+",
 };
 
+const IMPERIAL_BAND_LABELS: Record<string, string> = {
+  "0-5": "0–3",
+  "5-15": "3–9",
+  "15-25": "9–16",
+  "25-40": "16–25",
+  "40+": "25+",
+};
+
 const BAND_COLORS: Record<string, string> = {
   "0-5": "var(--color-primary-light)",
   "5-15": "var(--color-primary)",
@@ -39,6 +47,7 @@ function directionLabel(degrees: number): string {
 export default function WindRoseSelectionCard({ selection, totalObs }: Props) {
   const { system } = useUnits();
   const speedUnit = system === "metric" ? "km/h" : "mph";
+  const bandLabels = system === "metric" ? METRIC_BAND_LABELS : IMPERIAL_BAND_LABELS;
 
   return (
     <div className="weather-card rounded-xl p-5">
@@ -65,7 +74,7 @@ export default function WindRoseSelectionCard({ selection, totalObs }: Props) {
                 className="inline-block h-3 w-3 rounded-sm"
                 style={{ backgroundColor: BAND_COLORS[selection.band] }}
               />
-              {METRIC_BAND_LABELS[selection.band]} {speedUnit}
+              {bandLabels[selection.band]} {speedUnit}
             </span>
           </div>
           <div className="flex justify-between">
