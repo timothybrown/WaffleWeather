@@ -39,6 +39,7 @@ htmlcov/
 # Playwright testing artifacts
 *.png
 !screenshots/*.png
+!frontend/public/icon-*.png
 
 # Deploy (contains local hostname)
 scripts/deploy.sh

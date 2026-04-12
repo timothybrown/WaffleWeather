@@ -99,15 +99,10 @@ export default function UPlotChart({
   const onZoomRef = useRef(onZoom);
   onZoomRef.current = onZoom;
 
-  // Stable options identity key — recreate chart when this changes
-  const optsRef = useRef(options);
-  optsRef.current = options;
-
   const createChart = useCallback(() => {
     const el = containerRef.current;
     if (!el) return;
 
-    // Destroy previous instance
     chartRef.current?.destroy();
 
     const width = el.clientWidth;
@@ -115,23 +110,23 @@ export default function UPlotChart({
     if (width === 0 || height === 0) return;
 
     const opts: uPlot.Options = {
-      ...optsRef.current,
+      ...options,
       width,
       height,
       plugins: [tooltipPlugin(
         new Set(
-          (optsRef.current.series ?? [])
+          (options.series ?? [])
             .map((s, i) => (s.value != null ? i : -1))
             .filter((i) => i >= 0),
         ),
       )],
       cursor: {
-        ...optsRef.current.cursor,
+        ...options.cursor,
         drag: { x: true, y: false, setScale: false },
         sync: syncKey ? { key: syncKey, setSeries: true } : undefined,
       },
       hooks: {
-        ...optsRef.current.hooks,
+        ...options.hooks,
         setSelect: [
           (u: uPlot) => {
             const left = u.select.left;
@@ -140,7 +135,6 @@ export default function UPlotChart({
             const min = u.posToVal(left, "x");
             const max = u.posToVal(left + selWidth, "x");
             onZoomRef.current?.(min, max);
-            // Clear the selection rectangle
             u.setSelect({ left: 0, top: 0, width: 0, height: 0 }, false);
           },
         ],
@@ -148,7 +142,7 @@ export default function UPlotChart({
     };
 
     chartRef.current = new uPlot(opts, data, el);
-  }, [syncKey, data]);
+  }, [syncKey, data, options]);
 
   // Mount / options change → recreate chart
   useEffect(() => {

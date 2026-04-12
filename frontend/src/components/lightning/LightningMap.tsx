@@ -2,6 +2,7 @@
 
 import { MapContainer, TileLayer, Circle, CircleMarker } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
+import { useTheme } from "@/providers/ThemeProvider";
 
 interface LightningMapProps {
   latitude: number;
@@ -15,7 +16,12 @@ export default function LightningMap({
   longitude,
   strikeDistance,
 }: LightningMapProps) {
+  const { resolved } = useTheme();
   const center: [number, number] = [latitude, longitude];
+  const tileUrl =
+    resolved === "dark"
+      ? "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+      : "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png";
   // Zoom level: fit the circle nicely. Farther strikes = zoom out.
   const zoom =
     strikeDistance != null
@@ -36,7 +42,7 @@ export default function LightningMap({
       zoomControl={false}
       attributionControl={false}
     >
-      <TileLayer url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" />
+      <TileLayer key={resolved} url={tileUrl} />
 
       {/* Station marker — small pulsing amber dot */}
       <CircleMarker

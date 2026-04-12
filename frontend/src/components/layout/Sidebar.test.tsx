@@ -53,4 +53,28 @@ describe("Sidebar", () => {
     const observatoryLink = screen.getByText("Observatory").closest("a");
     expect(observatoryLink?.className).toContain("text-primary");
   });
+
+  it("shows theme toggle with three options", () => {
+    renderWithProviders(<Sidebar open={true} onClose={() => {}} />);
+    const group = screen.getByRole("radiogroup", { name: "Theme" });
+    expect(group).toBeInTheDocument();
+    const radios = screen.getAllByRole("radio");
+    expect(radios).toHaveLength(3);
+    expect(screen.getByTitle("Auto")).toBeInTheDocument();
+    expect(screen.getByTitle("Light")).toBeInTheDocument();
+    expect(screen.getByTitle("Dark")).toBeInTheDocument();
+  });
+
+  it("switches theme when clicking toggle segments", async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<Sidebar open={true} onClose={() => {}} />);
+
+    await user.click(screen.getByTitle("Dark"));
+    expect(screen.getByTitle("Dark")).toHaveAttribute("aria-checked", "true");
+    expect(screen.getByTitle("Auto")).toHaveAttribute("aria-checked", "false");
+
+    await user.click(screen.getByTitle("Light"));
+    expect(screen.getByTitle("Light")).toHaveAttribute("aria-checked", "true");
+    expect(screen.getByTitle("Dark")).toHaveAttribute("aria-checked", "false");
+  });
 });

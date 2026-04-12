@@ -11,10 +11,14 @@ import {
   RiCompassLine,
   RiSettings4Line,
   RiCloseLine,
+  RiComputerLine,
+  RiSunLine,
+  RiMoonLine,
 } from "@remixicon/react";
 import { cn } from "@/lib/utils";
 import { useWebSocket } from "@/providers/WebSocketProvider";
 import { useUnits } from "@/providers/UnitsProvider";
+import { useTheme } from "@/providers/ThemeProvider";
 
 const navItems = [
   { href: "/", label: "Observatory", icon: RiDashboardLine },
@@ -35,6 +39,7 @@ export default function Sidebar({
   const pathname = usePathname();
   const { connected } = useWebSocket();
   const { system, toggle } = useUnits();
+  const { preference, setPreference } = useTheme();
 
   // Close sidebar when navigating on mobile
   const onCloseRef = useRef(onClose);
@@ -105,8 +110,39 @@ export default function Sidebar({
           })}
         </nav>
 
-        {/* Footer: connection status + unit toggle */}
+        {/* Footer: theme toggle, connection status, unit toggle */}
         <div className="space-y-3 border-t border-border p-4">
+          <div
+            role="radiogroup"
+            aria-label="Theme"
+            className="flex w-full items-center rounded-lg border border-border bg-surface text-xs font-medium"
+          >
+            {(
+              [
+                { value: "auto", icon: RiComputerLine, label: "Auto" },
+                { value: "light", icon: RiSunLine, label: "Light" },
+                { value: "dark", icon: RiMoonLine, label: "Dark" },
+              ] as const
+            ).map(({ value, icon: Icon, label }) => (
+              <button
+                key={value}
+                type="button"
+                role="radio"
+                aria-checked={preference === value}
+                title={label}
+                onClick={() => setPreference(value)}
+                className={cn(
+                  "flex flex-1 items-center justify-center rounded-md py-1.5 transition-colors",
+                  preference === value
+                    ? "bg-primary/15 text-primary"
+                    : "text-text-faint hover:text-text-muted",
+                )}
+              >
+                <Icon className="h-3.5 w-3.5" />
+                <span className="sr-only">{label}</span>
+              </button>
+            ))}
+          </div>
           <div className="flex items-center gap-2.5 text-xs text-text-faint">
             <span
               className={cn(

@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
-/* ── Light mode: "Golden Morning" ────────────────────────────── */
-@theme inline {
+/* ── Base tokens: "Golden Morning" (light default) ──────────── */
+@theme {
   --color-primary: #b07832;
   --color-primary-light: #c8944e;
   --color-surface: #faf7f2;
@@ -10,31 +10,30 @@
   --color-border: #d8d0c4;
   --color-text: #2c231a;
   --color-text-muted: #7a6e5e;
-  --color-text-faint: #a69a8a;
+  --color-text-faint: #968a7a;
   --color-success: #5a9e6a;
-  --color-warning: #c88a30;
+  --color-warning: #b87a22;
   --color-danger: #c45050;
   --font-sans: var(--font-outfit);
   --font-display: var(--font-fraunces);
   --font-mono: var(--font-ibm-plex-mono);
 }
 
-/* ── Dark mode: "Warm Observatory" ───────────────────────────── */
-@media (prefers-color-scheme: dark) {
-  @theme inline {
-    --color-primary: #d4a574;
-    --color-primary-light: #e8c49a;
-    --color-surface: #1a1714;
-    --color-surface-alt: #262220;
-    --color-surface-hover: #34302c;
-    --color-border: #3a3530;
-    --color-text: #f0e8dc;
-    --color-text-muted: #a89a8a;
-    --color-text-faint: #706860;
-    --color-success: #7ec89a;
-    --color-warning: #dba355;
-    --color-danger: #d47272;
-  }
+/* ── Dark overrides: "Warm Observatory" ─────────────────────── */
+[data-theme="dark"] {
+  --shadow-color: rgba(0, 0, 0, 0.2);
+  --color-primary: #d4a574;
+  --color-primary-light: #e8c49a;
+  --color-surface: #1a1714;
+  --color-surface-alt: #262220;
+  --color-surface-hover: #34302c;
+  --color-border: #3a3530;
+  --color-text: #f0e8dc;
+  --color-text-muted: #a89a8a;
+  --color-text-faint: #706860;
+  --color-success: #7ec89a;
+  --color-warning: #dba355;
+  --color-danger: #d47272;
 }
 
 /* ── Keyframe animations ─────────────────────────────────────── */
@@ -177,7 +176,7 @@
   background: var(--color-surface-alt);
   border: 1px solid var(--color-border);
   box-shadow:
-    0 4px 16px -2px rgba(0, 0, 0, 0.2),
+    0 4px 16px -2px var(--shadow-color, rgba(0, 0, 0, 0.08)),
     0 0 0 1px rgba(0, 0, 0, 0.04);
   color: var(--color-text-muted);
   font-family: var(--font-sans);
@@ -321,7 +320,7 @@ body::after {
   border-radius: 8px;
   background: var(--color-surface-alt);
   border: 1px solid var(--color-border);
-  box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 4px 12px -2px var(--shadow-color, rgba(0, 0, 0, 0.08));
   font-size: 12px;
   line-height: 1.6;
   color: var(--color-text);

@@ -1,7 +1,8 @@
-import type { Metadata, Viewport } from "next";
+import type { Metadata } from "next";
 import { Fraunces, Outfit, IBM_Plex_Mono } from "next/font/google";
 import "./globals.css";
 import QueryProvider from "@/providers/QueryProvider";
+import ThemeProvider from "@/providers/ThemeProvider";
 import WebSocketProvider from "@/providers/WebSocketProvider";
 import UnitsProvider from "@/providers/UnitsProvider";
 import Shell from "@/components/layout/Shell";
@@ -26,13 +27,6 @@ const ibmPlexMono = IBM_Plex_Mono({
   display: "swap",
 });
 
-export const viewport: Viewport = {
-  themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#faf7f2" },
-    { media: "(prefers-color-scheme: dark)", color: "#1a1714" },
-  ],
-};
-
 export const metadata: Metadata = {
   title: "WaffleWeather",
   description: "Personal weather station dashboard",
@@ -50,16 +44,26 @@ export default function RootLayout({
   return (
     <html
       lang="en"
+      suppressHydrationWarning
       className={`${fraunces.variable} ${outfit.variable} ${ibmPlexMono.variable} h-full antialiased`}
     >
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var s=localStorage.getItem('ww-theme');var t=s==='light'||s==='dark'?s:(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');document.documentElement.setAttribute('data-theme',t)}catch(e){}})()`,
+          }}
+        />
+      </head>
       <body className="flex h-full bg-surface text-text font-sans">
         <ServiceWorkerRegistrar />
         <QueryProvider>
-          <WebSocketProvider>
-            <UnitsProvider>
-              <Shell>{children}</Shell>
-            </UnitsProvider>
-          </WebSocketProvider>
+          <ThemeProvider>
+            <WebSocketProvider>
+              <UnitsProvider>
+                <Shell>{children}</Shell>
+              </UnitsProvider>
+            </WebSocketProvider>
+          </ThemeProvider>
         </QueryProvider>
       </body>
     </html>

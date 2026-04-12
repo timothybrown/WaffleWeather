@@ -1,6 +1,7 @@
 import React, { type ReactNode } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, type RenderOptions } from "@testing-library/react";
+import ThemeProvider from "@/providers/ThemeProvider";
 import UnitsProvider from "@/providers/UnitsProvider";
 
 function createTestQueryClient() {
@@ -15,7 +16,9 @@ function TestProviders({ children }: { children: ReactNode }) {
   const client = createTestQueryClient();
   return (
     <QueryClientProvider client={client}>
-      <UnitsProvider>{children}</UnitsProvider>
+      <ThemeProvider>
+        <UnitsProvider>{children}</UnitsProvider>
+      </ThemeProvider>
     </QueryClientProvider>
   );
 }
