@@ -12,4 +12,18 @@ describe("WindRoseSelectionCard", () => {
       screen.getByText(/hover or tap a segment to see details/i),
     ).toBeInTheDocument();
   });
+
+  it("renders direction, band, count, and frequency when a selection is present", () => {
+    renderWithProviders(
+      <WindRoseSelectionCard
+        selection={{ direction: 22.5, band: "5-15", count: 142 }}
+        totalObs={4580}
+      />,
+    );
+    expect(screen.getByText("NNE")).toBeInTheDocument();
+    expect(screen.getByText(/22\.5°/)).toBeInTheDocument();
+    expect(screen.getByText("5–15 km/h")).toBeInTheDocument();
+    expect(screen.getByText("142")).toBeInTheDocument();
+    expect(screen.getByText("3.1%")).toBeInTheDocument();
+  });
 });
