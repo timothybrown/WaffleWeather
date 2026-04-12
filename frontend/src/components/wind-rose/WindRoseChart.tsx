@@ -173,6 +173,7 @@ export default function WindRoseChart({ data, onSelect }: Props) {
             stroke="var(--color-surface)"
             strokeWidth="0.5"
             onMouseEnter={() => onSelect?.({ direction: w.dir, band: w.band, count: w.count })}
+            onClick={() => onSelect?.({ direction: w.dir, band: w.band, count: w.count })}
           />
         );
       })}

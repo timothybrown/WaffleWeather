@@ -63,4 +63,19 @@ describe("WindRoseChart", () => {
       count: 10,
     });
   });
+
+  it("fires onSelect with wedge payload on click (touch path)", () => {
+    const onSelect = vi.fn();
+    const { container } = render(
+      <WindRoseChart data={sampleData} onSelect={onSelect} />,
+    );
+    const wedge = container.querySelector('[data-testid="wind-rose-wedge-90-0-5"]');
+    expect(wedge).not.toBeNull();
+    fireEvent.click(wedge!);
+    expect(onSelect).toHaveBeenCalledWith({
+      direction: 90,
+      band: "0-5",
+      count: 8,
+    });
+  });
 });
