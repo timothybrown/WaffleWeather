@@ -37,16 +37,16 @@ export default function WindCard({ data, trend }: { data: Observation | null; tr
       icon={<RiWindyLine className="h-4 w-4" />}
       info="Wind speed and direction from the anemometer. Speed is a 1-minute average; gust is the peak in the current interval."
     >
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-1.5">
+        <span className="font-mono text-4xl font-semibold tabular-nums text-text">
+          {fmt(speed.value)}
+        </span>
+        <span className="text-lg text-text-faint">{speed.unit}</span>
+        <TrendIndicator trend={trend} />
+      </div>
+      <div className="mt-2 flex items-center gap-3">
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-1.5">
-            <span className="font-mono text-4xl font-semibold tabular-nums text-text">
-              {fmt(speed.value)}
-            </span>
-            <span className="text-lg text-text-faint">{speed.unit}</span>
-            <TrendIndicator trend={trend} />
-          </div>
-          <p className="mt-1 font-mono text-sm font-medium text-text-muted">
+          <p className="font-mono text-sm font-medium text-text-muted">
             {degToCompass(data?.wind_dir)} ({fmt(data?.wind_dir, 0)}&deg;)
           </p>
           {(() => {
@@ -70,7 +70,7 @@ export default function WindCard({ data, trend }: { data: Observation | null; tr
             </p>
           </div>
         </div>
-        <div className="h-24 w-24 shrink-0">
+        <div className="h-32 w-32 shrink-0">
           <WindCompassRing
             windDir={data?.wind_dir}
             windSpeed={data?.wind_speed}
