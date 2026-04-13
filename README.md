@@ -19,7 +19,7 @@ WaffleWeather was built to fill that gap: a modern, good-looking dashboard that 
 
 ### Observatory
 
-The main dashboard with 10 live-updating cards: temperature (with daily high/low, Black Globe Temperature, Wet Bulb Globe Temperature, and VPD when a WH32 sensor is connected), humidity, wind (SVG compass rose and Beaufort scale), barometric pressure (with Zambretti forecast), rain, solar/UV, lightning, thermal comfort (UTCI with precise MRT from BGT sensor), sun position, and moon phase. Every value updates in real time over WebSocket with 15-minute trend arrows. Click-to-toggle info tips on every card explain what each metric means and how it's calculated.
+The main dashboard with 10 live-updating cards: temperature (with daily high/low, Black Globe Temperature, Wet Bulb Globe Temperature, and VPD when a WH32 sensor is connected), humidity, wind (tick ring compass with inward-pointing arrow and canvas particle drift animation driven by wind speed and gust), barometric pressure (with Zambretti forecast), rain, solar/UV, lightning, thermal comfort (UTCI with precise MRT from BGT sensor), sun position, and moon phase. Every value updates in real time over WebSocket with 15-minute trend arrows. Click-to-toggle info tips on every card explain what each metric means and how it's calculated.
 
 ### VFD Console
 
