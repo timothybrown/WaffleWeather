@@ -152,7 +152,7 @@ export default function MoonCard() {
   }, [station]);
 
   return (
-    <WeatherCard title="Moon" icon={<RiMoonLine className="h-4 w-4" />} info="Lunar phase, illumination percentage, and rise/set times. Phase and illumination are location-independent; rise/set times use your station's coordinates.">
+    <WeatherCard title="Lunar" icon={<RiMoonLine className="h-4 w-4" />} info="Lunar phase, illumination percentage, and rise/set times. Phase and illumination are location-independent; rise/set times use your station's coordinates.">
       {/* Top row: SVG + phase info */}
       <div className="flex items-center gap-4">
         <MoonPhaseSVG phase={phase} />

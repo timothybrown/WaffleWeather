@@ -57,8 +57,8 @@ describe("MoonCard", () => {
     expect(screen.getByText("New Moon")).toBeInTheDocument();
   });
 
-  it("renders the Moon card title", () => {
+  it("renders the Lunar card title", () => {
     renderWithProviders(<MoonCard />);
-    expect(screen.getByText("Moon")).toBeInTheDocument();
+    expect(screen.getByText("Lunar")).toBeInTheDocument();
   });
 });
