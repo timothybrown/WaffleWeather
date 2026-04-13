@@ -43,6 +43,24 @@ describe("UTCICard", () => {
     expect(container.querySelector("svg")).toBeInTheDocument();
   });
 
+  it("renders Globe and Wet Bulb when BGT is present", () => {
+    renderWithProviders(
+      <UTCICard data={makeObservation({ utci: 22.0, bgt: 25.3, wbgt: 21.8 })} />,
+    );
+    expect(screen.getByText("Globe")).toBeInTheDocument();
+    expect(screen.getByText("25.3°")).toBeInTheDocument();
+    expect(screen.getByText("Wet Bulb")).toBeInTheDocument();
+    expect(screen.getByText("21.8°")).toBeInTheDocument();
+  });
+
+  it("does not render Globe and Wet Bulb when BGT is absent", () => {
+    renderWithProviders(
+      <UTCICard data={makeObservation({ utci: 22.0, bgt: null })} />,
+    );
+    expect(screen.queryByText("Globe")).not.toBeInTheDocument();
+    expect(screen.queryByText("Wet Bulb")).not.toBeInTheDocument();
+  });
+
   it("handles null data", () => {
     renderWithProviders(<UTCICard data={null} />);
     expect(screen.getByText("Thermal Comfort")).toBeInTheDocument();
