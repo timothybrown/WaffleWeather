@@ -204,7 +204,7 @@ pnpm test -- src/lib/utils.test.ts
 
 ## Database Migrations
 
-Migrations use Alembic with async SQLAlchemy. TimescaleDB hypertables and continuous aggregates are managed through migrations.
+Migrations use Alembic with async SQLAlchemy. TimescaleDB hypertables and continuous aggregates are managed through migrations. All continuous aggregate views have real-time aggregation enabled (`materialized_only = false`), so the current incomplete bucket is always visible in query results.
 
 ```bash
 cd backend
