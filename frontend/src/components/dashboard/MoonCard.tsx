@@ -168,25 +168,25 @@ export default function MoonCard() {
       <div className="mt-4 grid grid-cols-2 gap-3">
         <div>
           <p className="text-xs text-text-faint">Moonrise</p>
-          <p className="font-mono text-sm font-medium tabular-nums text-text">
+          <p className="font-mono text-sm font-medium tabular-nums text-text-muted">
             {fmtTime(moonrise)}
           </p>
         </div>
         <div>
           <p className="text-xs text-text-faint">Moonset</p>
-          <p className="font-mono text-sm font-medium tabular-nums text-text">
+          <p className="font-mono text-sm font-medium tabular-nums text-text-muted">
             {fmtTime(moonset)}
           </p>
         </div>
         <div>
           <p className="text-xs text-text-faint">Full Moon</p>
-          <p className="font-mono text-sm font-medium tabular-nums text-text">
+          <p className="font-mono text-sm font-medium tabular-nums text-text-muted">
             {nextFullMoon ? fmtDate(nextFullMoon) : "\u2014"}
           </p>
         </div>
         <div>
           <p className="text-xs text-text-faint">New Moon</p>
-          <p className="font-mono text-sm font-medium tabular-nums text-text">
+          <p className="font-mono text-sm font-medium tabular-nums text-text-muted">
             {nextNewMoon ? fmtDate(nextNewMoon) : "\u2014"}
           </p>
         </div>

@@ -187,10 +187,10 @@ export default function SunCard({ data, solarTrend, uvTrend }: { data: Observati
             <div>
               <p className="text-xs text-text-faint">Day length</p>
               <p className="font-mono font-medium tabular-nums text-text-muted">
-                {sunData.dayLengthStr}{" "}
-                <span className={`text-xs ${sunData.gaining ? "text-primary" : "text-text-faint"}`}>
-                  ({sunData.deltaStr})
-                </span>
+                {sunData.dayLengthStr}
+              </p>
+              <p className={`font-mono text-xs tabular-nums ${sunData.gaining ? "text-primary" : "text-text-faint"}`}>
+                {sunData.deltaStr}
               </p>
             </div>
             <div>
