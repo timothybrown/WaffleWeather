@@ -52,4 +52,18 @@ describe("HumidityCard", () => {
     renderWithProviders(<HumidityCard data={null} trend={null} />);
     expect(screen.getByText("Humidity")).toBeInTheDocument();
   });
+
+  it("renders sparkline when data is provided", () => {
+    const sparkline = [60, 62, 64, 66, 68, 70, 68, 66, 64, 62, 60, 58,
+                       60, 62, 65, 68, 72, 70, 66, 63, 61, 59, 58, 60];
+    renderWithProviders(
+      <HumidityCard data={makeObservation()} trend={null} sparkline={sparkline} />,
+    );
+    expect(screen.getByRole("img", { name: /humidity trend/i })).toBeInTheDocument();
+  });
+
+  it("does not render sparkline when prop is omitted", () => {
+    renderWithProviders(<HumidityCard data={makeObservation()} trend={null} />);
+    expect(screen.queryByRole("img", { name: /humidity trend/i })).not.toBeInTheDocument();
+  });
 });

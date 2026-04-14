@@ -7,6 +7,7 @@ import { fmt } from "@/lib/utils";
 import WeatherCard from "./WeatherCard";
 import TrendIndicator from "./TrendIndicator";
 import InfoTip from "@/components/ui/InfoTip";
+import Sparkline from "./Sparkline";
 
 function comfortLevel(humidity: number | null | undefined): string {
   if (humidity == null) return "\u2014";
@@ -16,7 +17,7 @@ function comfortLevel(humidity: number | null | undefined): string {
   return "Very humid";
 }
 
-export default function HumidityCard({ data, trend, dayMin, dayMax }: { data: Observation | null; trend: TrendDirection; dayMin?: number | null; dayMax?: number | null }) {
+export default function HumidityCard({ data, trend, dayMin, dayMax, sparkline }: { data: Observation | null; trend: TrendDirection; dayMin?: number | null; dayMax?: number | null; sparkline?: (number | null)[] }) {
   return (
     <WeatherCard
       title="Humidity"
@@ -52,6 +53,15 @@ export default function HumidityCard({ data, trend, dayMin, dayMax }: { data: Ob
           </div>
         )}
       </div>
+      {sparkline && sparkline.length >= 2 && (
+        <div className="mt-3">
+          <Sparkline
+            data={sparkline}
+            color="var(--color-success)"
+            label="Humidity trend over the last 24 hours"
+          />
+        </div>
+      )}
     </WeatherCard>
   );
 }

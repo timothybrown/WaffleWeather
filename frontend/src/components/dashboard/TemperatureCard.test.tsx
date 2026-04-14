@@ -71,4 +71,18 @@ describe("TemperatureCard", () => {
     renderWithProviders(<TemperatureCard data={makeObservation()} trend="up" />);
     expect(screen.getByLabelText("Trending up")).toBeInTheDocument();
   });
+
+  it("renders sparkline when data is provided", () => {
+    const sparkline = [18, 19, 20, 21, 22, 23, 22, 21, 20, 19, 18, 17,
+                       18, 19, 21, 23, 25, 24, 22, 20, 19, 18, 17, 18];
+    renderWithProviders(
+      <TemperatureCard data={makeObservation()} trend={null} sparkline={sparkline} />,
+    );
+    expect(screen.getByRole("img", { name: /temperature trend/i })).toBeInTheDocument();
+  });
+
+  it("does not render sparkline when prop is omitted", () => {
+    renderWithProviders(<TemperatureCard data={makeObservation()} trend={null} />);
+    expect(screen.queryByRole("img", { name: /temperature trend/i })).not.toBeInTheDocument();
+  });
 });

@@ -6,6 +6,7 @@ import { useWebSocket } from "@/providers/WebSocketProvider";
 import { timeAgo } from "@/lib/utils";
 import { useTrends } from "@/hooks/useTrends";
 import { useTodayExtremes } from "@/hooks/useTodayExtremes";
+import { useSparklineData } from "@/hooks/useSparklineData";
 import TemperatureCard from "@/components/dashboard/TemperatureCard";
 import HumidityCard from "@/components/dashboard/HumidityCard";
 import WindCard from "@/components/dashboard/WindCard";
@@ -21,6 +22,7 @@ export default function DashboardPage() {
   const { latestObservation: wsData } = useWebSocket();
   const trends = useTrends();
   const extremes = useTodayExtremes();
+  const sparklines = useSparklineData();
 
   const apiData = apiResponse?.data as Observation | undefined;
   const data: Observation | null = wsData
@@ -43,9 +45,9 @@ export default function DashboardPage() {
       </div>
 
       <div className="card-stagger grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <TemperatureCard data={data} trend={trends.temp_outdoor} dayMin={extremes.tempMin} dayMax={extremes.tempMax} />
-        <HumidityCard data={data} trend={trends.humidity_outdoor} dayMin={extremes.humidityMin} dayMax={extremes.humidityMax} />
-        <PressureCard data={data} trend={trends.pressure_rel} />
+        <TemperatureCard data={data} trend={trends.temp_outdoor} dayMin={extremes.tempMin} dayMax={extremes.tempMax} sparkline={sparklines.temperature} />
+        <HumidityCard data={data} trend={trends.humidity_outdoor} dayMin={extremes.humidityMin} dayMax={extremes.humidityMax} sparkline={sparklines.humidity} />
+        <PressureCard data={data} trend={trends.pressure_rel} sparkline={sparklines.pressure} />
         <UTCICard data={data} />
         <RainCard data={data} trend={trends.rain_rate} />
         <WindCard data={data} trend={trends.wind_speed} />

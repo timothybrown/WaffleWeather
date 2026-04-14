@@ -8,6 +8,7 @@ import { convertTemp } from "@/lib/units";
 import { useUnits } from "@/providers/UnitsProvider";
 import WeatherCard from "./WeatherCard";
 import TrendIndicator from "./TrendIndicator";
+import Sparkline from "./Sparkline";
 import InfoTip from "@/components/ui/InfoTip";
 
 function dewpointComfort(dewC: number | null | undefined): { label: string; color: string } {
@@ -20,7 +21,7 @@ function dewpointComfort(dewC: number | null | undefined): { label: string; colo
   return { label: "Miserable", color: "text-danger" };
 }
 
-export default function TemperatureCard({ data, trend, dayMin, dayMax }: { data: Observation | null; trend: TrendDirection; dayMin?: number | null; dayMax?: number | null }) {
+export default function TemperatureCard({ data, trend, dayMin, dayMax, sparkline }: { data: Observation | null; trend: TrendDirection; dayMin?: number | null; dayMax?: number | null; sparkline?: (number | null)[] }) {
   const { system } = useUnits();
   const temp = convertTemp(data?.temp_outdoor, system);
   const dew = convertTemp(data?.dewpoint, system);
@@ -59,6 +60,15 @@ export default function TemperatureCard({ data, trend, dayMin, dayMax }: { data:
           <p className="font-mono font-medium tabular-nums text-text-muted">{fmt(indoor.value)}&deg;</p>
         </div>
       </div>
+      {sparkline && sparkline.length >= 2 && (
+        <div className="mt-3">
+          <Sparkline
+            data={sparkline}
+            color="var(--color-danger)"
+            label="Temperature trend over the last 24 hours"
+          />
+        </div>
+      )}
     </WeatherCard>
   );
 }

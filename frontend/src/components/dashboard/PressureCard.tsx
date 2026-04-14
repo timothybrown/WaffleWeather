@@ -8,9 +8,10 @@ import { convertPressure } from "@/lib/units";
 import { useUnits } from "@/providers/UnitsProvider";
 import WeatherCard from "./WeatherCard";
 import TrendIndicator from "./TrendIndicator";
+import Sparkline from "./Sparkline";
 import InfoTip from "@/components/ui/InfoTip";
 
-export default function PressureCard({ data, trend }: { data: Observation | null; trend: TrendDirection }) {
+export default function PressureCard({ data, trend, sparkline }: { data: Observation | null; trend: TrendDirection; sparkline?: (number | null)[] }) {
   const { system } = useUnits();
   const rel = convertPressure(data?.pressure_rel, system);
   const abs = convertPressure(data?.pressure_abs, system);
@@ -41,6 +42,15 @@ export default function PressureCard({ data, trend }: { data: Observation | null
           </div>
         )}
       </div>
+      {sparkline && sparkline.length >= 2 && (
+        <div className="mt-3">
+          <Sparkline
+            data={sparkline}
+            color="var(--color-primary)"
+            label="Pressure trend over the last 24 hours"
+          />
+        </div>
+      )}
     </WeatherCard>
   );
 }
