@@ -70,18 +70,20 @@ export default function Sidebar({
           open ? "translate-x-0" : "-translate-x-full",
         )}
       >
-        {/* Logo */}
-        <div className="flex h-16 items-center justify-between border-b border-border px-5">
+        {/* Logo — hidden on mobile since Shell's sticky header already shows it */}
+        <div className="hidden h-16 items-center border-b border-border px-5 md:flex">
           <div className="flex items-center gap-3">
             <img src="/waffle-logo.png" alt="" width={28} height={28} className="drop-shadow-sm" />
             <span className="font-display text-lg font-semibold tracking-tight text-text">
               WaffleWeather
             </span>
           </div>
-          {/* Mobile close button */}
+        </div>
+        {/* Mobile close button */}
+        <div className="flex items-center justify-end px-3 pt-3 md:hidden">
           <button
             onClick={onClose}
-            className="flex h-8 w-8 items-center justify-center rounded-lg text-text-muted hover:text-text md:hidden"
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-text-muted hover:text-text"
             aria-label="Close menu"
           >
             <RiCloseLine className="h-5 w-5" />
