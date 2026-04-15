@@ -8,6 +8,7 @@ import {
   RiDashboard2Line,
   RiFlashlightLine,
   RiHistoryLine,
+  RiFileChartLine,
   RiCompassLine,
   RiSettings4Line,
   RiCloseLine,
@@ -26,6 +27,7 @@ const navItems = [
   { href: "/lightning", label: "Lightning", icon: RiFlashlightLine },
   { href: "/wind-rose", label: "Wind Rose", icon: RiCompassLine },
   { href: "/history", label: "History", icon: RiHistoryLine },
+  { href: "/reports", label: "Reports", icon: RiFileChartLine },
   { href: "/settings", label: "Diagnostics", icon: RiSettings4Line },
 ];
 
