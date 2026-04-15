@@ -14,7 +14,7 @@ from app.models.lightning import LightningEvent
 from app.models.observation import WeatherObservation
 from app.models.station import Station
 from app.mqtt.parser import parse_ecowitt_payload
-from app.services.derived import enrich_observation, zambretti_forecast
+from app.services.derived import dew_point, enrich_observation, zambretti_forecast
 
 logger = logging.getLogger(__name__)
 
@@ -91,6 +91,13 @@ async def _handle_message(
         return
 
     parsed, diagnostics = parse_result
+
+    # Compute dewpoint at ingestion so continuous aggregates can use it
+    if "dewpoint" not in parsed:
+        temp = parsed.get("temp_outdoor")
+        rh = parsed.get("humidity_outdoor")
+        if temp is not None and rh is not None:
+            parsed["dewpoint"] = dew_point(temp, rh)
 
     try:
         async with async_session() as session:
