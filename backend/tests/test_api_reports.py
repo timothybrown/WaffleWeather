@@ -85,7 +85,7 @@ class TestMonthlyReportEndpoint:
             side_effect=_mock_three_calls(station, daily_rows, wind_tuples)
         )
 
-        resp = await test_client.get("/api/v1/reports/monthly/2026/4")
+        resp = await test_client.get("/api/v1/reports/monthly", params={"year": 2026, "month": 4})
         assert resp.status_code == 200
         data = resp.json()
 
@@ -108,7 +108,7 @@ class TestMonthlyReportEndpoint:
         station_result.scalar_one_or_none.return_value = None
         mock_db_session.execute = AsyncMock(return_value=station_result)
 
-        resp = await test_client.get("/api/v1/reports/monthly/2026/4")
+        resp = await test_client.get("/api/v1/reports/monthly", params={"year": 2026, "month": 4})
         assert resp.status_code == 404
 
     async def test_empty_month(self, test_client, mock_db_session):
@@ -117,14 +117,14 @@ class TestMonthlyReportEndpoint:
             side_effect=_mock_three_calls(station, [], [])
         )
 
-        resp = await test_client.get("/api/v1/reports/monthly/2026/4")
+        resp = await test_client.get("/api/v1/reports/monthly", params={"year": 2026, "month": 4})
         assert resp.status_code == 200
         data = resp.json()
         assert data["rows"] == []
         assert data["summary"]["rain_total"] is None
 
     async def test_invalid_month_rejected(self, test_client, mock_db_session):
-        resp = await test_client.get("/api/v1/reports/monthly/2026/13")
+        resp = await test_client.get("/api/v1/reports/monthly", params={"year": 2026, "month": 13})
         assert resp.status_code == 422
 
     async def test_hdd_cdd_computed(self, test_client, mock_db_session):
@@ -140,7 +140,7 @@ class TestMonthlyReportEndpoint:
             side_effect=_mock_three_calls(station, [cold_row, hot_row], [])
         )
 
-        resp = await test_client.get("/api/v1/reports/monthly/2026/4")
+        resp = await test_client.get("/api/v1/reports/monthly", params={"year": 2026, "month": 4})
         assert resp.status_code == 200
         data = resp.json()
 
@@ -197,7 +197,7 @@ class TestYearlyReportEndpoint:
             side_effect=_mock_three_calls(station, daily_rows, wind_tuples)
         )
 
-        resp = await test_client.get("/api/v1/reports/yearly/2026")
+        resp = await test_client.get("/api/v1/reports/yearly", params={"year": 2026})
         assert resp.status_code == 200
         data = resp.json()
 
@@ -228,7 +228,7 @@ class TestMonthlyTxtEndpoint:
             side_effect=_mock_three_calls(station, daily_rows, wind_tuples)
         )
 
-        resp = await test_client.get("/api/v1/reports/monthly/2026/4/txt")
+        resp = await test_client.get("/api/v1/reports/monthly/txt", params={"year": 2026, "month": 4})
         assert resp.status_code == 200
         assert "text/plain" in resp.headers["content-type"]
 
@@ -247,10 +247,25 @@ class TestMonthlyTxtEndpoint:
         )
 
         resp = await test_client.get(
-            "/api/v1/reports/monthly/2026/4/txt", params={"units": "imperial"}
+            "/api/v1/reports/monthly/txt", params={"year": 2026, "month": 4, "units": "imperial"}
         )
         assert resp.status_code == 200
         body = resp.text
         # Imperial headers
         assert "(F)" in body
         assert "(mph)" in body
+
+    async def test_content_disposition_header(self, test_client, mock_db_session):
+        station = _make_station()
+        daily_rows = [_make_daily_row(1)]
+        wind_tuples = _make_wind_rows(1, [180.0])
+
+        mock_db_session.execute = AsyncMock(
+            side_effect=_mock_three_calls(station, daily_rows, wind_tuples)
+        )
+
+        resp = await test_client.get(
+            "/api/v1/reports/monthly/txt", params={"year": 2026, "month": 4}
+        )
+        assert resp.status_code == 200
+        assert resp.headers["content-disposition"] == 'attachment; filename="NOAA-2026-04.txt"'

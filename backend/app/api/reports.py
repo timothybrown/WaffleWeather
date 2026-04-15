@@ -4,7 +4,7 @@ import calendar
 from collections import Counter
 from datetime import date
 
-from fastapi import APIRouter, Depends, HTTPException, Path, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import PlainTextResponse
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -445,10 +445,10 @@ def format_report_txt(report: ClimateReportSchema, units: str = "metric") -> str
 # --- Endpoints ---
 
 
-@router.get("/monthly/{year}/{month}", response_model=ClimateReportSchema)
+@router.get("/monthly", response_model=ClimateReportSchema)
 async def get_monthly_report(
-    year: int = Path(..., ge=1, le=9999),
-    month: int = Path(..., ge=1, le=12),
+    year: int = Query(..., ge=2000, le=2100),
+    month: int = Query(..., ge=1, le=12),
     station_id: str | None = Query(None),
     db: AsyncSession = Depends(get_db),
 ):
@@ -464,9 +464,9 @@ async def get_monthly_report(
     return _build_monthly_report(station, year, month, daily_rows, wind_data)
 
 
-@router.get("/yearly/{year}", response_model=ClimateReportSchema)
+@router.get("/yearly", response_model=ClimateReportSchema)
 async def get_yearly_report(
-    year: int = Path(..., ge=1, le=9999),
+    year: int = Query(..., ge=2000, le=2100),
     station_id: str | None = Query(None),
     db: AsyncSession = Depends(get_db),
 ):
@@ -481,10 +481,10 @@ async def get_yearly_report(
     return _build_yearly_report(station, year, daily_rows, wind_data)
 
 
-@router.get("/monthly/{year}/{month}/txt", response_class=PlainTextResponse)
+@router.get("/monthly/txt", response_class=PlainTextResponse)
 async def get_monthly_report_txt(
-    year: int = Path(..., ge=1, le=9999),
-    month: int = Path(..., ge=1, le=12),
+    year: int = Query(..., ge=2000, le=2100),
+    month: int = Query(..., ge=1, le=12),
     units: str = Query("metric", pattern="^(metric|imperial)$"),
     station_id: str | None = Query(None),
     db: AsyncSession = Depends(get_db),
@@ -499,12 +499,15 @@ async def get_monthly_report_txt(
     wind_data = await _query_wind_directions(station.id, start, end, db)
 
     report = _build_monthly_report(station, year, month, daily_rows, wind_data)
-    return format_report_txt(report, units)
+    return PlainTextResponse(
+        content=format_report_txt(report, units),
+        headers={"Content-Disposition": f'attachment; filename="NOAA-{year}-{month:02d}.txt"'},
+    )
 
 
-@router.get("/yearly/{year}/txt", response_class=PlainTextResponse)
+@router.get("/yearly/txt", response_class=PlainTextResponse)
 async def get_yearly_report_txt(
-    year: int = Path(..., ge=1, le=9999),
+    year: int = Query(..., ge=2000, le=2100),
     units: str = Query("metric", pattern="^(metric|imperial)$"),
     station_id: str | None = Query(None),
     db: AsyncSession = Depends(get_db),
@@ -518,4 +521,7 @@ async def get_yearly_report_txt(
     wind_data = await _query_wind_directions(station.id, start, end, db)
 
     report = _build_yearly_report(station, year, daily_rows, wind_data)
-    return format_report_txt(report, units)
+    return PlainTextResponse(
+        content=format_report_txt(report, units),
+        headers={"Content-Disposition": f'attachment; filename="NOAA-{year}.txt"'},
+    )
