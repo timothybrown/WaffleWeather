@@ -57,6 +57,12 @@ A GitHub-style calendar heatmap for any metric (temperature, humidity, rain, win
 
 ![Calendar Heatmap](screenshots/calendar.png)
 
+### Climate Reports
+
+NOAA-style monthly and yearly climate summaries with daily breakdown tables showing temperature, dewpoint, humidity, pressure, wind (with prevailing direction), rainfall, and heating/cooling degree days. Browse reports in the app with a year/month picker, or download classic fixed-width NOAA-format text files for archiving and sharing.
+
+![Climate Reports](screenshots/reports.png)
+
 ### Install as an App
 
 WaffleWeather is a Progressive Web App — add it to your phone's home screen for a native app experience. On iOS, tap Share → "Add to Home Screen". On Android, tap the install prompt in Chrome. You get standalone mode (no browser chrome), a waffle icon, and app shortcuts for quick access to the Observatory, Console, Lightning, and History pages. If the Pi is unreachable, an offline fallback page tells you so instead of a browser error.

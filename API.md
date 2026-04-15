@@ -97,6 +97,23 @@ Derived fields (`dewpoint`, `feels_like`, `heat_index`, `wind_chill`, `utci`) ar
 
 **Source:** Raw `weather_observations` (wind_dir + wind_speed columns).
 
+### Climate Reports
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/v1/reports/monthly` | Monthly climate report with daily rows |
+| GET | `/api/v1/reports/yearly` | Yearly climate report with monthly rows |
+| GET | `/api/v1/reports/monthly/txt` | Monthly report as NOAA-format plain text |
+| GET | `/api/v1/reports/yearly/txt` | Yearly report as NOAA-format plain text |
+
+**Parameters (monthly):** `year` (required), `month` (required), `station_id` (optional)
+
+**Parameters (yearly):** `year` (required), `station_id` (optional)
+
+**TXT endpoints** accept an additional `units` parameter (`metric` or `imperial`, default `metric`). Returns `Content-Type: text/plain` with a `Content-Disposition` header for file download.
+
+**Source:** `observations_daily` continuous aggregate for temperature, dewpoint, humidity, pressure, wind speed/gust, and rain. Raw `weather_observations` for prevailing wind direction (16-point compass mode). Heating/cooling degree days computed from daily average temperature with base 18.3°C (65°F).
+
 ### Lightning
 
 | Method | Path | Description |
@@ -168,6 +185,7 @@ WebSocket fields overwrite REST fields for real-time feel, but REST-only fields 
 | **History** | `observations` (24h) or `hourly`/`daily`/`monthly` (7d/30d/1y) | Not used | One-shot fetch per time range selection |
 | **Wind Rose** | `wind-rose` | Not used | One-shot fetch per time range selection |
 | **Settings** | `stations` | Diagnostics only | Station info once; diagnostics update on each WS message |
+| **Reports** | `reports/monthly`, `reports/yearly` | Not used | One-shot fetch per period selection |
 
 ## Resolution Selection
 
