@@ -99,6 +99,15 @@ export default function UPlotChart({
   const onZoomRef = useRef(onZoom);
   onZoomRef.current = onZoom;
 
+  // Hold latest data in a ref so chart creation uses fresh data without
+  // making `data` a dependency of `createChart`. Data updates flow through
+  // the dedicated `setData` effect below, avoiding destroy/recreate on every
+  // WebSocket tick.
+  const dataRef = useRef(data);
+  useEffect(() => {
+    dataRef.current = data;
+  }, [data]);
+
   const createChart = useCallback(() => {
     const el = containerRef.current;
     if (!el) return;
@@ -141,10 +150,12 @@ export default function UPlotChart({
       },
     };
 
-    chartRef.current = new uPlot(opts, data, el);
-  }, [syncKey, data, options]);
+    chartRef.current = new uPlot(opts, dataRef.current, el);
+  }, [syncKey, options]);
 
-  // Mount / options change → recreate chart
+  // Mount / options change → recreate chart.
+  // NOTE: `data` is intentionally NOT a dependency — data updates flow through
+  // setData below. Parent callers must memoize `options` to avoid churn.
   useEffect(() => {
     createChart();
     return () => {

@@ -136,7 +136,9 @@ export default function HistoryPage() {
   }, []);
   const handleResetZoom = useCallback(() => setZoomRange(null), []);
 
-  // Apply zoom to all chart options
+  // Apply zoom to each chart's options — memoized per chart so parent rerenders
+  // (WebSocket ticks, unit toggles) don't churn the options reference and cause
+  // UPlotChart to destroy/recreate. Only rebuilds when base opts or zoomRange change.
   const applyZoom = useCallback(
     (opts: Omit<uPlot.Options, "width" | "height">) => {
       if (!zoomRange) return opts;
@@ -150,6 +152,12 @@ export default function HistoryPage() {
     },
     [zoomRange],
   );
+  const tempZoomedOpts = useMemo(() => applyZoom(tempOpts), [applyZoom, tempOpts]);
+  const humZoomedOpts = useMemo(() => applyZoom(humOpts), [applyZoom, humOpts]);
+  const presZoomedOpts = useMemo(() => applyZoom(presOpts), [applyZoom, presOpts]);
+  const wndZoomedOpts = useMemo(() => applyZoom(wndOpts), [applyZoom, wndOpts]);
+  const rnZoomedOpts = useMemo(() => applyZoom(rnOpts), [applyZoom, rnOpts]);
+  const suvZoomedOpts = useMemo(() => applyZoom(suvOpts), [applyZoom, suvOpts]);
 
   const tempUnit = system === "metric" ? "°C" : "°F";
   const pressureUnit = system === "metric" ? "hPa" : "inHg";
@@ -223,27 +231,27 @@ export default function HistoryPage() {
       ) : (
         <div className="card-stagger grid grid-cols-1 gap-4 lg:grid-cols-2">
           <ChartPanel title={`Temperature (${tempUnit})`}>
-            <UPlotChart options={applyZoom(tempOpts)} data={columnar.temp} syncKey="history" onZoom={handleZoom} />
+            <UPlotChart options={tempZoomedOpts} data={columnar.temp} syncKey="history" onZoom={handleZoom} />
           </ChartPanel>
 
           <ChartPanel title="Humidity (%)">
-            <UPlotChart options={applyZoom(humOpts)} data={columnar.humidity} syncKey="history" onZoom={handleZoom} />
+            <UPlotChart options={humZoomedOpts} data={columnar.humidity} syncKey="history" onZoom={handleZoom} />
           </ChartPanel>
 
           <ChartPanel title={`Pressure (${pressureUnit})`}>
-            <UPlotChart options={applyZoom(presOpts)} data={columnar.pressure} syncKey="history" onZoom={handleZoom} />
+            <UPlotChart options={presZoomedOpts} data={columnar.pressure} syncKey="history" onZoom={handleZoom} />
           </ChartPanel>
 
           <ChartPanel title={`Wind (${windUnit})`}>
-            <UPlotChart options={applyZoom(wndOpts)} data={columnar.wind} syncKey="history" onZoom={handleZoom} />
+            <UPlotChart options={wndZoomedOpts} data={columnar.wind} syncKey="history" onZoom={handleZoom} />
           </ChartPanel>
 
           <ChartPanel title={`Rain (${rainUnit})`}>
-            <UPlotChart options={applyZoom(rnOpts)} data={columnar.rain} syncKey="history" onZoom={handleZoom} />
+            <UPlotChart options={rnZoomedOpts} data={columnar.rain} syncKey="history" onZoom={handleZoom} />
           </ChartPanel>
 
           <ChartPanel title="Solar (W/m&sup2;) & UV Index">
-            <UPlotChart options={applyZoom(suvOpts)} data={columnar.solarUv} syncKey="history" onZoom={handleZoom} />
+            <UPlotChart options={suvZoomedOpts} data={columnar.solarUv} syncKey="history" onZoom={handleZoom} />
           </ChartPanel>
         </div>
       )}
