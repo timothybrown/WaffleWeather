@@ -51,6 +51,11 @@ function getWsUrl() {
 
 const WS_URL = getWsUrl();
 
+// Cap reconnect attempts so a permanently-gone endpoint doesn't drain battery
+// on mobile PWAs. Reset to zero on a successful open so long-lived sessions
+// that only hit transient blips aren't penalized.
+export const MAX_RETRIES = 30;
+
 export default function WebSocketProvider({
   children,
 }: {
@@ -61,7 +66,8 @@ export default function WebSocketProvider({
   const [diagnostics, setDiagnostics] = useState<Diagnostics | null>(null);
   const [connected, setConnected] = useState(false);
   const wsRef = useRef<WebSocket | null>(null);
-  const backoffRef = useRef(1000);
+  const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const retryCountRef = useRef(0);
 
   const connect = useCallback(() => {
     if (wsRef.current?.readyState === WebSocket.OPEN) return;
@@ -71,7 +77,9 @@ export default function WebSocketProvider({
 
     ws.onopen = () => {
       setConnected(true);
-      backoffRef.current = 1000;
+      // Reset the retry counter so a long-lived session that survives a
+      // transient outage isn't penalized by the global cap.
+      retryCountRef.current = 0;
     };
 
     ws.onmessage = (event) => {
@@ -91,10 +99,24 @@ export default function WebSocketProvider({
     ws.onclose = () => {
       setConnected(false);
       wsRef.current = null;
-      // Reconnect with exponential backoff
-      const delay = backoffRef.current;
-      backoffRef.current = Math.min(delay * 2, 30_000);
-      setTimeout(connect, delay);
+
+      // Stop retrying once we've hit the cap so a permanently-gone endpoint
+      // doesn't spin forever.
+      if (retryCountRef.current >= MAX_RETRIES) {
+        return;
+      }
+
+      // Exponential backoff capped at 30s, plus 0-30% random jitter so a fleet
+      // of clients doesn't synchronize into a thundering herd after an outage.
+      const base = Math.min(1000 * 2 ** retryCountRef.current, 30_000);
+      const jitter = Math.random() * 0.3 * base;
+      const delay = base + jitter;
+      retryCountRef.current += 1;
+
+      reconnectTimerRef.current = setTimeout(() => {
+        reconnectTimerRef.current = null;
+        connect();
+      }, delay);
     };
 
     ws.onerror = () => {
@@ -105,6 +127,13 @@ export default function WebSocketProvider({
   useEffect(() => {
     connect();
     return () => {
+      // Cancel any pending reconnect so the timer can't fire after the
+      // component has unmounted (which would call connect() on a dead tree
+      // and trigger "setState on unmounted component" warnings).
+      if (reconnectTimerRef.current) {
+        clearTimeout(reconnectTimerRef.current);
+        reconnectTimerRef.current = null;
+      }
       wsRef.current?.close();
     };
   }, [connect]);
