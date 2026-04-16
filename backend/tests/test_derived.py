@@ -1,6 +1,5 @@
 """Tests for app/services/derived.py — all pure math, no mocks needed."""
 
-import pytest
 
 from app.services.derived import (
     _approximate_mrt,

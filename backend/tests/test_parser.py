@@ -1,7 +1,7 @@
 """Tests for app/mqtt/parser.py — pure parsing logic, no mocks needed."""
 
 import json
-from datetime import datetime, timezone
+from datetime import datetime
 
 from app.mqtt.parser import FIELD_MAP, parse_ecowitt_payload
 

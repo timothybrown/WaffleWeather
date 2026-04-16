@@ -3,7 +3,6 @@
 from datetime import date
 from unittest.mock import AsyncMock, MagicMock
 
-import pytest
 
 
 def _make_station():

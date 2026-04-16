@@ -1,8 +1,6 @@
 """Tests for app/main.py — app configuration and middleware."""
 
-from unittest.mock import patch
 
-import pytest
 
 
 class TestAppRoutes:
