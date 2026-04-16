@@ -212,9 +212,7 @@ class TestGetLatestObservation:
 
 class TestListObservations:
     async def test_paginated_list(self, test_client, mock_db_session):
-        count_result = MagicMock()
-        count_result.scalar.return_value = 2
-
+        # offset=0 → no COUNT; total is None
         obs1 = MagicMock()
         obs1.timestamp = datetime(2026, 4, 5, 12, 0, tzinfo=timezone.utc)
         obs1.station_id = "s1"
@@ -232,27 +230,57 @@ class TestListObservations:
         items_result = MagicMock()
         items_result.scalars.return_value.all.return_value = [obs1]
 
-        mock_db_session.execute = AsyncMock(side_effect=[count_result, items_result])
+        mock_db_session.execute = AsyncMock(side_effect=[items_result])
 
         resp = await test_client.get("/api/v1/observations?limit=10&offset=0")
         assert resp.status_code == 200
         data = resp.json()
-        assert data["total"] == 2
+        assert data["total"] is None
         assert data["limit"] == 10
         assert data["offset"] == 0
         assert len(data["items"]) == 1
 
     async def test_empty_list(self, test_client, mock_db_session):
-        count_result = MagicMock()
-        count_result.scalar.return_value = 0
-
         items_result = MagicMock()
         items_result.scalars.return_value.all.return_value = []
 
-        mock_db_session.execute = AsyncMock(side_effect=[count_result, items_result])
+        # offset defaults to 0 → no COUNT query is issued
+        mock_db_session.execute = AsyncMock(side_effect=[items_result])
 
         resp = await test_client.get("/api/v1/observations")
         assert resp.status_code == 200
         data = resp.json()
-        assert data["total"] == 0
+        assert data["total"] is None
         assert data["items"] == []
+
+    async def test_skips_count_when_offset_zero(self, test_client, mock_db_session):
+        """When offset=0, do NOT execute a COUNT query (useTrends hot path)."""
+        items_result = MagicMock()
+        items_result.scalars.return_value.all.return_value = []
+
+        mock_db_session.execute = AsyncMock(side_effect=[items_result])
+
+        resp = await test_client.get("/api/v1/observations?limit=1000&offset=0")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["total"] is None
+        # Exactly one execute: the SELECT data query, no COUNT
+        assert mock_db_session.execute.await_count == 1
+
+    async def test_includes_count_when_offset_positive(self, test_client, mock_db_session):
+        """When offset>0, still execute COUNT for pagination."""
+        items_result = MagicMock()
+        items_result.scalars.return_value.all.return_value = []
+
+        count_result = MagicMock()
+        count_result.scalar.return_value = 42
+
+        # list_observations calls SELECT (data) first, then COUNT when offset>0
+        mock_db_session.execute = AsyncMock(side_effect=[items_result, count_result])
+
+        resp = await test_client.get("/api/v1/observations?limit=10&offset=100")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["total"] == 42
+        # Two executes: SELECT data + COUNT
+        assert mock_db_session.execute.await_count == 2

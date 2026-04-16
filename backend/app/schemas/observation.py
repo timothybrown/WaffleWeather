@@ -94,7 +94,9 @@ class ObservationSchema(BaseModel):
 
 class ObservationPageSchema(BaseModel):
     items: list[ObservationSchema]
-    total: int
+    # None when offset=0 (we skip COUNT(*) on the hypertable for the hot path).
+    # Populated when the client is paginating (offset>0).
+    total: int | None = None
     limit: int
     offset: int
 

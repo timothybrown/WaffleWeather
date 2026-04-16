@@ -76,23 +76,31 @@ async def list_observations(
     db: AsyncSession = Depends(get_db),
 ):
     base = select(WeatherObservation)
-    count_base = select(func.count()).select_from(WeatherObservation)
 
     if station_id:
         base = base.where(WeatherObservation.station_id == station_id)
-        count_base = count_base.where(WeatherObservation.station_id == station_id)
     if start:
         base = base.where(WeatherObservation.timestamp >= start)
-        count_base = count_base.where(WeatherObservation.timestamp >= start)
     if end:
         base = base.where(WeatherObservation.timestamp <= end)
-        count_base = count_base.where(WeatherObservation.timestamp <= end)
-
-    total_result = await db.execute(count_base)
-    total = total_result.scalar()
 
     query = base.order_by(WeatherObservation.timestamp.desc()).limit(limit).offset(offset)
     result = await db.execute(query)
     items = result.scalars().all()
+
+    # Skip the COUNT(*) hypertable scan on the hot path. The common caller
+    # (useTrends, polled every 60s) requests offset=0 and never reads total.
+    # Only pay for the count when the client is actually paginating.
+    total: int | None = None
+    if offset > 0:
+        count_base = select(func.count()).select_from(WeatherObservation)
+        if station_id:
+            count_base = count_base.where(WeatherObservation.station_id == station_id)
+        if start:
+            count_base = count_base.where(WeatherObservation.timestamp >= start)
+        if end:
+            count_base = count_base.where(WeatherObservation.timestamp <= end)
+        total_result = await db.execute(count_base)
+        total = total_result.scalar()
 
     return ObservationPageSchema(items=items, total=total, limit=limit, offset=offset)

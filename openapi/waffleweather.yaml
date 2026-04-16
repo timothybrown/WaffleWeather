@@ -866,7 +866,7 @@ components:
 
     ObservationPage:
       type: object
-      required: [items, total, limit, offset]
+      required: [items, limit, offset]
       properties:
         items:
           type: array
@@ -874,7 +874,11 @@ components:
             $ref: "#/components/schemas/Observation"
         total:
           type: integer
-          description: Total number of matching observations
+          nullable: true
+          description: >-
+            Total number of matching observations. Only populated when
+            offset>0 (pagination); null when offset=0 to skip the COUNT(*)
+            hypertable scan on the hot path.
         limit:
           type: integer
         offset:
