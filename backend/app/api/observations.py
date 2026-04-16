@@ -2,7 +2,7 @@
 
 from datetime import datetime, timedelta
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -17,6 +17,7 @@ router = APIRouter(prefix="/observations", tags=["observations"])
 
 @router.get("/latest", response_model=ObservationSchema)
 async def get_latest_observation(
+    request: Request,
     station_id: str | None = Query(None),
     db: AsyncSession = Depends(get_db),
 ):
@@ -31,37 +32,50 @@ async def get_latest_observation(
 
     schema = ObservationSchema.model_validate(obs)
 
-    # Zambretti forecast: look up pressure from ~3 hours ago
+    # Zambretti forecast: read from in-process cache populated by the MQTT
+    # listener. Falls back to a DB lookup on cold start (empty cache — process
+    # just started and no MQTT messages have arrived yet) or if the cache
+    # entry is missing for this station.
     if schema.pressure_rel is not None:
-        three_h_ago = obs.timestamp - timedelta(hours=3)
-        window_start = three_h_ago - timedelta(minutes=15)
-        window_end = three_h_ago + timedelta(minutes=15)
-        past_q = (
-            select(WeatherObservation.pressure_rel)
-            .where(
-                WeatherObservation.station_id == obs.station_id,
-                WeatherObservation.timestamp.between(window_start, window_end),
-                WeatherObservation.pressure_rel.is_not(None),
-            )
-            .order_by(
-                func.abs(
-                    func.extract("epoch", WeatherObservation.timestamp)
-                    - func.extract("epoch", three_h_ago)
+        forecast_cache = getattr(request.app.state, "latest_forecast", None)
+        cached = None
+        if forecast_cache is not None:
+            cached = forecast_cache.get(obs.station_id)
+
+        if cached is not None:
+            schema.zambretti_forecast = cached
+        else:
+            # Cache miss — run the legacy DB lookup so cold-start still works.
+            # The abs(epoch) sort is non-indexable but this path only fires
+            # until the next MQTT message populates the cache.
+            three_h_ago = obs.timestamp - timedelta(hours=3)
+            window_start = three_h_ago - timedelta(minutes=15)
+            window_end = three_h_ago + timedelta(minutes=15)
+            past_q = (
+                select(WeatherObservation.pressure_rel)
+                .where(
+                    WeatherObservation.station_id == obs.station_id,
+                    WeatherObservation.timestamp.between(window_start, window_end),
+                    WeatherObservation.pressure_rel.is_not(None),
                 )
+                .order_by(
+                    func.abs(
+                        func.extract("epoch", WeatherObservation.timestamp)
+                        - func.extract("epoch", three_h_ago)
+                    )
+                )
+                .limit(1)
             )
-            .limit(1)
-        )
-        past_result = await db.execute(past_q)
-        pressure_3h = past_result.scalar_one_or_none()
-        now = obs.timestamp
-        _settings = Settings()
-        schema.zambretti_forecast = zambretti_forecast(
-            schema.pressure_rel,
-            pressure_3h,
-            wind_dir=schema.wind_dir,
-            month=now.month,
-            north=_settings.station_latitude is None or _settings.station_latitude >= 0,
-        )
+            past_result = await db.execute(past_q)
+            pressure_3h = past_result.scalar_one_or_none()
+            _settings = Settings()
+            schema.zambretti_forecast = zambretti_forecast(
+                schema.pressure_rel,
+                pressure_3h,
+                wind_dir=schema.wind_dir,
+                month=obs.timestamp.month,
+                north=_settings.station_latitude is None or _settings.station_latitude >= 0,
+            )
 
     return schema
 

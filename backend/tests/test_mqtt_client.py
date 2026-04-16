@@ -179,6 +179,60 @@ class TestHandleMessage:
         call_data = broadcast_fn.call_args[0][0]
         assert "zambretti_forecast" in call_data
 
+    @patch("app.mqtt.client.async_session")
+    @patch("app.mqtt.client.parse_ecowitt_payload")
+    async def test_forecast_cache_populated(self, mock_parse, mock_async_session):
+        """After handling an observation with enough history, the cache is populated."""
+        factory, session = _mock_db_session()
+        mock_async_session.side_effect = factory
+
+        now = datetime(2026, 4, 5, 15, 0, tzinfo=timezone.utc)
+        three_h_ago = now - timedelta(hours=3)
+        _pressure_history.append((three_h_ago, 1010.0))
+
+        # Device ID is extracted from the topic segment (default "device1")
+        parsed = {"station_id": "device1", "timestamp": now, "pressure_rel": 1020.0}
+        diagnostics = {"batteries": {}, "gateway": {}}
+        mock_parse.return_value = (parsed, diagnostics)
+
+        cache: dict = {}
+        # No broadcast_fn on purpose — cache should populate regardless.
+        await _handle_message(
+            _make_message(),
+            _make_settings(),
+            broadcast_fn=None,
+            forecast_cache=cache,
+        )
+
+        assert "device1" in cache
+        assert isinstance(cache["device1"], str)
+        assert cache["device1"]  # non-empty forecast string
+
+    @patch("app.mqtt.client.async_session")
+    @patch("app.mqtt.client.parse_ecowitt_payload")
+    async def test_forecast_cache_none_without_history(self, mock_parse, mock_async_session):
+        """With no 3h pressure history, cache entry is None (still written)."""
+        factory, session = _mock_db_session()
+        mock_async_session.side_effect = factory
+
+        ts = datetime(2026, 4, 5, 12, 0, tzinfo=timezone.utc)
+        parsed = {"station_id": "device1", "timestamp": ts, "pressure_rel": 1013.0}
+        diagnostics = {"batteries": {}, "gateway": {}}
+        mock_parse.return_value = (parsed, diagnostics)
+
+        cache: dict = {}
+        await _handle_message(
+            _make_message(),
+            _make_settings(),
+            broadcast_fn=None,
+            forecast_cache=cache,
+        )
+
+        # Entry is written so stale forecasts don't linger; value is None
+        # because there's no 3h pressure reading to compare against.
+        assert "device1" in cache
+        assert cache["device1"] is None
+
 
 class TestDetectLightningEvent:
     @patch("app.mqtt.client.async_session")
