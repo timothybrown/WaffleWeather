@@ -47,6 +47,8 @@ sudo apt install -y \
     git \
     curl \
     nginx \
+    mosquitto \
+    mosquitto-clients \
     postgresql-17 \
     postgresql-client-17 \
     python3-dev \
@@ -141,7 +143,6 @@ echo "  PostgreSQL configured. TimescaleDB extension enabled."
 echo ""
 echo "[5/9] Configuring Mosquitto..."
 
-# Mosquitto is already installed on this Pi, just update config
 # Remove any conflicting configs (e.g. old WeeWx Belchertown config)
 for f in /etc/mosquitto/conf.d/*.conf; do
     [ "$f" = "/etc/mosquitto/conf.d/waffleweather.conf" ] && continue
@@ -184,6 +185,14 @@ echo "[6/9] Configuring Nginx..."
 sudo cp "${SCRIPT_DIR}/nginx.conf" /etc/nginx/sites-available/waffleweather
 sudo ln -sf /etc/nginx/sites-available/waffleweather /etc/nginx/sites-enabled/waffleweather
 sudo rm -f /etc/nginx/sites-enabled/default
+
+# Rate-limit zones must live in http scope. sites-available is pulled into
+# http { } via include, but `limit_req_zone` cannot sit inside a server { }
+# block — so they ship as a separate conf.d file that nginx.conf includes.
+sudo tee /etc/nginx/conf.d/zz-waffleweather-ratelimit.conf > /dev/null <<'EOF'
+limit_req_zone $binary_remote_addr zone=waffle_api:10m rate=30r/s;
+limit_req_zone $binary_remote_addr zone=waffle_ws:10m rate=5r/s;
+EOF
 
 # Create API key and nginx snippet
 API_KEY=$(openssl rand -base64 32 | tr -d '/+=' | head -c 48)
@@ -249,15 +258,18 @@ sudo mkdir -p /opt/waffleweather
 sudo chown waffleweather:waffleweather /opt/waffleweather
 
 # Copy .env if it doesn't exist
+# /opt/waffleweather was just chown'd to waffleweather above, so these
+# writes need sudo even though the invoking user owns the source files.
 if [ ! -f /opt/waffleweather/.env ]; then
-    cp "${PROJECT_DIR}/.env.example" /opt/waffleweather/.env
+    sudo cp "${PROJECT_DIR}/.env.example" /opt/waffleweather/.env
     # Replace placeholder passwords with generated ones
-    sed -i "s/POSTGRES_PASSWORD=changeme/POSTGRES_PASSWORD=${DB_PASSWORD}/" /opt/waffleweather/.env
-    sed -i "s|waffleweather:changeme@|waffleweather:${DB_PASSWORD}@|g" /opt/waffleweather/.env
-    sed -i "s/MQTT_PASSWORD=changeme/MQTT_PASSWORD=${MQTT_PASSWORD}/" /opt/waffleweather/.env
-    sed -i "s/WW_MQTT_PASSWORD=changeme/WW_MQTT_PASSWORD=${MQTT_PASSWORD}/" /opt/waffleweather/.env
-    sed -i "s/WW_API_KEY=/WW_API_KEY=${API_KEY}/" /opt/waffleweather/.env
-    chmod 600 /opt/waffleweather/.env
+    sudo sed -i "s/POSTGRES_PASSWORD=changeme/POSTGRES_PASSWORD=${DB_PASSWORD}/" /opt/waffleweather/.env
+    sudo sed -i "s|waffleweather:changeme@|waffleweather:${DB_PASSWORD}@|g" /opt/waffleweather/.env
+    sudo sed -i "s/MQTT_PASSWORD=changeme/MQTT_PASSWORD=${MQTT_PASSWORD}/" /opt/waffleweather/.env
+    sudo sed -i "s/WW_MQTT_PASSWORD=changeme/WW_MQTT_PASSWORD=${MQTT_PASSWORD}/" /opt/waffleweather/.env
+    sudo sed -i "s/WW_API_KEY=/WW_API_KEY=${API_KEY}/" /opt/waffleweather/.env
+    sudo chown waffleweather:waffleweather /opt/waffleweather/.env
+    sudo chmod 600 /opt/waffleweather/.env
     echo "  Created /opt/waffleweather/.env with generated password (chmod 600)."
 fi
 

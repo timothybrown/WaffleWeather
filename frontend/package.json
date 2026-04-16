@@ -1,10 +1,11 @@
 {
   "name": "frontend",
-  "version": "2026.4.16.9",
+  "version": "2026.4.16.10",
   "private": true,
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "postbuild": "cp -r public .next/standalone/ && cp -r .next/static .next/standalone/.next/",
     "start": "next start",
     "lint": "eslint",
     "generate": "orval",

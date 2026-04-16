@@ -182,13 +182,10 @@ uv sync
 uv run alembic upgrade head
 
 # Install frontend dependencies and build
+# (postbuild step copies static assets into .next/standalone automatically)
 cd /opt/waffleweather/frontend
 pnpm install --frozen-lockfile
 pnpm build
-
-# Copy standalone assets
-cp -r .next/static .next/standalone/.next/
-cp -r public .next/standalone/
 
 # Set ownership and start services
 sudo chown -R waffleweather:waffleweather /opt/waffleweather
