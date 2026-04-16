@@ -191,7 +191,7 @@ def _build_monthly_report(
             )
         )
 
-    summary = _build_summary(rows, all_wind_dirs, daily_rows, is_monthly=True)
+    summary = _build_summary(rows, all_wind_dirs, daily_rows)
 
     return ClimateReportSchema(
         station=_build_station_info(station),
@@ -261,7 +261,7 @@ def _build_yearly_report(
             )
         )
 
-    summary = _build_summary(rows, all_wind_dirs, daily_rows, is_monthly=False)
+    summary = _build_summary(rows, all_wind_dirs, daily_rows)
 
     return ClimateReportSchema(
         station=_build_station_info(station),
@@ -275,7 +275,6 @@ def _build_summary(
     rows: list[ReportRowSchema],
     all_wind_dirs: list[float],
     daily_rows: list[dict],
-    is_monthly: bool,
 ) -> ReportSummarySchema:
     """Build report summary with extremes, totals, and dates."""
     temps_avg = [r.temp_avg for r in rows if r.temp_avg is not None]

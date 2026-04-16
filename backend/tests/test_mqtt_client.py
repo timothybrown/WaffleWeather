@@ -1,10 +1,8 @@
 """Tests for app/mqtt/client.py — message handling and lightning detection."""
 
-from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import pytest
 
 from app.mqtt.client import (
     _detect_lightning_event,
