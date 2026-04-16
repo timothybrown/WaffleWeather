@@ -9,7 +9,11 @@ router = APIRouter()
 @router.websocket("/ws/live")
 async def websocket_live(websocket: WebSocket):
     manager = websocket.app.state.ws_manager
-    await manager.connect(websocket)
+    accepted = await manager.connect(websocket)
+    if not accepted:
+        # Capacity exceeded — reject with 1013 "Try Again Later" (RFC 6455).
+        await websocket.close(code=1013)
+        return
     try:
         # Keep connection alive — client can send pings or messages
         while True:
