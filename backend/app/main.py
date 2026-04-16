@@ -100,13 +100,14 @@ class ApiKeyMiddleware:
 
 app.add_middleware(ApiKeyMiddleware)
 
-# CORS
+# CORS — read-only API authed via X-API-Key (no cookies), so credentials stay off
+# and methods/headers are limited to what the frontend actually sends.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_credentials=False,
+    allow_methods=["GET", "OPTIONS"],
+    allow_headers=["Content-Type", "X-API-Key"],
 )
 
 # Routers
