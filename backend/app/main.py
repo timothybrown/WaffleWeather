@@ -34,6 +34,12 @@ async def lifespan(app: FastAPI):
     manager = ConnectionManager()
     app.state.ws_manager = manager
 
+    if not settings.api_key:
+        logger.warning(
+            "WW_API_KEY is not set — API is unauthenticated. "
+            "Safe for local/LAN-only dev, unsafe for public deployment."
+        )
+
     # Start MQTT listener as background task
     mqtt_task = asyncio.create_task(
         mqtt_listener(settings, broadcast_fn=manager.broadcast)
