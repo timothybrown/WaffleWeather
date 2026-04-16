@@ -1,6 +1,7 @@
 """WaffleWeather FastAPI application."""
 
 import asyncio
+import hmac
 import logging
 from contextlib import asynccontextmanager
 from importlib.metadata import PackageNotFoundError, version as pkg_version
@@ -68,34 +69,36 @@ app = FastAPI(
     openapi_url="/openapi.json" if settings.enable_docs else None,
 )
 
-# API key authentication middleware (raw ASGI — works for both HTTP and WebSocket)
-if settings.api_key:
+# API key authentication middleware (raw ASGI — works for both HTTP and WebSocket).
+# Registered unconditionally; only enforces when settings.api_key is configured so that
+# tests can patch settings dynamically and local dev remains unauthenticated by default.
+class ApiKeyMiddleware:
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
 
-    class ApiKeyMiddleware:
-        def __init__(self, app: ASGIApp) -> None:
-            self.app = app
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if settings.api_key and scope["type"] in ("http", "websocket"):
+            path = scope.get("path", "")
+            if path.startswith("/api/") or path.startswith("/ws/"):
+                headers = dict(scope.get("headers", []))
+                key = headers.get(b"x-api-key", b"").decode()
+                expected = settings.api_key or ""
+                if not hmac.compare_digest(key or "", expected):
+                    if scope["type"] == "http":
+                        response = JSONResponse(
+                            status_code=401,
+                            content={"detail": "Invalid or missing API key"},
+                        )
+                        await response(scope, receive, send)
+                        return
+                    else:
+                        # Reject WebSocket before accept
+                        await send({"type": "websocket.close", "code": 4401})
+                        return
+        await self.app(scope, receive, send)
 
-        async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
-            if scope["type"] in ("http", "websocket"):
-                path = scope.get("path", "")
-                if path.startswith("/api/") or path.startswith("/ws/"):
-                    headers = dict(scope.get("headers", []))
-                    key = headers.get(b"x-api-key", b"").decode()
-                    if key != settings.api_key:
-                        if scope["type"] == "http":
-                            response = JSONResponse(
-                                status_code=401,
-                                content={"detail": "Invalid or missing API key"},
-                            )
-                            await response(scope, receive, send)
-                            return
-                        else:
-                            # Reject WebSocket before accept
-                            await send({"type": "websocket.close", "code": 4401})
-                            return
-            await self.app(scope, receive, send)
 
-    app.add_middleware(ApiKeyMiddleware)
+app.add_middleware(ApiKeyMiddleware)
 
 # CORS
 app.add_middleware(

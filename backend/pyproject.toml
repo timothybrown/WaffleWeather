@@ -1,6 +1,6 @@
 [project]
 name = "waffleweather-backend"
-version = "2026.4.15.5"
+version = "2026.4.16.1"
 description = "WaffleWeather - Modern weather station backend"
 requires-python = ">=3.12"
 dependencies = [
