@@ -1,13 +1,13 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { screen } from "@testing-library/react";
 import { renderWithProviders } from "@/test/wrappers";
 import { makeObservation } from "@/test/fixtures";
 import LightningCard from "./LightningCard";
 
 // Default mock: summary not loaded
-const mockUseGetLightningSummary = vi.fn(() => ({ data: undefined }));
+const mockUseGetLightningSummary = vi.fn((): { data: unknown } => ({ data: undefined }));
 vi.mock("@/generated/lightning/lightning", () => ({
-  useGetLightningSummary: (...args: unknown[]) => mockUseGetLightningSummary(...args),
+  useGetLightningSummary: () => mockUseGetLightningSummary(),
 }));
 
 describe("LightningCard", () => {

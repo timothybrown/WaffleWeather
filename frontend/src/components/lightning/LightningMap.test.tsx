@@ -4,7 +4,7 @@ import LightningMap from "./LightningMap";
 
 // Mock react-leaflet components
 vi.mock("react-leaflet", () => ({
-  MapContainer: ({ children, ...props }: { children: React.ReactNode; className?: string }) => (
+  MapContainer: ({ children, ...props }: { children: React.ReactNode; className?: string; zoom?: number }) => (
     <div data-testid="map-container" data-zoom={props.zoom} className={props.className}>
       {children}
     </div>

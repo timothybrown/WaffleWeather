@@ -224,9 +224,10 @@ describe("WebSocketProvider", () => {
     // Captures the most recent context value so the test can assert against
     // the consumer-visible state (offline, reconnect) rather than relying on
     // implementation-internal counters.
-    let captured: ReturnType<typeof useWebSocket> | null = null;
+    let captured: { offline: boolean; connected: boolean; reconnect: () => void } | null = null;
     function Probe() {
-      captured = useWebSocket();
+      const ctx = useWebSocket();
+      captured = ctx;
       return null;
     }
 
@@ -237,7 +238,7 @@ describe("WebSocketProvider", () => {
     );
 
     // Before the cap is hit, offline should be false even while disconnected.
-    expect(captured?.offline).toBe(false);
+    expect(captured!.offline).toBe(false);
 
     // Drive MAX_RETRIES consecutive failures. Each close schedules a
     // reconnect; advancing past max backoff + jitter fires it and constructs
@@ -257,21 +258,21 @@ describe("WebSocketProvider", () => {
       vi.advanceTimersByTime(60_000);
     });
 
-    expect(captured?.offline).toBe(true);
-    expect(captured?.connected).toBe(false);
+    expect(captured!.offline).toBe(true);
+    expect(captured!.connected).toBe(false);
     expect(FakeWS.instances.length).toBe(instancesAtCap);
 
     // Manual reconnect should construct a new socket and clear offline once
     // it opens.
     act(() => {
-      captured?.reconnect();
+      captured!.reconnect();
     });
     expect(FakeWS.instances.length).toBe(instancesAtCap + 1);
 
     act(() => {
       FakeWS.latest?.triggerOpen();
     });
-    expect(captured?.offline).toBe(false);
-    expect(captured?.connected).toBe(true);
+    expect(captured!.offline).toBe(false);
+    expect(captured!.connected).toBe(true);
   });
 });

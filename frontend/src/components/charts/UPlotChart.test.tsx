@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, type Mock } from "vitest";
 import { render } from "@testing-library/react";
 import UPlotChart from "./UPlotChart";
 import type uPlot from "uplot";
@@ -12,7 +12,7 @@ const { destroyMock, setSizeMock, setDataMock, UPlotConstructor } = vi.hoisted((
     this.destroy = destroyMock;
     this.setSize = setSizeMock;
     this.setData = setDataMock;
-  });
+  }) as unknown as Mock<(opts: uPlot.Options, data: uPlot.AlignedData, el: HTMLElement) => void>;
   return { destroyMock, setSizeMock, setDataMock, UPlotConstructor };
 });
 
@@ -47,9 +47,9 @@ describe("UPlotChart", () => {
   it("creates a uPlot instance on mount with dimensions", () => {
     render(<UPlotChart options={baseOpts} data={baseData} />);
     expect(UPlotConstructor).toHaveBeenCalledTimes(1);
-    const opts = UPlotConstructor.mock.calls[0][0];
-    expect(opts.width).toBe(800);
-    expect(opts.height).toBe(200);
+    const opts = UPlotConstructor.mock.calls[0]?.[0] as uPlot.Options | undefined;
+    expect(opts!.width).toBe(800);
+    expect(opts!.height).toBe(200);
   });
 
   it("destroys the instance on unmount", () => {
@@ -74,16 +74,16 @@ describe("UPlotChart", () => {
 
   it("configures drag-to-zoom on the x axis", () => {
     render(<UPlotChart options={baseOpts} data={baseData} />);
-    const opts = UPlotConstructor.mock.calls[0][0];
-    expect(opts.cursor.drag.x).toBe(true);
-    expect(opts.cursor.drag.y).toBe(false);
+    const opts = UPlotConstructor.mock.calls[0]?.[0] as uPlot.Options | undefined;
+    expect(opts!.cursor!.drag!.x).toBe(true);
+    expect(opts!.cursor!.drag!.y).toBe(false);
   });
 
   it("sets cursor sync key when syncKey is provided", () => {
     render(
       <UPlotChart options={baseOpts} data={baseData} syncKey="test" />,
     );
-    const opts = UPlotConstructor.mock.calls[0][0];
-    expect(opts.cursor.sync.key).toBe("test");
+    const opts = UPlotConstructor.mock.calls[0]?.[0] as uPlot.Options | undefined;
+    expect(opts!.cursor!.sync!.key).toBe("test");
   });
 });
