@@ -88,7 +88,7 @@ uv run alembic upgrade head
 uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-The backend starts an MQTT listener in the background that receives weather data from ecowitt2mqtt and stores it in TimescaleDB. Observations are broadcast to connected WebSocket clients in real time.
+The backend starts an MQTT listener in the background that receives weather data from ecowitt2mqtt (which normalizes data from Ecowitt, Ambient Weather, and other Fine Offset-based stations) and stores it in TimescaleDB. Observations are broadcast to connected WebSocket clients in real time.
 
 ### API Documentation
 

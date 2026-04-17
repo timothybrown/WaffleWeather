@@ -1,6 +1,6 @@
 # WaffleWeather
 
-A self-hosted weather station dashboard built for [Ecowitt](https://www.ecowitt.com/) hardware. Real-time data, historical charts, lightning tracking, wind rose visualization, and a warm design that's actually nice to look at — all running on a Raspberry Pi.
+A self-hosted weather station dashboard built for [Ecowitt](https://www.ecowitt.com/) and other [Fine Offset](https://www.foshk.com/)-based weather stations (Ambient Weather, Froggit, La Crosse, and other white-label brands). Real-time data, historical charts, lightning tracking, wind rose visualization, and a warm design that's actually nice to look at — all running on a Raspberry Pi.
 
 Named after a very good dog.
 
@@ -17,7 +17,7 @@ Named after a very good dog.
 
 ## Why?
 
-Ecowitt makes solid, affordable weather station hardware. But the software options for viewing your data — Ecowitt's cloud, Weather Underground, WeeWX — all have tradeoffs. Cloud services mean your data lives on someone else's server. WeeWX is powerful but shows its age in the UI and lacks real-time updates out of the box.
+Ecowitt and other Fine Offset-based stations make solid, affordable weather station hardware. But the software options for viewing your data — vendor clouds, Weather Underground, WeeWX — all have tradeoffs. Cloud services mean your data lives on someone else's server. WeeWX is powerful but shows its age in the UI and lacks real-time updates out of the box.
 
 WaffleWeather was built to fill that gap: a modern, good-looking dashboard that runs entirely on your local network, processes data in real time, and stores everything in a proper time-series database you control.
 
@@ -82,7 +82,7 @@ WaffleWeather is a Progressive Web App — add it to your phone's home screen fo
 ## Architecture
 
 ```
-Ecowitt Station  -->  ecowitt2mqtt  -->  Mosquitto (MQTT)
+Weather Station  -->  ecowitt2mqtt  -->  Mosquitto (MQTT)
                                               |
                                          FastAPI Backend
                                         /       |       \
@@ -93,7 +93,7 @@ Ecowitt Station  -->  ecowitt2mqtt  -->  Mosquitto (MQTT)
                                        Next.js Frontend
 ```
 
-The Ecowitt gateway pushes data to [ecowitt2mqtt](https://github.com/bachya/ecowitt2mqtt) over HTTP, which normalizes it and publishes to an MQTT broker. The FastAPI backend subscribes to MQTT, stores observations in TimescaleDB, enriches them with derived calculations, and pushes updates to connected browsers over WebSocket. The Next.js frontend handles all the rendering and unit conversions.
+Your weather station gateway pushes data to [ecowitt2mqtt](https://github.com/bachya/ecowitt2mqtt) over HTTP, which normalizes it and publishes to an MQTT broker. The FastAPI backend subscribes to MQTT, stores observations in TimescaleDB, enriches them with derived calculations, and pushes updates to connected browsers over WebSocket. The Next.js frontend handles all the rendering and unit conversions.
 
 Everything runs natively on the Pi — no Docker, no containers. A Raspberry Pi 4 with 4GB RAM handles it all comfortably.
 
@@ -114,7 +114,7 @@ Everything runs natively on the Pi — no Docker, no containers. A Raspberry Pi 
 
 ## Hardware Requirements
 
-**Weather Station**: Any Ecowitt gateway with sensors. The MQTT parser handles field name variants across models, so most Ecowitt setups should work. Currently tested with:
+**Weather Station**: Any Ecowitt or Fine Offset-based gateway with sensors — including Ambient Weather, Froggit, La Crosse, and other white-label brands. Data is normalized by [ecowitt2mqtt](https://github.com/bachya/ecowitt2mqtt), which supports Ecowitt, Ambient Weather, and Wunderground input formats. Currently tested with:
 
 - **Gateway**: GW3000B (GW1000, GW1100, GW2000 should also work)
 - **Outdoor sensor**: WS68 (temperature, humidity, wind, solar, UV)
@@ -128,7 +128,7 @@ Sensors you don't have simply won't populate those cards — the dashboard grace
 
 ## Setup
 
-This guide assumes you have a Raspberry Pi running Debian 13 (Bookworm or Trixie) with SSH access and your Ecowitt gateway on the same network.
+This guide assumes you have a Raspberry Pi running Debian 13 (Bookworm or Trixie) with SSH access and your weather station gateway on the same network.
 
 ### 1. Clone and run the setup script
 
@@ -167,7 +167,7 @@ The database URL, MQTT credentials, and API key are filled in automatically by t
 
 Install [ecowitt2mqtt](https://github.com/bachya/ecowitt2mqtt) and point it at your Mosquitto broker. A systemd service file is included at `deploy/ecowitt2mqtt.service` — it reads MQTT credentials from the same `.env` file.
 
-Then configure your Ecowitt gateway's "Customized" server to push to `http://your-pi:8080/data/report` (or whatever port ecowitt2mqtt is listening on).
+Then configure your gateway to push data to `http://your-pi:8080/data/report` (or whatever port ecowitt2mqtt is listening on). On Ecowitt gateways, this is the "Customized" server setting in the WSView or Ecowitt app. Other brands have similar custom server options — see your gateway's documentation.
 
 **Important**: Run ecowitt2mqtt with `--disable-calculated-data` — WaffleWeather computes its own derived values (dew point, heat index, UTCI, etc.) and the pre-calculated ones from ecowitt2mqtt would conflict.
 
@@ -196,11 +196,11 @@ The dashboard should now be accessible at `http://your-pi` on port 80. For HTTPS
 
 ### 5. Verify data flow
 
-Once your Ecowitt gateway is pushing to ecowitt2mqtt, you should see data appear on the Observatory dashboard within a few seconds. Check the Diagnostics page to confirm the WebSocket connection is active and sensor batteries are reporting.
+Once your gateway is pushing data to ecowitt2mqtt, you should see data appear on the Observatory dashboard within a few seconds. Check the Diagnostics page to confirm the WebSocket connection is active and sensor batteries are reporting.
 
 ## Sensor Compatibility
 
-WaffleWeather's MQTT parser maps Ecowitt field names to database columns. It handles multiple naming conventions across sensor models:
+WaffleWeather's MQTT parser maps field names from ecowitt2mqtt to database columns. Since ecowitt2mqtt normalizes data across all Fine Offset brands, the same field names work regardless of your hardware brand. It handles multiple naming conventions across sensor models:
 
 | Data | Sensor Keys (any of these) |
 |------|---------------------------|

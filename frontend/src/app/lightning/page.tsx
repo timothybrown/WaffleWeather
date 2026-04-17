@@ -213,7 +213,7 @@ export default function LightningPage() {
       <div className="mb-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
         <div className="weather-card rounded-xl border border-border bg-surface-alt p-4">
           <p className="text-xs font-semibold uppercase tracking-wider text-text-faint">
-            Sensor Count <InfoTip text="Running count from the WH57 sensor since its last daily reset at midnight. This is not the same as the period total below, which tracks actual detected strike events." side="bottom" />
+            Sensor Count <InfoTip text="Running count from the lightning sensor since its last daily reset at midnight. This is not the same as the period total below, which tracks actual detected strike events." side="bottom" />
           </p>
           <p className="mt-1 font-mono text-2xl font-semibold tabular-nums text-text">
             {data?.lightning_count ?? "\u2014"}
@@ -221,7 +221,7 @@ export default function LightningPage() {
         </div>
         <div className="weather-card rounded-xl border border-border bg-surface-alt p-4">
           <p className="text-xs font-semibold uppercase tracking-wider text-text-faint">
-            Distance <InfoTip text="Estimated distance to the most recently detected lightning strike. The WH57 sensor uses electromagnetic signal strength to approximate range." side="bottom" />
+            Distance <InfoTip text="Estimated distance to the most recently detected lightning strike. The lightning sensor uses electromagnetic signal strength to approximate range." side="bottom" />
           </p>
           <p className="mt-1 font-mono text-2xl font-semibold tabular-nums text-text">
             {hasLightning ? `${fmt(dist.value)} ${dist.unit}` : "\u2014"}
@@ -229,7 +229,7 @@ export default function LightningPage() {
         </div>
         <div className="weather-card rounded-xl border border-border bg-surface-alt p-4">
           <p className="text-xs font-semibold uppercase tracking-wider text-text-faint">
-            Last Strike <InfoTip text="Time elapsed since the WH57 sensor last detected a lightning strike." side="bottom" />
+            Last Strike <InfoTip text="Time elapsed since the lightning sensor last detected a lightning strike." side="bottom" />
           </p>
           <p className="mt-1 text-lg font-medium text-text">
             {data?.lightning_time ? timeAgo(data.lightning_time) : "\u2014"}

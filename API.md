@@ -9,7 +9,7 @@ When `WW_API_KEY` is set, all requests must include an `X-API-Key` header. When 
 ## Data Flow Overview
 
 ```
-Ecowitt Station → ecowitt2mqtt → Mosquitto (MQTT)
+Weather Station → ecowitt2mqtt → Mosquitto (MQTT)
                                        ↓
                                   FastAPI Backend
                                  ↙      ↓       ↘
@@ -17,7 +17,7 @@ Ecowitt Station → ecowitt2mqtt → Mosquitto (MQTT)
                           (live obs)  (queries)  (persistence)
 ```
 
-1. The Ecowitt gateway pushes readings to ecowitt2mqtt, which publishes normalized JSON to MQTT.
+1. The weather station gateway pushes readings to ecowitt2mqtt (which supports Ecowitt, Ambient Weather, and other Fine Offset-based brands), which publishes normalized JSON to MQTT.
 2. The backend's MQTT listener parses each message, stores it in `weather_observations`, detects lightning deltas (→ `lightning_events`), computes derived values, and broadcasts the enriched observation to all WebSocket clients.
 3. REST endpoints query the database for historical, aggregated, and current data.
 4. The frontend merges REST and WebSocket data: REST provides the baseline (including fields like `zambretti_forecast` that require DB lookback), and WebSocket overlays real-time updates.
