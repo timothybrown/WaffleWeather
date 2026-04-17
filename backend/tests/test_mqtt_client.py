@@ -1,5 +1,6 @@
 """Tests for app/mqtt/client.py — message handling and lightning detection."""
 
+from collections import deque
 from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -154,10 +155,12 @@ class TestHandleMessage:
         mock_parse.return_value = (parsed, diagnostics)
 
         broadcast_fn = AsyncMock()
+        # Default topic is "ecowitt2mqtt/device1" -> device_id="device1"
         await _handle_message(_make_message(), _make_settings(), broadcast_fn=broadcast_fn)
 
-        assert len(_pressure_history) == 1
-        assert _pressure_history[0][1] == 1013.0
+        assert "device1" in _pressure_history
+        assert len(_pressure_history["device1"]) == 1
+        assert _pressure_history["device1"][0][1] == 1013.0
 
     @patch("app.mqtt.client.async_session")
     @patch("app.mqtt.client.parse_ecowitt_payload")
@@ -167,7 +170,8 @@ class TestHandleMessage:
 
         now = datetime(2026, 4, 5, 15, 0, tzinfo=timezone.utc)
         three_h_ago = now - timedelta(hours=3)
-        _pressure_history.append((three_h_ago, 1010.0))
+        # Seed history for device1 (the device_id extracted from default topic)
+        _pressure_history["device1"] = deque([(three_h_ago, 1010.0)])
 
         parsed = {"station_id": "d1", "timestamp": now, "pressure_rel": 1020.0}
         diagnostics = {"batteries": {}, "gateway": {}}
@@ -178,6 +182,126 @@ class TestHandleMessage:
 
         call_data = broadcast_fn.call_args[0][0]
         assert "zambretti_forecast" in call_data
+
+    @patch("app.mqtt.client.async_session")
+    @patch("app.mqtt.client.parse_ecowitt_payload")
+    async def test_forecast_cache_populated(self, mock_parse, mock_async_session):
+        """After handling an observation with enough history, the cache is populated."""
+        factory, session = _mock_db_session()
+        mock_async_session.side_effect = factory
+
+        now = datetime(2026, 4, 5, 15, 0, tzinfo=timezone.utc)
+        three_h_ago = now - timedelta(hours=3)
+        _pressure_history["device1"] = deque([(three_h_ago, 1010.0)])
+
+        # Device ID is extracted from the topic segment (default "device1")
+        parsed = {"station_id": "device1", "timestamp": now, "pressure_rel": 1020.0}
+        diagnostics = {"batteries": {}, "gateway": {}}
+        mock_parse.return_value = (parsed, diagnostics)
+
+        cache: dict = {}
+        # No broadcast_fn on purpose — cache should populate regardless.
+        await _handle_message(
+            _make_message(),
+            _make_settings(),
+            broadcast_fn=None,
+            forecast_cache=cache,
+        )
+
+        assert "device1" in cache
+        assert isinstance(cache["device1"], str)
+        assert cache["device1"]  # non-empty forecast string
+
+    @patch("app.mqtt.client.async_session")
+    @patch("app.mqtt.client.parse_ecowitt_payload")
+    async def test_forecast_cache_none_without_history(self, mock_parse, mock_async_session):
+        """With no 3h pressure history, cache entry is None (still written)."""
+        factory, session = _mock_db_session()
+        mock_async_session.side_effect = factory
+
+        ts = datetime(2026, 4, 5, 12, 0, tzinfo=timezone.utc)
+        parsed = {"station_id": "device1", "timestamp": ts, "pressure_rel": 1013.0}
+        diagnostics = {"batteries": {}, "gateway": {}}
+        mock_parse.return_value = (parsed, diagnostics)
+
+        cache: dict = {}
+        await _handle_message(
+            _make_message(),
+            _make_settings(),
+            broadcast_fn=None,
+            forecast_cache=cache,
+        )
+
+        # Entry is written so stale forecasts don't linger; value is None
+        # because there's no 3h pressure reading to compare against.
+        assert "device1" in cache
+        assert cache["device1"] is None
+
+    @patch("app.mqtt.client.async_session")
+    @patch("app.mqtt.client.parse_ecowitt_payload")
+    async def test_pressure_history_keyed_per_station(self, mock_parse, mock_async_session):
+        """Pressure readings from different stations must not interleave.
+
+        Seeds 3h-old readings for two stations at distinct pressure plateaus
+        (1010 hPa for stationA, 1020 hPa for stationB), then handles a fresh
+        observation for each. Verifies per-station histories stay separate
+        and the forecast cache records independent forecasts.
+        """
+        factory, session = _mock_db_session()
+        mock_async_session.side_effect = factory
+
+        now = datetime(2026, 4, 5, 15, 0, tzinfo=timezone.utc)
+        three_h_ago = now - timedelta(hours=3)
+
+        # Seed per-station histories with distinctly different pressure plateaus.
+        _pressure_history["stationA"] = deque([(three_h_ago, 1010.0)])
+        _pressure_history["stationB"] = deque([(three_h_ago, 1020.0)])
+
+        cache: dict = {}
+
+        # Handle fresh observation for stationA — pressure rising from 1010.
+        parsed_a = {"station_id": "stationA", "timestamp": now, "pressure_rel": 1011.0}
+        mock_parse.return_value = (parsed_a, {"batteries": {}, "gateway": {}})
+        await _handle_message(
+            _make_message(topic="ecowitt2mqtt/stationA"),
+            _make_settings(),
+            broadcast_fn=None,
+            forecast_cache=cache,
+        )
+
+        # Handle fresh observation for stationB — pressure falling from 1020.
+        parsed_b = {"station_id": "stationB", "timestamp": now, "pressure_rel": 1019.0}
+        mock_parse.return_value = (parsed_b, {"batteries": {}, "gateway": {}})
+        await _handle_message(
+            _make_message(topic="ecowitt2mqtt/stationB"),
+            _make_settings(),
+            broadcast_fn=None,
+            forecast_cache=cache,
+        )
+
+        # Histories are keyed per station, not merged.
+        assert set(_pressure_history.keys()) == {"stationA", "stationB"}
+
+        # stationA's history contains only ~1010 readings (seed + fresh 1011).
+        a_pressures = [p for _, p in _pressure_history["stationA"]]
+        assert all(1005 <= p <= 1015 for p in a_pressures), a_pressures
+        assert 1020.0 not in a_pressures
+        assert 1019.0 not in a_pressures
+
+        # stationB's history contains only ~1020 readings (seed + fresh 1019).
+        b_pressures = [p for _, p in _pressure_history["stationB"]]
+        assert all(1015 <= p <= 1025 for p in b_pressures), b_pressures
+        assert 1010.0 not in b_pressures
+        assert 1011.0 not in b_pressures
+
+        # Forecast cache carries independent entries for each station. The two
+        # stations see opposite pressure trends (A rising, B falling), so their
+        # Zambretti forecasts must differ.
+        assert "stationA" in cache
+        assert "stationB" in cache
+        assert cache["stationA"] is not None
+        assert cache["stationB"] is not None
+        assert cache["stationA"] != cache["stationB"]
 
 
 class TestDetectLightningEvent:

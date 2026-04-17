@@ -6,6 +6,7 @@ import type { Observation, LightningSummary } from "@/generated/models";
 import { useGetLightningSummary } from "@/generated/lightning/lightning";
 import { fmt, timeAgo } from "@/lib/utils";
 import { convertDistance } from "@/lib/units";
+import { CADENCES } from "@/lib/queryCadences";
 import { useUnits } from "@/providers/UnitsProvider";
 import WeatherCard from "./WeatherCard";
 
@@ -58,7 +59,7 @@ export default function LightningCard({ data }: { data: Observation | null }) {
     return { start: start.toISOString(), end: end.toISOString() };
   }, []);
   const { data: summaryResponse } = useGetLightningSummary(summaryParams, {
-    query: { refetchInterval: 60_000 },
+    query: { refetchInterval: CADENCES.summary },
   });
   const summary = summaryResponse?.data as LightningSummary | undefined;
 

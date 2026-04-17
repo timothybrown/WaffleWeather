@@ -10,6 +10,7 @@ import { useWebSocket } from "@/providers/WebSocketProvider";
 import { RiFlashlightLine } from "@remixicon/react";
 import { fmt, timeAgo } from "@/lib/utils";
 import { convertDistance } from "@/lib/units";
+import { CADENCES } from "@/lib/queryCadences";
 import { useUnits } from "@/providers/UnitsProvider";
 import { useResolvedColors } from "@/hooks/useResolvedColors";
 import { toColumnar } from "@/lib/uplot-data";
@@ -59,11 +60,11 @@ export default function LightningPage() {
   const [range, setRange] = useState<TimeRange>("24h");
   const [showFiltered, setShowFiltered] = useState(false);
   const { data: obsResponse } = useGetLatestObservation(undefined, {
-    query: { refetchInterval: 30_000 },
+    query: { refetchInterval: CADENCES.live },
   });
   const { latestObservation: wsData } = useWebSocket();
   const { data: stationsResponse } = useListStations({
-    query: { refetchInterval: Infinity },
+    query: { refetchInterval: CADENCES.none },
   });
   const { system } = useUnits();
 
@@ -107,7 +108,7 @@ export default function LightningPage() {
     return { start: start.toISOString(), end: end.toISOString(), include_filtered: showFiltered };
   }, [range, showFiltered]);
   const { data: summaryResponse } = useGetLightningSummary(summaryParams, {
-    query: { refetchInterval: 60_000 },
+    query: { refetchInterval: CADENCES.summary },
   });
   const summary = summaryResponse?.data as LightningSummary | undefined;
 
@@ -119,7 +120,7 @@ export default function LightningPage() {
     return { start: start.toISOString(), end: end.toISOString(), limit: 50, include_filtered: showFiltered };
   }, [range, showFiltered]);
   const { data: eventsResponse } = useListLightningEvents(eventsParams, {
-    query: { refetchInterval: 60_000 },
+    query: { refetchInterval: CADENCES.summary },
   });
   const events = (eventsResponse?.data as LightningEventPage | undefined)?.items ?? [];
 

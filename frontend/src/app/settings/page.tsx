@@ -11,6 +11,7 @@ import {
   RiBattery2Line,
 } from "@remixicon/react";
 import { convertAltitude } from "@/lib/units";
+import { CADENCES } from "@/lib/queryCadences";
 import { useUnits } from "@/providers/UnitsProvider";
 
 const FRONTEND_VERSION = process.env.NEXT_PUBLIC_FRONTEND_VERSION ?? "unknown";
@@ -181,7 +182,7 @@ export default function SettingsPage() {
   // Station metadata (model, firmware, location) effectively never changes at
   // runtime; live diagnostics (battery, gateway) arrive via WebSocket, not HTTP.
   const { data: stationsResponse } = useListStations({
-    query: { refetchInterval: Infinity },
+    query: { refetchInterval: CADENCES.none },
   });
   const { connected, diagnostics } = useWebSocket();
   const backendVersion = useBackendVersion();

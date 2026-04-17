@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import { useListObservations } from "@/generated/observations/observations";
 import type { Observation, ObservationPage } from "@/generated/models";
+import { CADENCES } from "@/lib/queryCadences";
 
 export type TrendDirection = "up" | "down" | "flat" | null;
 
@@ -57,7 +58,7 @@ export function useTrends(): Trends {
 
   const { data: response } = useListObservations(
     { start, limit: 1000 },
-    { query: { refetchInterval: 60_000 } },
+    { query: { refetchInterval: CADENCES.summary } },
   );
 
   return useMemo(() => {

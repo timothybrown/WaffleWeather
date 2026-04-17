@@ -7,6 +7,7 @@ import { useListStations } from "@/generated/stations/stations";
 import type { Station, Observation } from "@/generated/models";
 import type { TrendDirection } from "@/hooks/useTrends";
 import { cn, fmt } from "@/lib/utils";
+import { CADENCES } from "@/lib/queryCadences";
 import WeatherCard from "./WeatherCard";
 import TrendIndicator from "./TrendIndicator";
 import InfoTip from "@/components/ui/InfoTip";
@@ -31,7 +32,7 @@ function glowRadius(solar: number | null | undefined): number {
 
 export default function SunCard({ data, solarTrend, uvTrend }: { data: Observation | null; solarTrend: TrendDirection; uvTrend: TrendDirection }) {
   const { data: stationsResponse } = useListStations({
-    query: { refetchInterval: Infinity },
+    query: { refetchInterval: CADENCES.none },
   });
   const stations = stationsResponse?.data as Station[] | undefined;
   const station = stations?.[0];

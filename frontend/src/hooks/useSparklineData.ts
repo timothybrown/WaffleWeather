@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import type { AggregatedObservation } from "@/generated/models";
 import { useListHourlyObservations } from "@/generated/aggregates/aggregates";
+import { CADENCES } from "@/lib/queryCadences";
 
 interface SparklineData {
   temperature: (number | null)[];
@@ -18,7 +19,7 @@ export function useSparklineData(): SparklineData {
   }, []);
 
   const { data: response } = useListHourlyObservations(params, {
-    query: { refetchInterval: 5 * 60 * 1000 },
+    query: { refetchInterval: CADENCES.aggregate5m },
   });
   const rows = (response?.data ?? []) as AggregatedObservation[];
 

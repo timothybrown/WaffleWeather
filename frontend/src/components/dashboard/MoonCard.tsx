@@ -5,6 +5,7 @@ import SunCalc from "suncalc";
 import { RiMoonLine } from "@remixicon/react";
 import { useListStations } from "@/generated/stations/stations";
 import type { Station } from "@/generated/models";
+import { CADENCES } from "@/lib/queryCadences";
 import WeatherCard from "./WeatherCard";
 
 function getPhaseName(phase: number): string {
@@ -91,7 +92,7 @@ function MoonPhaseSVG({ phase }: { phase: number }) {
 
 export default function MoonCard() {
   const { data: stationsResponse } = useListStations({
-    query: { refetchInterval: Infinity },
+    query: { refetchInterval: CADENCES.none },
   });
   const stations = stationsResponse?.data as Station[] | undefined;
   const station = stations?.[0];

@@ -11,7 +11,11 @@ vi.mock("next/navigation", () => ({
 
 // Mock WebSocketProvider
 vi.mock("@/providers/WebSocketProvider", () => ({
-  useWebSocket: () => ({ connected: true }),
+  useWebSocket: () => ({
+    connected: true,
+    offline: false,
+    reconnect: () => {},
+  }),
 }));
 
 describe("Sidebar", () => {

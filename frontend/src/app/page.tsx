@@ -7,6 +7,7 @@ import { timeAgo } from "@/lib/utils";
 import { useTrends } from "@/hooks/useTrends";
 import { useTodayExtremes } from "@/hooks/useTodayExtremes";
 import { useSparklineData } from "@/hooks/useSparklineData";
+import { CADENCES } from "@/lib/queryCadences";
 import TemperatureCard from "@/components/dashboard/TemperatureCard";
 import HumidityCard from "@/components/dashboard/HumidityCard";
 import WindCard from "@/components/dashboard/WindCard";
@@ -19,7 +20,7 @@ import MoonCard from "@/components/dashboard/MoonCard";
 
 export default function DashboardPage() {
   const { data: apiResponse, error } = useGetLatestObservation(undefined, {
-    query: { refetchInterval: 30_000 },
+    query: { refetchInterval: CADENCES.live },
   });
   const { latestObservation: wsData } = useWebSocket();
   const trends = useTrends();

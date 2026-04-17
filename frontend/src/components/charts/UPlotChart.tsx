@@ -44,7 +44,8 @@ function tooltipPlugin(seriesValueFns: Set<number>): uPlot.Plugin {
       hour12: false,
     });
 
-    let rows = "";
+    type Row = { color: string; label: string; display: string };
+    const rowData: Row[] = [];
     for (let i = 1; i < u.series.length; i++) {
       const s = u.series[i];
       if (!s.show) continue;
@@ -53,19 +54,47 @@ function tooltipPlugin(seriesValueFns: Set<number>): uPlot.Plugin {
       const color =
         typeof s.stroke === "function" ? s.stroke(u, i) : s.stroke;
       const display = seriesValueFns.has(i) && typeof s.value === "function" ? s.value(u, val, i, idx) : fmtVal(val);
-      rows += `<div class="uplot-tooltip-row">
-        <span class="uplot-tooltip-dot" style="background:${color}"></span>
-        <span class="uplot-tooltip-label">${s.label}:</span>
-        <span class="uplot-tooltip-value">${display}</span>
-      </div>`;
+      rowData.push({
+        color: String(color ?? ""),
+        label: String(s.label ?? ""),
+        display: String(display),
+      });
     }
 
-    if (!rows) {
+    if (rowData.length === 0) {
       tooltip.style.display = "none";
       return;
     }
 
-    tooltip.innerHTML = `<div class="uplot-tooltip-time">${timeStr}</div>${rows}`;
+    // Clear existing content and rebuild via DOM API (defense in depth; avoids
+    // any innerHTML code paths).
+    tooltip.textContent = "";
+
+    const timeEl = document.createElement("div");
+    timeEl.className = "uplot-tooltip-time";
+    timeEl.textContent = timeStr;
+    tooltip.append(timeEl);
+
+    for (const r of rowData) {
+      const row = document.createElement("div");
+      row.className = "uplot-tooltip-row";
+
+      const dot = document.createElement("span");
+      dot.className = "uplot-tooltip-dot";
+      dot.style.background = r.color;
+
+      const label = document.createElement("span");
+      label.className = "uplot-tooltip-label";
+      label.textContent = `${r.label}:`;
+
+      const value = document.createElement("span");
+      value.className = "uplot-tooltip-value";
+      value.textContent = r.display;
+
+      row.append(dot, label, value);
+      tooltip.append(row);
+    }
+
     tooltip.style.display = "block";
 
     // Position: follow cursor, flip near right edge
@@ -103,10 +132,13 @@ export default function UPlotChart({
   // making `data` a dependency of `createChart`. Data updates flow through
   // the dedicated `setData` effect below, avoiding destroy/recreate on every
   // WebSocket tick.
+  //
+  // Assign during render (not in useEffect) so a newly-mounted uPlot instance
+  // sees the CURRENT render's data rather than the previous one. React
+  // officially supports ref mutation during render for this cache-latest-value
+  // pattern; the assignment is idempotent across re-renders.
   const dataRef = useRef(data);
-  useEffect(() => {
-    dataRef.current = data;
-  }, [data]);
+  dataRef.current = data;
 
   const createChart = useCallback(() => {
     const el = containerRef.current;

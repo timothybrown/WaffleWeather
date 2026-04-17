@@ -164,6 +164,189 @@ class TestGetLatestObservation:
         data = resp.json()
         assert data["zambretti_forecast"] is None
 
+    async def test_uses_cached_forecast_when_populated(self, test_client, mock_db_session):
+        """When app.state.latest_forecast has an entry, skip the abs(epoch) DB query."""
+        from app.main import app
+
+        fake_obs = MagicMock()
+        fake_obs.timestamp = datetime(2026, 4, 5, 12, 0, tzinfo=timezone.utc)
+        fake_obs.station_id = "s1"
+        fake_obs.temp_outdoor = 22.0
+        fake_obs.humidity_outdoor = 50.0
+        fake_obs.temp_indoor = None
+        fake_obs.dewpoint = None
+        fake_obs.feels_like = None
+        fake_obs.heat_index = None
+        fake_obs.wind_chill = None
+        fake_obs.frost_point = None
+        fake_obs.humidity_indoor = None
+        fake_obs.pressure_abs = None
+        fake_obs.pressure_rel = 1013.0
+        fake_obs.wind_speed = None
+        fake_obs.wind_gust = None
+        fake_obs.wind_dir = None
+        fake_obs.rain_rate = None
+        fake_obs.rain_daily = None
+        fake_obs.rain_weekly = None
+        fake_obs.rain_monthly = None
+        fake_obs.rain_yearly = None
+        fake_obs.rain_event = None
+        fake_obs.solar_radiation = None
+        fake_obs.uv_index = None
+        fake_obs.pm25 = None
+        fake_obs.pm10 = None
+        fake_obs.co2 = None
+        fake_obs.soil_moisture_1 = None
+        fake_obs.soil_moisture_2 = None
+        fake_obs.lightning_count = None
+        fake_obs.lightning_distance = None
+        fake_obs.lightning_time = None
+        fake_obs.utci = None
+        fake_obs.zambretti_forecast = None
+
+        result_obs = MagicMock()
+        result_obs.scalar_one_or_none.return_value = fake_obs
+        mock_db_session.execute = AsyncMock(side_effect=[result_obs])
+
+        # Populate the in-process forecast cache; /latest should read from it
+        # instead of running the pressure-history query.
+        app.state.latest_forecast = {"s1": "Fine weather"}
+        try:
+            resp = await test_client.get("/api/v1/observations/latest")
+        finally:
+            del app.state.latest_forecast
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["zambretti_forecast"] == "Fine weather"
+        # Exactly one DB call: the observation SELECT. No pressure-history query.
+        assert mock_db_session.execute.await_count == 1
+
+    async def test_falls_back_to_db_on_cold_start(self, test_client, mock_db_session):
+        """When the forecast cache is empty (no MQTT messages yet), fall back to DB."""
+        from app.main import app
+
+        fake_obs = MagicMock()
+        fake_obs.timestamp = datetime(2026, 4, 5, 12, 0, tzinfo=timezone.utc)
+        fake_obs.station_id = "s1"
+        fake_obs.temp_outdoor = 22.0
+        fake_obs.humidity_outdoor = 50.0
+        fake_obs.temp_indoor = None
+        fake_obs.dewpoint = None
+        fake_obs.feels_like = None
+        fake_obs.heat_index = None
+        fake_obs.wind_chill = None
+        fake_obs.frost_point = None
+        fake_obs.humidity_indoor = None
+        fake_obs.pressure_abs = None
+        fake_obs.pressure_rel = 1013.0
+        fake_obs.wind_speed = None
+        fake_obs.wind_gust = None
+        fake_obs.wind_dir = None
+        fake_obs.rain_rate = None
+        fake_obs.rain_daily = None
+        fake_obs.rain_weekly = None
+        fake_obs.rain_monthly = None
+        fake_obs.rain_yearly = None
+        fake_obs.rain_event = None
+        fake_obs.solar_radiation = None
+        fake_obs.uv_index = None
+        fake_obs.pm25 = None
+        fake_obs.pm10 = None
+        fake_obs.co2 = None
+        fake_obs.soil_moisture_1 = None
+        fake_obs.soil_moisture_2 = None
+        fake_obs.lightning_count = None
+        fake_obs.lightning_distance = None
+        fake_obs.lightning_time = None
+        fake_obs.utci = None
+        fake_obs.zambretti_forecast = None
+
+        result_obs = MagicMock()
+        result_obs.scalar_one_or_none.return_value = fake_obs
+        result_pressure = MagicMock()
+        result_pressure.scalar_one_or_none.return_value = 1012.5
+        mock_db_session.execute = AsyncMock(side_effect=[result_obs, result_pressure])
+
+        # Empty cache → should fall back to the DB pressure-history query
+        app.state.latest_forecast = {}
+        try:
+            resp = await test_client.get("/api/v1/observations/latest")
+        finally:
+            del app.state.latest_forecast
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["zambretti_forecast"] is not None  # computed by fallback path
+        # Two DB calls: observation SELECT + pressure-history SELECT
+        assert mock_db_session.execute.await_count == 2
+
+    async def test_latest_respects_cached_none_without_running_db_query(
+        self, test_client, mock_db_session
+    ):
+        """When the cache has station_id → None, trust it; DON'T run the abs(epoch) query.
+
+        MQTT writes None into the cache when an observation is processed but the
+        station has <3h of pressure history. That None is the authoritative
+        "no forecast available" answer — falling back to the DB would return
+        None anyway, just after a non-indexable scan.
+        """
+        from app.main import app
+
+        fake_obs = MagicMock()
+        fake_obs.timestamp = datetime(2026, 4, 5, 12, 0, tzinfo=timezone.utc)
+        fake_obs.station_id = "s1"
+        fake_obs.temp_outdoor = 22.0
+        fake_obs.humidity_outdoor = 50.0
+        fake_obs.temp_indoor = None
+        fake_obs.dewpoint = None
+        fake_obs.feels_like = None
+        fake_obs.heat_index = None
+        fake_obs.wind_chill = None
+        fake_obs.frost_point = None
+        fake_obs.humidity_indoor = None
+        fake_obs.pressure_abs = None
+        fake_obs.pressure_rel = 1013.0
+        fake_obs.wind_speed = None
+        fake_obs.wind_gust = None
+        fake_obs.wind_dir = None
+        fake_obs.rain_rate = None
+        fake_obs.rain_daily = None
+        fake_obs.rain_weekly = None
+        fake_obs.rain_monthly = None
+        fake_obs.rain_yearly = None
+        fake_obs.rain_event = None
+        fake_obs.solar_radiation = None
+        fake_obs.uv_index = None
+        fake_obs.pm25 = None
+        fake_obs.pm10 = None
+        fake_obs.co2 = None
+        fake_obs.soil_moisture_1 = None
+        fake_obs.soil_moisture_2 = None
+        fake_obs.lightning_count = None
+        fake_obs.lightning_distance = None
+        fake_obs.lightning_time = None
+        fake_obs.utci = None
+        fake_obs.zambretti_forecast = None
+
+        result_obs = MagicMock()
+        result_obs.scalar_one_or_none.return_value = fake_obs
+        mock_db_session.execute = AsyncMock(side_effect=[result_obs])
+
+        # Cache explicitly has station → None (MQTT saw observation but lacked
+        # 3h pressure history). This is an authoritative negative answer.
+        app.state.latest_forecast = {"s1": None}
+        try:
+            resp = await test_client.get("/api/v1/observations/latest")
+        finally:
+            del app.state.latest_forecast
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["zambretti_forecast"] is None
+        # Exactly one DB call: the observation SELECT. No pressure-history query.
+        assert mock_db_session.execute.await_count == 1
+
     async def test_station_id_filter(self, test_client, mock_db_session):
         fake_obs = MagicMock()
         fake_obs.timestamp = datetime(2026, 4, 5, 12, 0, tzinfo=timezone.utc)

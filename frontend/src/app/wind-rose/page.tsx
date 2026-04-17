@@ -7,6 +7,7 @@ import type { WindRoseDataPoint } from "@/generated/models";
 import WindRoseChart, { type SelectedWedge } from "@/components/wind-rose/WindRoseChart";
 import WindRoseSelectionCard from "@/components/wind-rose/WindRoseSelectionCard";
 import InfoTip from "@/components/ui/InfoTip";
+import { CADENCES } from "@/lib/queryCadences";
 import { useUnits } from "@/providers/UnitsProvider";
 
 type TimeRange = "24h" | "7d" | "30d" | "1y";
@@ -51,7 +52,7 @@ export default function WindRosePage() {
   // range change via the new params.
   const { data: response, isLoading } = useGetWindRoseData(
     { start, end },
-    { query: { refetchInterval: undefined } },
+    { query: { refetchInterval: CADENCES.none } },
   );
   const data = (response?.data as WindRoseDataPoint[] | undefined) ?? [];
 

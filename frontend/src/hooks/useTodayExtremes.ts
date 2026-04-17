@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import type { AggregatedObservation } from "@/generated/models";
 import { useListHourlyObservations } from "@/generated/aggregates/aggregates";
+import { CADENCES } from "@/lib/queryCadences";
 
 interface TodayExtremes {
   tempMin: number | null;
@@ -20,7 +21,7 @@ export function useTodayExtremes(): TodayExtremes {
   // Today's hourly extremes — rolls forward once per hour. 5-minute poll keeps
   // the min/max bars reasonably fresh without the 60s churn.
   const { data: response } = useListHourlyObservations(params, {
-    query: { refetchInterval: 5 * 60 * 1000 },
+    query: { refetchInterval: CADENCES.aggregate5m },
   });
   const rows = (response?.data ?? []) as AggregatedObservation[];
 

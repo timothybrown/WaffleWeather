@@ -142,6 +142,13 @@ class TestObservationPageSchema:
         assert page.total == 0
         assert page.items == []
 
+    def test_total_defaults_to_none(self):
+        """`total` is Optional[int] with default None so the hot path
+        (offset=0) can skip COUNT(*) without returning a bogus zero that
+        clients might render as "0 results"."""
+        page = ObservationPageSchema(items=[], limit=50, offset=0)
+        assert page.total is None
+
 
 class TestCalendarDataPointSchema:
     def test_construction(self):

@@ -7,6 +7,7 @@ import {
   useListDailyObservations,
   useListMonthlyObservations,
 } from "@/generated/aggregates/aggregates";
+import { CADENCES } from "@/lib/queryCadences";
 
 export type TimeRange = "24h" | "7d" | "30d" | "1y";
 
@@ -45,22 +46,22 @@ export function useHistoryData(range: TimeRange) {
   // 24h updates separately.
   const rawQuery = useListObservations(
     { start, end, limit: 10000 },
-    { query: { enabled: range === "24h", refetchInterval: undefined } },
+    { query: { enabled: range === "24h", refetchInterval: CADENCES.none } },
   );
 
   const hourlyQuery = useListHourlyObservations(
     { start, end },
-    { query: { enabled: range === "7d", refetchInterval: undefined } },
+    { query: { enabled: range === "7d", refetchInterval: CADENCES.none } },
   );
 
   const dailyQuery = useListDailyObservations(
     { start, end },
-    { query: { enabled: range === "30d", refetchInterval: undefined } },
+    { query: { enabled: range === "30d", refetchInterval: CADENCES.none } },
   );
 
   const monthlyQuery = useListMonthlyObservations(
     { start, end },
-    { query: { enabled: range === "1y", refetchInterval: undefined } },
+    { query: { enabled: range === "1y", refetchInterval: CADENCES.none } },
   );
 
   if (range === "24h") {

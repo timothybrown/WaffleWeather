@@ -211,3 +211,32 @@ class TestSpanValidation:
             params={"start": start.isoformat(), "end": end.isoformat()},
         )
         assert resp.status_code == 400
+
+    async def test_hourly_range_exactly_14d_allowed(self, test_client, mock_db_session):
+        """Lock inclusive boundary: `span > cap` check means 14d exact is OK, 14d+1s is 400.
+
+        Without this test, a refactor that flipped `>` to `>=` would silently
+        reject users asking for exactly 14 days (a common "past two weeks"
+        UI choice).
+        """
+        result = MagicMock()
+        result.mappings.return_value.all.return_value = []
+        mock_db_session.execute = AsyncMock(return_value=result)
+
+        end = datetime(2026, 1, 15, tzinfo=timezone.utc)
+        start_ok = end - timedelta(days=14)               # exactly at the cap
+        start_over = end - timedelta(days=14, seconds=1)  # 1s past the cap
+
+        r_ok = await test_client.get(
+            "/api/v1/observations/hourly",
+            params={"start": start_ok.isoformat(), "end": end.isoformat()},
+        )
+        r_over = await test_client.get(
+            "/api/v1/observations/hourly",
+            params={"start": start_over.isoformat(), "end": end.isoformat()},
+        )
+
+        # 14d exact must not trigger the span-violation 400.
+        assert r_ok.status_code != 400
+        # 14d + 1s must be a span-violation 400.
+        assert r_over.status_code == 400

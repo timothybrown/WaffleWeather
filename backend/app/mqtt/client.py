@@ -20,8 +20,10 @@ from app.services.derived import dew_point, enrich_observation, zambretti_foreca
 logger = logging.getLogger(__name__)
 
 # In-memory pressure history for Zambretti forecast (WebSocket path).
-# Stores (timestamp, pressure_hpa) tuples; pruned to 4h window on each insert.
-_pressure_history: deque[tuple[datetime, float]] = deque(maxlen=1000)
+# Keyed by station_id so multiple stations don't interleave readings.
+# Each per-station deque stores (timestamp, pressure_hpa) tuples; pruned to
+# a 4h window on each insert and capped at maxlen=1000 entries.
+_pressure_history: dict[str, deque[tuple[datetime, float]]] = {}
 
 # In-memory lightning state for event detection.
 # Maps station_id -> (last_count, last_lightning_time)
@@ -47,7 +49,11 @@ def _extract_device_id(raw_segment) -> str | None:
     return raw_segment
 
 
-async def mqtt_listener(settings: Settings, broadcast_fn=None) -> None:
+async def mqtt_listener(
+    settings: Settings,
+    broadcast_fn=None,
+    forecast_cache: dict | None = None,
+) -> None:
     """Connect to MQTT broker and process messages forever.
 
     Reconnects with exponential backoff on broker disconnects.
@@ -56,6 +62,9 @@ async def mqtt_listener(settings: Settings, broadcast_fn=None) -> None:
         settings: Application settings with MQTT config.
         broadcast_fn: Optional async callable to broadcast new observations
                       to WebSocket clients. Signature: (dict) -> None.
+        forecast_cache: Optional dict (keyed by station_id) to populate with
+                        the latest Zambretti forecast each time an observation
+                        is processed. Read-through for /observations/latest.
     """
     backoff = 1
     max_backoff = 60
@@ -78,7 +87,7 @@ async def mqtt_listener(settings: Settings, broadcast_fn=None) -> None:
                 logger.info("Subscribed to %s", settings.mqtt_topic)
 
                 async for message in client.messages:
-                    await _handle_message(message, settings, broadcast_fn)
+                    await _handle_message(message, settings, broadcast_fn, forecast_cache)
 
         except aiomqtt.MqttError as e:
             logger.warning("MQTT connection lost: %s — reconnecting in %ds", e, backoff)
@@ -94,7 +103,10 @@ async def mqtt_listener(settings: Settings, broadcast_fn=None) -> None:
 
 
 async def _handle_message(
-    message: aiomqtt.Message, settings: Settings, broadcast_fn=None
+    message: aiomqtt.Message,
+    settings: Settings,
+    broadcast_fn=None,
+    forecast_cache: dict | None = None,
 ) -> None:
     """Parse an MQTT message, store to DB, and optionally broadcast."""
     topic = str(message.topic)
@@ -168,42 +180,55 @@ async def _handle_message(
     # Detect lightning events by comparing count/time with previous observation
     await _detect_lightning_event(device_id, parsed, settings)
 
+    # Compute Zambretti forecast from pressure history (used by both the
+    # WebSocket broadcast path and the /observations/latest cache path).
+    forecast: str | None = None
+    enriched: dict | None = None
+    try:
+        enriched = enrich_observation(dict(parsed))
+        pressure = enriched.get("pressure_rel")
+        ts = enriched.get("timestamp")
+        if pressure is not None and ts is not None:
+            if isinstance(ts, str):
+                ts_dt = datetime.fromisoformat(ts)
+            else:
+                ts_dt = ts
+            history = _pressure_history.setdefault(device_id, deque(maxlen=1000))
+            history.append((ts_dt, pressure))
+            # Prune entries older than 4 hours
+            cutoff = ts_dt - timedelta(hours=4)
+            while history and history[0][0] < cutoff:
+                history.popleft()
+            # Find closest reading to 3h ago
+            target = ts_dt - timedelta(hours=3)
+            best = None
+            best_delta = timedelta(minutes=20)  # max tolerance
+            for h_ts, h_p in history:
+                d = abs(h_ts - target)
+                if d < best_delta:
+                    best_delta = d
+                    best = h_p
+            forecast = zambretti_forecast(
+                pressure,
+                best,
+                wind_dir=enriched.get("wind_dir"),
+                month=ts_dt.month,
+                north=settings.station_latitude is None or settings.station_latitude >= 0,
+            )
+    except Exception:
+        logger.exception("Failed to compute Zambretti forecast for %s", device_id)
+
+    # Populate in-process forecast cache so /observations/latest can skip
+    # its per-request abs(epoch) DB query. Overwrite prior value (including
+    # with None) so a stale forecast doesn't linger across a pressure drop-out.
+    if forecast_cache is not None:
+        forecast_cache[device_id] = forecast
+
     if broadcast_fn:
         try:
-            broadcast_data = enrich_observation(parsed)
-
-            # Zambretti: track pressure and compute forecast from 3h history
-            pressure = broadcast_data.get("pressure_rel")
-            ts = broadcast_data.get("timestamp")
-            if pressure is not None and ts is not None:
-                if isinstance(ts, str):
-                    ts_dt = datetime.fromisoformat(ts)
-                else:
-                    ts_dt = ts
-                _pressure_history.append((ts_dt, pressure))
-                # Prune entries older than 4 hours
-                cutoff = ts_dt - timedelta(hours=4)
-                while _pressure_history and _pressure_history[0][0] < cutoff:
-                    _pressure_history.popleft()
-                # Find closest reading to 3h ago
-                target = ts_dt - timedelta(hours=3)
-                best = None
-                best_delta = timedelta(minutes=20)  # max tolerance
-                for h_ts, h_p in _pressure_history:
-                    d = abs(h_ts - target)
-                    if d < best_delta:
-                        best_delta = d
-                        best = h_p
-                forecast = zambretti_forecast(
-                    pressure,
-                    best,
-                    wind_dir=broadcast_data.get("wind_dir"),
-                    month=ts_dt.month,
-                    north=settings.station_latitude is None or settings.station_latitude >= 0,
-                )
-                if forecast is not None:
-                    broadcast_data["zambretti_forecast"] = forecast
-
+            broadcast_data = enriched if enriched is not None else enrich_observation(dict(parsed))
+            if forecast is not None:
+                broadcast_data["zambretti_forecast"] = forecast
             broadcast_data["diagnostics"] = diagnostics
             await broadcast_fn(broadcast_data)
         except Exception:

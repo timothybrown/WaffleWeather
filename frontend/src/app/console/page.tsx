@@ -11,6 +11,7 @@ import { useListStations } from "@/generated/stations/stations";
 import { useWebSocket } from "@/providers/WebSocketProvider";
 import { useUnits } from "@/providers/UnitsProvider";
 import { useTrends } from "@/hooks/useTrends";
+import { CADENCES } from "@/lib/queryCadences";
 import { fmt, degToCompass } from "@/lib/utils";
 import {
   convertTemp,
@@ -62,13 +63,13 @@ const DARK_VARS: React.CSSProperties = {
 export default function ConsolePage() {
   // ── Data fetching ─────────────────────────────────────────────
   const { data: apiResponse } = useGetLatestObservation(undefined, {
-    query: { refetchInterval: 30_000 },
+    query: { refetchInterval: CADENCES.live },
   });
   const { latestObservation: wsData } = useWebSocket();
   const trends = useTrends();
   const { system } = useUnits();
   const { data: stationsResponse } = useListStations({
-    query: { refetchInterval: Infinity },
+    query: { refetchInterval: CADENCES.none },
   });
 
   const apiData = apiResponse?.data as Observation | undefined;
@@ -94,7 +95,7 @@ export default function ConsolePage() {
   }, [Math.floor(Date.now() / 60_000)]);
   const { data: historyResponse } = useListHourlyObservations(
     pressureRange,
-    { query: { refetchInterval: 60_000, placeholderData: keepPreviousData } },
+    { query: { refetchInterval: CADENCES.summary, placeholderData: keepPreviousData } },
   );
   const pressureHistory = useMemo<AggregatedObservation[]>(() => {
     const items = (historyResponse as { data?: AggregatedObservation[] } | undefined)?.data;

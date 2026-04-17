@@ -34,6 +34,12 @@ async def lifespan(app: FastAPI):
     manager = ConnectionManager()
     app.state.ws_manager = manager
 
+    # In-process Zambretti forecast cache keyed by station_id.
+    # Populated by the MQTT listener on each new observation; read by
+    # /observations/latest to avoid a non-indexable per-request DB query.
+    # Plain dict is fine — single-key get/set is atomic under the GIL.
+    app.state.latest_forecast = {}
+
     if not settings.api_key:
         logger.warning(
             "WW_API_KEY is not set — API is unauthenticated. "
@@ -42,7 +48,11 @@ async def lifespan(app: FastAPI):
 
     # Start MQTT listener as background task
     mqtt_task = asyncio.create_task(
-        mqtt_listener(settings, broadcast_fn=manager.broadcast)
+        mqtt_listener(
+            settings,
+            broadcast_fn=manager.broadcast,
+            forecast_cache=app.state.latest_forecast,
+        )
     )
     logger.info("WaffleWeather backend started")
 

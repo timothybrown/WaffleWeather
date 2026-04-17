@@ -5,6 +5,7 @@ import { useGetCalendarData, useListDailyObservations } from "@/generated/aggreg
 import { GetCalendarDataMetric } from "@/generated/models";
 import type { AggregatedObservation, CalendarDataPoint } from "@/generated/models";
 import { convertTemp, convertSpeed, convertRain } from "@/lib/units";
+import { CADENCES } from "@/lib/queryCadences";
 import { useUnits } from "@/providers/UnitsProvider";
 import { fmt } from "@/lib/utils";
 
@@ -257,7 +258,7 @@ export default function CalendarHeatmap() {
   // Re-runs naturally on metric/year/unit changes — no background polling.
   const { data: response, isLoading } = useGetCalendarData(
     { metric, year },
-    { query: { refetchInterval: undefined } },
+    { query: { refetchInterval: CADENCES.none } },
   );
   const rawData = (response?.data as CalendarDataPoint[] | undefined) ?? [];
 
@@ -267,7 +268,7 @@ export default function CalendarHeatmap() {
     end: `${year}-12-31T23:59:59Z`,
   }), [year]);
   const { data: dailyResponse } = useListDailyObservations(dailyParams, {
-    query: { refetchInterval: undefined },
+    query: { refetchInterval: CADENCES.none },
   });
   const dailyRows = (dailyResponse?.data ?? []) as AggregatedObservation[];
 

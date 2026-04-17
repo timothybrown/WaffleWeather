@@ -3,7 +3,9 @@
 import { useState } from "react";
 import { RiArrowLeftSLine, RiArrowRightSLine, RiDownloadLine } from "@remixicon/react";
 import { cn } from "@/lib/utils";
+import { ApiError } from "@/lib/fetcher";
 import { convertAltitude } from "@/lib/units";
+import { CADENCES } from "@/lib/queryCadences";
 import { useUnits } from "@/providers/UnitsProvider";
 import { useGetMonthlyReport, useGetYearlyReport } from "@/generated/reports/reports";
 import ReportTable from "@/components/reports/ReportTable";
@@ -29,17 +31,25 @@ export default function ReportsPage() {
   // period ends, so no polling — rely on manual navigation + mode changes.
   const monthlyQuery = useGetMonthlyReport(
     { year, month },
-    { query: { enabled: mode === "monthly", refetchInterval: undefined } },
+    { query: { enabled: mode === "monthly", refetchInterval: CADENCES.none } },
   );
   const yearlyQuery = useGetYearlyReport(
     { year },
-    { query: { enabled: mode === "yearly", refetchInterval: undefined } },
+    { query: { enabled: mode === "yearly", refetchInterval: CADENCES.none } },
   );
 
   const activeQuery = mode === "monthly" ? monthlyQuery : yearlyQuery;
   const report = activeQuery.data?.status === 200 ? activeQuery.data.data : null;
   const isLoading = activeQuery.isLoading;
-  const isNotFound = activeQuery.data?.status === 404;
+  // After T18, fetcher.ts throws ApiError on non-2xx, so `data.status === 404`
+  // is dead code -- `data` is undefined when the query errors. Inspect the
+  // typed error instead so we can differentiate a legitimate "no report for
+  // this period" (404) from a server/network failure (5xx / network).
+  const error = activeQuery.error as unknown;
+  const isNotFound = error instanceof ApiError && error.status === 404;
+  const isServerError = error instanceof ApiError && error.status >= 500;
+  const isNetworkError = !!error && !(error instanceof ApiError);
+  const isErrored = isServerError || isNetworkError;
 
   // Navigation
   const goNext = () => {
@@ -160,6 +170,23 @@ export default function ReportsPage() {
       {isLoading ? (
         <div className="flex h-96 items-center justify-center text-text-muted">
           Loading...
+        </div>
+      ) : isErrored ? (
+        <div className="flex h-96 flex-col items-center justify-center gap-3 px-6 text-center">
+          <h2 className="font-display text-xl font-semibold text-text">
+            Couldn&apos;t load report
+          </h2>
+          <p className="max-w-sm text-sm text-text-muted">
+            {error instanceof Error
+              ? error.message
+              : "The server returned an error."}
+          </p>
+          <button
+            onClick={() => activeQuery.refetch()}
+            className="mt-1 rounded-lg border border-border bg-surface-alt px-4 py-2 text-sm font-medium text-text transition-colors hover:bg-surface-hover"
+          >
+            Try again
+          </button>
         </div>
       ) : isNotFound || !report ? (
         <div className="flex h-96 items-center justify-center text-text-muted">

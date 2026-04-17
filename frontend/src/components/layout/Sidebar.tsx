@@ -15,6 +15,7 @@ import {
   RiComputerLine,
   RiSunLine,
   RiMoonLine,
+  RiRefreshLine,
 } from "@remixicon/react";
 import { cn } from "@/lib/utils";
 import { useWebSocket } from "@/providers/WebSocketProvider";
@@ -39,7 +40,7 @@ export default function Sidebar({
   onClose: () => void;
 }) {
   const pathname = usePathname();
-  const { connected } = useWebSocket();
+  const { connected, offline, reconnect } = useWebSocket();
   const { system, toggle } = useUnits();
   const { preference, setPreference } = useTheme();
 
@@ -147,15 +148,31 @@ export default function Sidebar({
               </button>
             ))}
           </div>
-          <div className="flex items-center gap-2.5 text-xs text-text-faint">
-            <span
-              className={cn(
-                "inline-block h-2 w-2 rounded-full",
-                connected ? "bg-success live-pulse" : "bg-danger",
-              )}
-            />
-            {connected ? "Live" : "Disconnected"}
-          </div>
+          {offline ? (
+            <div className="flex items-center gap-2 text-xs text-text-faint">
+              <span className="inline-block h-2 w-2 shrink-0 rounded-full bg-danger" />
+              <span className="flex-1 truncate">Offline</span>
+              <button
+                type="button"
+                onClick={reconnect}
+                aria-label="Retry connection"
+                title="Retry connection"
+                className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md text-text-faint transition-colors hover:text-text"
+              >
+                <RiRefreshLine className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2.5 text-xs text-text-faint">
+              <span
+                className={cn(
+                  "inline-block h-2 w-2 rounded-full",
+                  connected ? "bg-success live-pulse" : "bg-danger",
+                )}
+              />
+              {connected ? "Live" : "Disconnected"}
+            </div>
+          )}
           <button
             onClick={toggle}
             className="flex w-full items-center rounded-lg border border-border bg-surface text-xs font-medium"

@@ -30,12 +30,23 @@ interface WebSocketContextValue {
   latestObservation: Observation | null;
   diagnostics: Diagnostics | null;
   connected: boolean;
+  /**
+   * True once the provider has exhausted {@link MAX_RETRIES} reconnect
+   * attempts and has stopped trying. Consumers surface this as a distinct
+   * "Offline" state (e.g. suggest a manual refresh) because `connected:
+   * false` alone can't distinguish a transient blip from a permanent give-up.
+   */
+  offline: boolean;
+  /** Manually reset retry counter and reconnect. Used by the sidebar retry. */
+  reconnect: () => void;
 }
 
 const WebSocketContext = createContext<WebSocketContextValue>({
   latestObservation: null,
   diagnostics: null,
   connected: false,
+  offline: false,
+  reconnect: () => {},
 });
 
 export function useWebSocket() {
@@ -65,6 +76,7 @@ export default function WebSocketProvider({
     useState<Observation | null>(null);
   const [diagnostics, setDiagnostics] = useState<Diagnostics | null>(null);
   const [connected, setConnected] = useState(false);
+  const [offline, setOffline] = useState(false);
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const retryCountRef = useRef(0);
@@ -77,6 +89,7 @@ export default function WebSocketProvider({
 
     ws.onopen = () => {
       setConnected(true);
+      setOffline(false);
       // Reset the retry counter so a long-lived session that survives a
       // transient outage isn't penalized by the global cap.
       retryCountRef.current = 0;
@@ -101,8 +114,11 @@ export default function WebSocketProvider({
       wsRef.current = null;
 
       // Stop retrying once we've hit the cap so a permanently-gone endpoint
-      // doesn't spin forever.
+      // doesn't spin forever. Flag the consumer-visible "offline" state so
+      // the UI can tell the difference between a transient disconnect and a
+      // give-up.
       if (retryCountRef.current >= MAX_RETRIES) {
+        setOffline(true);
         return;
       }
 
@@ -124,6 +140,19 @@ export default function WebSocketProvider({
     };
   }, []);
 
+  // Manual retry: cancel any pending timer, reset the retry counter, clear
+  // the offline flag, and kick off a fresh connect. Exposed via context so
+  // the sidebar's Offline state can offer a Retry button.
+  const reconnect = useCallback(() => {
+    if (reconnectTimerRef.current) {
+      clearTimeout(reconnectTimerRef.current);
+      reconnectTimerRef.current = null;
+    }
+    retryCountRef.current = 0;
+    setOffline(false);
+    connect();
+  }, [connect]);
+
   useEffect(() => {
     connect();
     return () => {
@@ -139,7 +168,9 @@ export default function WebSocketProvider({
   }, [connect]);
 
   return (
-    <WebSocketContext.Provider value={{ latestObservation, diagnostics, connected }}>
+    <WebSocketContext.Provider
+      value={{ latestObservation, diagnostics, connected, offline, reconnect }}
+    >
       {children}
     </WebSocketContext.Provider>
   );
