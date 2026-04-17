@@ -235,14 +235,16 @@ All derived values (dew point, heat index, wind chill, feels like, UTCI, Zambret
 
 ## Security Notes
 
-WaffleWeather is designed for local network use. If you're exposing it to the internet, you should address:
+WaffleWeather is designed for local network use. The setup script ships sensible defaults:
 
-- **HTTPS**: Configure TLS in Nginx. If you use [Tailscale](https://tailscale.com/), `tailscale cert` provides free automatic certificates for your `.ts.net` domain — see [DEVELOPMENT.md](DEVELOPMENT.md) for setup. Alternatively, Let's Encrypt works well for public-facing setups
-- **Rate limiting**: Add Nginx rate limiting or application-level throttling
-- **Security headers**: CSP, HSTS, X-Frame-Options, etc.
+- **Rate limiting**: Nginx `limit_req_zone` at 30 r/s for `/api/` and 5 r/s for `/ws/` (installed to `/etc/nginx/conf.d/zz-waffleweather-ratelimit.conf`)
+- **Security headers**: CSP, X-Frame-Options, X-Content-Type-Options, Referrer-Policy, and Permissions-Policy on all responses; HSTS additionally on HTTPS responses
+- **API key authentication**: Nginx injects an `X-API-Key` header from a snippet the setup script generates. When `WW_API_KEY` is set in `.env`, the backend validates it; when unset, auth is disabled (suitable for LAN-only use)
+
+For internet-facing deployments, additionally:
+
+- **HTTPS**: Uncomment Block 2 in `deploy/nginx.conf` and supply a cert. If you use [Tailscale](https://tailscale.com/), `tailscale cert` provides free automatic certificates for your `.ts.net` domain — see [DEVELOPMENT.md](DEVELOPMENT.md) for setup. Let's Encrypt works well for public-facing setups
 - **CORS**: Tighten the default `allow_methods=["*"]` in the backend config
-
-API key authentication is available via Nginx header injection — the setup script generates a key automatically. When `WW_API_KEY` is set, all API requests must include a valid key. When unset, auth is disabled (suitable for LAN-only use).
 
 ## Credits
 

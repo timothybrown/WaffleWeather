@@ -244,23 +244,12 @@ sudo mv your-hostname.your-tailnet.ts.net.key /etc/nginx/ssl/
 sudo chmod 600 /etc/nginx/ssl/*.key
 ```
 
-Then add an HTTPS server block to `/etc/nginx/sites-available/waffleweather` alongside the existing HTTP block:
+Then enable the HTTPS server block in `/etc/nginx/sites-available/waffleweather` (which was copied from `deploy/nginx.conf` by the setup script):
 
-```nginx
-server {
-    listen 443 ssl;
-    server_name your-hostname.your-tailnet.ts.net;
-
-    ssl_certificate /etc/nginx/ssl/your-hostname.your-tailnet.ts.net.crt;
-    ssl_certificate_key /etc/nginx/ssl/your-hostname.your-tailnet.ts.net.key;
-    ssl_protocols TLSv1.2 TLSv1.3;
-    ssl_ciphers HIGH:!aNULL:!MD5;
-
-    # ... same location blocks as the HTTP server ...
-}
-```
-
-Reload nginx: `sudo nginx -t && sudo systemctl reload nginx`
+1. Uncomment **Block 2** in the file — the complete HTTPS server template that ships with the repo, including `http2 on;`, TLS, HSTS, rate limits, API-key injection, and long-lived static-asset caching.
+2. Replace `<your-public-hostname>` with `your-hostname.your-tailnet.ts.net` and the `<path-to-cert.crt>` / `<path-to-cert.key>` placeholders with the paths you just moved the certs to.
+3. Leave **Block 1** (HTTP on port 80) as-is so LAN and direct-IP clients (including hardware like the ESP32 Console) continue to work without a redirect. Do not uncomment Block 3 (HTTP→HTTPS redirect) if any of your clients can't follow 301s.
+4. Reload: `sudo nginx -t && sudo systemctl reload nginx`
 
 Tailscale certs expire after 90 days. Renew with:
 ```bash
