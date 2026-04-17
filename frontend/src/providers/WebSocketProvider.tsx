@@ -148,6 +148,11 @@ export default function WebSocketProvider({
       clearTimeout(reconnectTimerRef.current);
       reconnectTimerRef.current = null;
     }
+    if (wsRef.current) {
+      wsRef.current.onclose = null;
+      wsRef.current.close();
+      wsRef.current = null;
+    }
     retryCountRef.current = 0;
     setOffline(false);
     connect();

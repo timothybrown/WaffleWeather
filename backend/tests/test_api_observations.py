@@ -281,16 +281,10 @@ class TestGetLatestObservation:
         # Two DB calls: observation SELECT + pressure-history SELECT
         assert mock_db_session.execute.await_count == 2
 
-    async def test_latest_respects_cached_none_without_running_db_query(
-        self, test_client, mock_db_session
-    ):
-        """When the cache has station_id → None, trust it; DON'T run the abs(epoch) query.
-
-        MQTT writes None into the cache when an observation is processed but the
-        station has <3h of pressure history. That None is the authoritative
-        "no forecast available" answer — falling back to the DB would return
-        None anyway, just after a non-indexable scan.
-        """
+    async def test_cached_none_is_authoritative(self, test_client, mock_db_session):
+        """When the cache has station_id → None, trust it (the MQTT handler seeds
+        its pressure deque from the DB on startup, so None means no 3h history
+        exists anywhere). No extra DB query should fire."""
         from app.main import app
 
         fake_obs = MagicMock()
@@ -333,8 +327,6 @@ class TestGetLatestObservation:
         result_obs.scalar_one_or_none.return_value = fake_obs
         mock_db_session.execute = AsyncMock(side_effect=[result_obs])
 
-        # Cache explicitly has station → None (MQTT saw observation but lacked
-        # 3h pressure history). This is an authoritative negative answer.
         app.state.latest_forecast = {"s1": None}
         try:
             resp = await test_client.get("/api/v1/observations/latest")
@@ -344,7 +336,6 @@ class TestGetLatestObservation:
         assert resp.status_code == 200
         data = resp.json()
         assert data["zambretti_forecast"] is None
-        # Exactly one DB call: the observation SELECT. No pressure-history query.
         assert mock_db_session.execute.await_count == 1
 
     async def test_station_id_filter(self, test_client, mock_db_session):

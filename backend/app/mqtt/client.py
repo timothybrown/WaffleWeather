@@ -7,6 +7,7 @@ from collections import deque
 from datetime import datetime, timedelta
 
 import aiomqtt
+from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from app.config import Settings
@@ -102,6 +103,30 @@ async def mqtt_listener(
             backoff = min(backoff * 2, max_backoff)
 
 
+async def _seed_pressure_history(
+    station_id: str, now: datetime, history: deque
+) -> None:
+    """Seed the in-memory pressure deque from the DB on first observation after restart."""
+    try:
+        cutoff = now - timedelta(hours=4)
+        async with async_session() as session:
+            rows = await session.execute(
+                select(WeatherObservation.timestamp, WeatherObservation.pressure_rel)
+                .where(
+                    WeatherObservation.station_id == station_id,
+                    WeatherObservation.timestamp >= cutoff,
+                    WeatherObservation.pressure_rel.is_not(None),
+                )
+                .order_by(WeatherObservation.timestamp)
+            )
+            for ts, pressure in rows:
+                history.append((ts, pressure))
+        if history:
+            logger.info("Seeded pressure history for %s with %d readings", station_id, len(history))
+    except Exception:
+        logger.warning("Failed to seed pressure history for %s from DB", station_id, exc_info=True)
+
+
 async def _handle_message(
     message: aiomqtt.Message,
     settings: Settings,
@@ -193,9 +218,12 @@ async def _handle_message(
                 ts_dt = datetime.fromisoformat(ts)
             else:
                 ts_dt = ts
-            history = _pressure_history.setdefault(device_id, deque(maxlen=1000))
+            history = _pressure_history.get(device_id)
+            if history is None:
+                history = deque(maxlen=1000)
+                _pressure_history[device_id] = history
+                await _seed_pressure_history(device_id, ts_dt, history)
             history.append((ts_dt, pressure))
-            # Prune entries older than 4 hours
             cutoff = ts_dt - timedelta(hours=4)
             while history and history[0][0] < cutoff:
                 history.popleft()

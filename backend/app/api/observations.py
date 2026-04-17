@@ -33,19 +33,16 @@ async def get_latest_observation(
     schema = ObservationSchema.model_validate(obs)
 
     # Zambretti forecast: read from in-process cache populated by the MQTT
-    # listener. Use `in` membership (not truthiness) to distinguish:
+    # listener. The MQTT handler seeds its pressure deque from the DB on first
+    # observation after restart, so the cache is authoritative once populated.
+    # Use `in` membership (not truthiness) to distinguish:
     #   - cache miss (key absent): cold start / this station unseen → DB fallback
-    #   - cached None (key present, value None): MQTT processed an observation
-    #     but had <3h of pressure history → authoritative "no forecast". Running
-    #     the abs(epoch) DB query would also return None, just slower.
+    #   - cached None (key present, value None): no 3h history in DB either
     if schema.pressure_rel is not None:
         forecast_cache = getattr(request.app.state, "latest_forecast", None)
         if forecast_cache is not None and obs.station_id in forecast_cache:
             schema.zambretti_forecast = forecast_cache[obs.station_id]
         else:
-            # Cache miss — run the legacy DB lookup so cold-start still works.
-            # The abs(epoch) sort is non-indexable but this path only fires
-            # until the next MQTT message populates the cache.
             three_h_ago = obs.timestamp - timedelta(hours=3)
             window_start = three_h_ago - timedelta(minutes=15)
             window_end = three_h_ago + timedelta(minutes=15)

@@ -35,6 +35,7 @@ htmlcov/
 # Tools
 .claude/
 .playwright-mcp/
+.superpowers/
 
 # Local design docs (brainstorming specs, plans) — not for public repo
 docs/superpowers/

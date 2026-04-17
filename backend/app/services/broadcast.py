@@ -73,8 +73,8 @@ class ConnectionManager:
 
         for ws in dead:
             self._connections.discard(ws)
-            if dead:
-                logger.debug("Cleaned up %d dead WebSocket connections", len(dead))
+        if dead:
+            logger.debug("Cleaned up %d dead WebSocket connections", len(dead))
 
     @property
     def active_count(self) -> int:

@@ -10,6 +10,7 @@ from app.mqtt.client import (
     _handle_message,
     _last_lightning,
     _pressure_history,
+    _seed_pressure_history,
 )
 
 
@@ -154,8 +155,10 @@ class TestHandleMessage:
         diagnostics = {"batteries": {}, "gateway": {}}
         mock_parse.return_value = (parsed, diagnostics)
 
+        # Pre-populate empty deque to skip DB seeding in this unit test
+        _pressure_history["device1"] = deque(maxlen=1000)
+
         broadcast_fn = AsyncMock()
-        # Default topic is "ecowitt2mqtt/device1" -> device_id="device1"
         await _handle_message(_make_message(), _make_settings(), broadcast_fn=broadcast_fn)
 
         assert "device1" in _pressure_history
@@ -215,7 +218,7 @@ class TestHandleMessage:
     @patch("app.mqtt.client.async_session")
     @patch("app.mqtt.client.parse_ecowitt_payload")
     async def test_forecast_cache_none_without_history(self, mock_parse, mock_async_session):
-        """With no 3h pressure history, cache entry is None (still written)."""
+        """With no 3h pressure history (DB and memory both empty), cache is None."""
         factory, session = _mock_db_session()
         mock_async_session.side_effect = factory
 
@@ -223,6 +226,10 @@ class TestHandleMessage:
         parsed = {"station_id": "device1", "timestamp": ts, "pressure_rel": 1013.0}
         diagnostics = {"batteries": {}, "gateway": {}}
         mock_parse.return_value = (parsed, diagnostics)
+
+        # Pre-populate an empty deque so the handler skips DB seeding
+        # (simulates a station whose DB also has no recent pressure data).
+        _pressure_history["device1"] = deque(maxlen=1000)
 
         cache: dict = {}
         await _handle_message(
@@ -232,8 +239,6 @@ class TestHandleMessage:
             forecast_cache=cache,
         )
 
-        # Entry is written so stale forecasts don't linger; value is None
-        # because there's no 3h pressure reading to compare against.
         assert "device1" in cache
         assert cache["device1"] is None
 
@@ -509,3 +514,66 @@ class TestMalformedTopicHandling:
         msg = _make_message(topic="ecowitt2mqtt/")
         await _handle_message(msg, _make_settings())
         mock_parse.assert_not_called()
+
+
+class TestSeedPressureHistory:
+    """_seed_pressure_history loads recent DB readings into the in-memory deque."""
+
+    @patch("app.mqtt.client.async_session")
+    async def test_seeds_from_db(self, mock_async_session):
+        now = datetime(2026, 4, 5, 15, 0, tzinfo=timezone.utc)
+        rows = [
+            (now - timedelta(hours=3), 1010.0),
+            (now - timedelta(hours=2), 1011.0),
+            (now - timedelta(hours=1), 1012.0),
+        ]
+
+        session = AsyncMock()
+        result = MagicMock()
+        result.__iter__ = MagicMock(return_value=iter(rows))
+        session.execute = AsyncMock(return_value=result)
+
+        ctx = AsyncMock()
+        ctx.__aenter__ = AsyncMock(return_value=session)
+        ctx.__aexit__ = AsyncMock(return_value=False)
+        mock_async_session.return_value = ctx
+
+        history = deque(maxlen=1000)
+        await _seed_pressure_history("test-station", now, history)
+
+        assert len(history) == 3
+        assert history[0] == (now - timedelta(hours=3), 1010.0)
+        assert history[2] == (now - timedelta(hours=1), 1012.0)
+
+    @patch("app.mqtt.client.async_session")
+    async def test_empty_db_leaves_empty_deque(self, mock_async_session):
+        now = datetime(2026, 4, 5, 15, 0, tzinfo=timezone.utc)
+
+        session = AsyncMock()
+        result = MagicMock()
+        result.__iter__ = MagicMock(return_value=iter([]))
+        session.execute = AsyncMock(return_value=result)
+
+        ctx = AsyncMock()
+        ctx.__aenter__ = AsyncMock(return_value=session)
+        ctx.__aexit__ = AsyncMock(return_value=False)
+        mock_async_session.return_value = ctx
+
+        history = deque(maxlen=1000)
+        await _seed_pressure_history("test-station", now, history)
+
+        assert len(history) == 0
+
+    @patch("app.mqtt.client.async_session")
+    async def test_db_error_does_not_raise(self, mock_async_session):
+        now = datetime(2026, 4, 5, 15, 0, tzinfo=timezone.utc)
+
+        ctx = AsyncMock()
+        ctx.__aenter__ = AsyncMock(side_effect=Exception("DB down"))
+        ctx.__aexit__ = AsyncMock(return_value=False)
+        mock_async_session.return_value = ctx
+
+        history = deque(maxlen=1000)
+        await _seed_pressure_history("test-station", now, history)
+
+        assert len(history) == 0

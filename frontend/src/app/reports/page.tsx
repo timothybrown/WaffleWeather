@@ -39,7 +39,7 @@ export default function ReportsPage() {
   );
 
   const activeQuery = mode === "monthly" ? monthlyQuery : yearlyQuery;
-  const report = activeQuery.data?.status === 200 ? activeQuery.data.data : null;
+  const report = activeQuery.data?.data ?? null;
   const isLoading = activeQuery.isLoading;
   // After T18, fetcher.ts throws ApiError on non-2xx, so `data.status === 404`
   // is dead code -- `data` is undefined when the query errors. Inspect the
