@@ -4,6 +4,7 @@ import asyncio
 import logging
 import re
 from collections import deque
+from collections.abc import Awaitable, Callable
 from datetime import datetime, timedelta
 
 import aiomqtt
@@ -37,7 +38,7 @@ _last_lightning: dict[str, tuple[int, datetime | None]] = {}
 _DEVICE_ID_RE = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
 
 
-def _extract_device_id(raw_segment) -> str | None:
+def _extract_device_id(raw_segment: object) -> str | None:
     """Validate a topic segment and return it as a device_id, or None if invalid.
 
     Accepts alphanumeric, underscore, and hyphen; rejects empty strings,
@@ -52,8 +53,8 @@ def _extract_device_id(raw_segment) -> str | None:
 
 async def mqtt_listener(
     settings: Settings,
-    broadcast_fn=None,
-    forecast_cache: dict | None = None,
+    broadcast_fn: Callable[[dict[str, object]], Awaitable[None]] | None = None,
+    forecast_cache: dict[str, str | None] | None = None,
 ) -> None:
     """Connect to MQTT broker and process messages forever.
 
@@ -104,7 +105,7 @@ async def mqtt_listener(
 
 
 async def _seed_pressure_history(
-    station_id: str, now: datetime, history: deque
+    station_id: str, now: datetime, history: deque[tuple[datetime, float]]
 ) -> None:
     """Seed the in-memory pressure deque from the DB on first observation after restart."""
     try:
@@ -130,8 +131,8 @@ async def _seed_pressure_history(
 async def _handle_message(
     message: aiomqtt.Message,
     settings: Settings,
-    broadcast_fn=None,
-    forecast_cache: dict | None = None,
+    broadcast_fn: Callable[[dict[str, object]], Awaitable[None]] | None = None,
+    forecast_cache: dict[str, str | None] | None = None,
 ) -> None:
     """Parse an MQTT message, store to DB, and optionally broadcast."""
     topic = str(message.topic)
@@ -163,15 +164,15 @@ async def _handle_message(
     if "dewpoint" not in parsed:
         temp = parsed.get("temp_outdoor")
         rh = parsed.get("humidity_outdoor")
-        if temp is not None and rh is not None:
-            parsed["dewpoint"] = dew_point(temp, rh)
+        if isinstance(temp, (int, float)) and isinstance(rh, (int, float)):
+            parsed["dewpoint"] = dew_point(float(temp), float(rh))
 
     try:
         async with async_session() as session:
             async with session.begin():
                 # Build station values from config (only non-None fields)
-                station_values: dict = {"id": device_id, "last_seen": parsed["timestamp"]}
-                update_set: dict = {"last_seen": parsed["timestamp"]}
+                station_values: dict[str, object] = {"id": device_id, "last_seen": parsed["timestamp"]}
+                update_set: dict[str, object] = {"last_seen": parsed["timestamp"]}
                 for attr, col in [
                     ("station_name", "name"),
                     ("station_latitude", "latitude"),
@@ -208,22 +209,25 @@ async def _handle_message(
     # Compute Zambretti forecast from pressure history (used by both the
     # WebSocket broadcast path and the /observations/latest cache path).
     forecast: str | None = None
-    enriched: dict | None = None
+    enriched: dict[str, object] | None = None
     try:
         enriched = enrich_observation(dict(parsed))
-        pressure = enriched.get("pressure_rel")
-        ts = enriched.get("timestamp")
-        if pressure is not None and ts is not None:
-            if isinstance(ts, str):
-                ts_dt = datetime.fromisoformat(ts)
+        pressure_raw = enriched.get("pressure_rel")
+        ts_raw = enriched.get("timestamp")
+        if isinstance(pressure_raw, (int, float)) and ts_raw is not None:
+            pressure_val = float(pressure_raw)
+            if isinstance(ts_raw, str):
+                ts_dt = datetime.fromisoformat(ts_raw)
+            elif isinstance(ts_raw, datetime):
+                ts_dt = ts_raw
             else:
-                ts_dt = ts
+                raise TypeError(f"Unexpected timestamp type: {type(ts_raw)}")
             history = _pressure_history.get(device_id)
             if history is None:
                 history = deque(maxlen=1000)
                 _pressure_history[device_id] = history
                 await _seed_pressure_history(device_id, ts_dt, history)
-            history.append((ts_dt, pressure))
+            history.append((ts_dt, pressure_val))
             cutoff = ts_dt - timedelta(hours=4)
             while history and history[0][0] < cutoff:
                 history.popleft()
@@ -236,10 +240,12 @@ async def _handle_message(
                 if d < best_delta:
                     best_delta = d
                     best = h_p
+            wind_dir_raw = enriched.get("wind_dir")
+            wind_dir_val = float(wind_dir_raw) if isinstance(wind_dir_raw, (int, float)) else None
             forecast = zambretti_forecast(
-                pressure,
+                pressure_val,
                 best,
-                wind_dir=enriched.get("wind_dir"),
+                wind_dir=wind_dir_val,
                 month=ts_dt.month,
                 north=settings.station_latitude is None or settings.station_latitude >= 0,
             )
@@ -263,12 +269,14 @@ async def _handle_message(
             logger.exception("Failed to broadcast observation")
 
 
-async def _detect_lightning_event(device_id: str, parsed: dict, settings: Settings) -> None:
+async def _detect_lightning_event(device_id: str, parsed: dict[str, object], settings: Settings) -> None:
     """Compare lightning count/time with previous observation and store events."""
-    count = parsed.get("lightning_count")
-    lt_time = parsed.get("lightning_time")
-    if count is None:
+    count_raw = parsed.get("lightning_count")
+    lt_time_raw = parsed.get("lightning_time")
+    if not isinstance(count_raw, int):
         return
+    count: int = count_raw
+    lt_time: datetime | None = lt_time_raw if isinstance(lt_time_raw, datetime) else None
 
     prev = _last_lightning.get(device_id)
     _last_lightning[device_id] = (count, lt_time)

@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 MAX_CONNECTIONS = 50
 
 
-def _json_serializer(obj):
+def _json_serializer(obj: object) -> str:
     """JSON serializer for datetime objects."""
     if isinstance(obj, datetime):
         return obj.isoformat()
@@ -23,7 +23,7 @@ def _json_serializer(obj):
 class ConnectionManager:
     """Manages WebSocket connections and broadcasts messages to all clients."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._connections: set[WebSocket] = set()
 
     async def connect(self, websocket: WebSocket) -> bool:
@@ -48,7 +48,7 @@ class ConnectionManager:
         self._connections.discard(websocket)
         logger.info("WebSocket client disconnected (%d total)", len(self._connections))
 
-    async def broadcast(self, data: dict) -> None:
+    async def broadcast(self, data: dict[str, object]) -> None:
         """Send data to all connected WebSocket clients.
 
         Automatically removes dead connections.

@@ -11,7 +11,7 @@ settings = Settings()
 
 
 @router.websocket("/ws/live")
-async def websocket_live(websocket: WebSocket):
+async def websocket_live(websocket: WebSocket) -> None:
     # Origin validation: reject cross-origin browser connections when cors_origins is set.
     # A missing Origin header (e.g. native/non-browser clients) is not rejected — the guard
     # is against browser-based cross-origin attacks, not against clients that can trivially

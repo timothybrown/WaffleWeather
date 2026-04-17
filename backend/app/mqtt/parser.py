@@ -4,6 +4,7 @@ import json
 import logging
 import math
 from datetime import datetime, timezone
+from typing import Any, cast
 
 logger = logging.getLogger(__name__)
 
@@ -153,7 +154,7 @@ _BOUNDS: dict[str, tuple[float, float]] = {
 }
 
 
-def _coerce_float(key: str, raw, device_id: str | None = None) -> float | None:
+def _coerce_float(key: str, raw: object, device_id: str | None = None) -> float | None:
     """Convert raw to float with bounds check.
 
     Logs a warning and returns None for unparseable values or values outside
@@ -161,7 +162,7 @@ def _coerce_float(key: str, raw, device_id: str | None = None) -> float | None:
     are accepted without range checking.
     """
     try:
-        value = float(raw)
+        value = float(cast(Any, raw))
     except (TypeError, ValueError):
         logger.warning(
             "Unparseable numeric value for %s: %r (device=%s)", key, raw, device_id
@@ -190,7 +191,7 @@ def _coerce_float(key: str, raw, device_id: str | None = None) -> float | None:
 
 def parse_ecowitt_payload(
     device_id: str, payload: str | bytes
-) -> tuple[dict, dict] | None:
+) -> tuple[dict[str, object], dict[str, object]] | None:
     """Parse an ecowitt2mqtt JSON payload into observation + diagnostics.
 
     Args:
@@ -215,7 +216,7 @@ def parse_ecowitt_payload(
         logger.warning("Payload from device %s is not a JSON object", device_id)
         return None
 
-    result: dict = {
+    result: dict[str, object] = {
         "timestamp": datetime.now(timezone.utc),
         "station_id": device_id,
     }
@@ -270,7 +271,7 @@ def parse_ecowitt_payload(
             logger.debug("Could not parse %s=%r for device %s: %s", ecowitt_key, raw_value, device_id, e)
 
     # Extract diagnostics (battery + gateway info) — not stored in DB
-    diagnostics: dict = {"batteries": {}, "gateway": {}}
+    diagnostics: dict[str, object] = {"batteries": {}, "gateway": {}}
 
     for ecowitt_key, (label, batt_type) in BATTERY_MAP.items():
         if ecowitt_key not in data or data[ecowitt_key] is None:
@@ -294,7 +295,7 @@ def parse_ecowitt_payload(
                     device_id,
                 )
                 value = None
-        diagnostics["batteries"][ecowitt_key] = {
+        cast(dict[str, object], diagnostics["batteries"])[ecowitt_key] = {
             "label": label,
             "type": batt_type,
             "value": value,
@@ -306,7 +307,7 @@ def parse_ecowitt_payload(
                 gv = float(data[key])
                 if not math.isfinite(gv):
                     raise ValueError("non-finite")
-                diagnostics["gateway"][key] = gv
+                cast(dict[str, object], diagnostics["gateway"])[key] = gv
             except (TypeError, ValueError):
                 logger.warning(
                     "Unparseable gateway field %s: %r (device=%s)",

@@ -9,6 +9,7 @@
 """
 
 import math
+from typing import Any
 
 
 def dew_point(temp_c: float, rh_percent: float) -> float:
@@ -79,7 +80,7 @@ def wind_chill(temp_c: float, wind_kmh: float) -> float | None:
         - 11.37 * wind_kmh**0.16
         + 0.3965 * temp_c * wind_kmh**0.16
     )
-    return round(wc, 1)
+    return round(float(wc), 1)
 
 
 def feels_like(
@@ -246,7 +247,7 @@ def _mrt_from_bgt(globe_temp_c: float, temp_c: float, wind_ms: float) -> float:
     Ta = temp_c
     Va = max(wind_ms, 0.1)  # avoid zero
     D = 0.15  # standard globe diameter (m)
-    return (
+    return float(
         ((Tg + 273.0) ** 4 + 1.1e8 * Va**0.6 * (Tg - Ta) / D**0.4) ** 0.25
         - 273.0
     )
@@ -437,7 +438,7 @@ def utci(
     return round(result, 1)
 
 
-def enrich_observation(obs: dict) -> dict:
+def enrich_observation(obs: dict[str, Any]) -> dict[str, Any]:
     """Add derived fields to an observation dict (for WebSocket broadcast).
 
     Only computes values when the required inputs are present and

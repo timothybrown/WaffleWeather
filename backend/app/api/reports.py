@@ -3,6 +3,7 @@
 import calendar
 from collections import Counter
 from datetime import date
+from typing import Any, cast
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import PlainTextResponse
@@ -109,7 +110,7 @@ async def _get_station(station_id: str | None, db: AsyncSession) -> Station:
 
 async def _query_daily_rows(
     station_id: str, start: date, end: date, db: AsyncSession
-) -> list[dict]:
+) -> list[dict[str, Any]]:
     """Query daily aggregate view for the given date range."""
     sql = text(
         "SELECT bucket::date AS day, "
@@ -127,7 +128,7 @@ async def _query_daily_rows(
 
 async def _query_wind_directions(
     station_id: str, start: date, end: date, db: AsyncSession
-) -> list[tuple]:
+) -> list[Any]:
     """Query raw wind direction observations where wind_speed > 0."""
     sql = text(
         "SELECT timestamp::date AS day, wind_dir "
@@ -137,7 +138,7 @@ async def _query_wind_directions(
         "AND wind_dir IS NOT NULL AND wind_speed > 0"
     )
     result = await db.execute(sql, {"station_id": station_id, "start": start, "end": end})
-    return result.all()
+    return list(result.all())
 
 
 # --- Report builders ---
@@ -156,8 +157,8 @@ def _build_monthly_report(
     station: Station,
     year: int,
     month: int,
-    daily_rows: list[dict],
-    wind_data: list[tuple],
+    daily_rows: list[dict[str, Any]],
+    wind_data: list[Any],
 ) -> ClimateReportSchema:
     """Build a monthly climate report from daily aggregates + wind data."""
     # Group wind directions by day
@@ -204,12 +205,12 @@ def _build_monthly_report(
 def _build_yearly_report(
     station: Station,
     year: int,
-    daily_rows: list[dict],
-    wind_data: list[tuple],
+    daily_rows: list[dict[str, Any]],
+    wind_data: list[Any],
 ) -> ClimateReportSchema:
     """Build a yearly climate report, grouping daily data by month."""
     # Group daily rows and wind data by month
-    daily_by_month: dict[int, list[dict]] = {}
+    daily_by_month: dict[int, list[dict[str, Any]]] = {}
     wind_by_month: dict[int, list[float]] = {}
     all_wind_dirs: list[float] = []
 
@@ -274,7 +275,7 @@ def _build_yearly_report(
 def _build_summary(
     rows: list[ReportRowSchema],
     all_wind_dirs: list[float],
-    daily_rows: list[dict],
+    daily_rows: list[dict[str, Any]],
 ) -> ReportSummarySchema:
     """Build report summary with extremes, totals, and dates."""
     temps_avg = [r.temp_avg for r in rows if r.temp_avg is not None]
@@ -380,16 +381,16 @@ def format_report_txt(report: ClimateReportSchema, units: str = "metric") -> str
     lines.append(unit_row)
     lines.append("-" * len(header))
 
-    def _conv_temp(v):
+    def _conv_temp(v: float | None) -> float | None:
         return _c_to_f(v) if imperial else v
 
-    def _conv_wind(v):
+    def _conv_wind(v: float | None) -> float | None:
         return _kmh_to_mph(v) if imperial else v
 
-    def _conv_pres(v):
+    def _conv_pres(v: float | None) -> float | None:
         return _hpa_to_inhg(v) if imperial else v
 
-    def _conv_rain(v):
+    def _conv_rain(v: float | None) -> float | None:
         return _mm_to_in(v) if imperial else v
 
     for row in report.rows:
@@ -450,15 +451,16 @@ async def get_monthly_report(
     month: int = Query(..., ge=1, le=12),
     station_id: str | None = Query(None),
     db: AsyncSession = Depends(get_db),
-):
+) -> ClimateReportSchema:
     """Generate a monthly climate report with daily rows."""
     station = await _get_station(station_id, db)
     _, last_day = calendar.monthrange(year, month)
     start = date(year, month, 1)
     end = date(year, month, last_day)
 
-    daily_rows = await _query_daily_rows(station.id, start, end, db)
-    wind_data = await _query_wind_directions(station.id, start, end, db)
+    sid = cast(str, station.id)
+    daily_rows = await _query_daily_rows(sid, start, end, db)
+    wind_data = await _query_wind_directions(sid, start, end, db)
 
     return _build_monthly_report(station, year, month, daily_rows, wind_data)
 
@@ -468,14 +470,15 @@ async def get_yearly_report(
     year: int = Query(..., ge=2000, le=2100),
     station_id: str | None = Query(None),
     db: AsyncSession = Depends(get_db),
-):
+) -> ClimateReportSchema:
     """Generate a yearly climate report with monthly rows."""
     station = await _get_station(station_id, db)
     start = date(year, 1, 1)
     end = date(year, 12, 31)
 
-    daily_rows = await _query_daily_rows(station.id, start, end, db)
-    wind_data = await _query_wind_directions(station.id, start, end, db)
+    sid = cast(str, station.id)
+    daily_rows = await _query_daily_rows(sid, start, end, db)
+    wind_data = await _query_wind_directions(sid, start, end, db)
 
     return _build_yearly_report(station, year, daily_rows, wind_data)
 
@@ -487,15 +490,16 @@ async def get_monthly_report_txt(
     units: str = Query("metric", pattern="^(metric|imperial)$"),
     station_id: str | None = Query(None),
     db: AsyncSession = Depends(get_db),
-):
+) -> PlainTextResponse:
     """Generate a monthly climate report as fixed-width text."""
     station = await _get_station(station_id, db)
     _, last_day = calendar.monthrange(year, month)
     start = date(year, month, 1)
     end = date(year, month, last_day)
 
-    daily_rows = await _query_daily_rows(station.id, start, end, db)
-    wind_data = await _query_wind_directions(station.id, start, end, db)
+    sid = cast(str, station.id)
+    daily_rows = await _query_daily_rows(sid, start, end, db)
+    wind_data = await _query_wind_directions(sid, start, end, db)
 
     report = _build_monthly_report(station, year, month, daily_rows, wind_data)
     return PlainTextResponse(
@@ -510,14 +514,15 @@ async def get_yearly_report_txt(
     units: str = Query("metric", pattern="^(metric|imperial)$"),
     station_id: str | None = Query(None),
     db: AsyncSession = Depends(get_db),
-):
+) -> PlainTextResponse:
     """Generate a yearly climate report as fixed-width text."""
     station = await _get_station(station_id, db)
     start = date(year, 1, 1)
     end = date(year, 12, 31)
 
-    daily_rows = await _query_daily_rows(station.id, start, end, db)
-    wind_data = await _query_wind_directions(station.id, start, end, db)
+    sid = cast(str, station.id)
+    daily_rows = await _query_daily_rows(sid, start, end, db)
+    wind_data = await _query_wind_directions(sid, start, end, db)
 
     report = _build_yearly_report(station, year, daily_rows, wind_data)
     return PlainTextResponse(

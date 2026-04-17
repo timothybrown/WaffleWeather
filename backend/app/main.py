@@ -3,6 +3,7 @@
 import asyncio
 import hmac
 import logging
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from importlib.metadata import PackageNotFoundError, version as pkg_version
 from pathlib import Path
@@ -29,7 +30,7 @@ settings = Settings()
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # Start WebSocket manager
     manager = ConnectionManager()
     app.state.ws_manager = manager

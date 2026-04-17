@@ -20,7 +20,7 @@ async def get_latest_observation(
     request: Request,
     station_id: str | None = Query(None),
     db: AsyncSession = Depends(get_db),
-):
+) -> ObservationSchema:
     query = select(WeatherObservation).order_by(WeatherObservation.timestamp.desc()).limit(1)
     if station_id:
         query = query.where(WeatherObservation.station_id == station_id)
@@ -83,7 +83,7 @@ async def list_observations(
     limit: int = Query(100, ge=1, le=10000),
     offset: int = Query(0, ge=0),
     db: AsyncSession = Depends(get_db),
-):
+) -> ObservationPageSchema:
     base = select(WeatherObservation)
 
     if station_id:

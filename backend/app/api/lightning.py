@@ -25,7 +25,7 @@ async def list_lightning_events(
     limit: int = Query(100, ge=1, le=10000),
     offset: int = Query(0, ge=0),
     db: AsyncSession = Depends(get_db),
-):
+) -> LightningEventPageSchema:
     """List lightning events with optional time range filtering."""
     base = select(LightningEvent)
     count_base = select(func.count()).select_from(LightningEvent)
@@ -60,10 +60,10 @@ async def get_lightning_summary(
     station_id: str | None = Query(None),
     include_filtered: bool = Query(False),
     db: AsyncSession = Depends(get_db),
-):
+) -> LightningSummarySchema:
     """Get lightning activity summary for a time period."""
     base_clauses = ["timestamp >= :start", "timestamp <= :end"]
-    params: dict = {"start": start, "end": end}
+    params: dict[str, object] = {"start": start, "end": end}
 
     if station_id:
         base_clauses.append("station_id = :station_id")

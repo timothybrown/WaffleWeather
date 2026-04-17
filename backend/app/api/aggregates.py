@@ -70,7 +70,7 @@ async def _query_aggregate(
     db: AsyncSession,
 ) -> list[AggregatedObservationSchema]:
     where_clauses = ["bucket >= :start", "bucket <= :end"]
-    params: dict = {"start": start, "end": end}
+    params: dict[str, object] = {"start": start, "end": end}
 
     if station_id:
         where_clauses.append("station_id = :station_id")
@@ -93,7 +93,7 @@ async def list_hourly_observations(
     end: datetime = Query(...),
     station_id: str | None = Query(None),
     db: AsyncSession = Depends(get_db),
-):
+) -> list[AggregatedObservationSchema]:
     _validate_span("hourly", start, end)
     return await _query_aggregate("observations_hourly", station_id, start, end, db)
 
@@ -104,7 +104,7 @@ async def list_daily_observations(
     end: datetime = Query(...),
     station_id: str | None = Query(None),
     db: AsyncSession = Depends(get_db),
-):
+) -> list[AggregatedObservationSchema]:
     _validate_span("daily", start, end)
     return await _query_aggregate("observations_daily", station_id, start, end, db)
 
@@ -115,7 +115,7 @@ async def list_monthly_observations(
     end: datetime = Query(...),
     station_id: str | None = Query(None),
     db: AsyncSession = Depends(get_db),
-):
+) -> list[AggregatedObservationSchema]:
     _validate_span("monthly", start, end)
     return await _query_aggregate("observations_monthly", station_id, start, end, db)
 
@@ -137,7 +137,7 @@ async def get_calendar_data(
     year: int | None = Query(None, ge=1, le=9999),
     station_id: str | None = Query(None),
     db: AsyncSession = Depends(get_db),
-):
+) -> list[CalendarDataPointSchema]:
     if metric not in _CALENDAR_METRICS:
         raise HTTPException(status_code=400, detail=f"Invalid metric: {metric}")
 
@@ -148,7 +148,7 @@ async def get_calendar_data(
     # Lightning strikes come from lightning_events table, not daily aggregates
     if metric == "lightning_strikes":
         where_clauses = ["timestamp >= :start", "timestamp <= :end"]
-        params: dict = {"start": start, "end": end}
+        params: dict[str, object] = {"start": start, "end": end}
         if station_id:
             where_clauses.append("station_id = :station_id")
             params["station_id"] = station_id
@@ -194,7 +194,7 @@ async def get_wind_rose_data(
     end: datetime = Query(...),
     station_id: str | None = Query(None),
     db: AsyncSession = Depends(get_db),
-):
+) -> list[WindRoseDataPointSchema]:
     _validate_span("wind-rose", start, end)
     where_clauses = [
         "timestamp >= :start",
@@ -202,7 +202,7 @@ async def get_wind_rose_data(
         "wind_dir IS NOT NULL",
         "wind_speed IS NOT NULL",
     ]
-    params: dict = {"start": start, "end": end}
+    params: dict[str, object] = {"start": start, "end": end}
 
     if station_id:
         where_clauses.append("station_id = :station_id")

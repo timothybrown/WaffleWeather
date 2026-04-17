@@ -1,0 +1,35 @@
+name: Backend CI
+
+on:
+  push:
+    branches: [main]
+    paths: [backend/**]
+  pull_request:
+    paths: [backend/**]
+
+defaults:
+  run:
+    working-directory: backend
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: astral-sh/setup-uv@v6
+
+      - run: uv pip install --system -e ".[dev]" types-PyYAML
+
+      - name: Ruff lint
+        run: ruff check app/
+
+      - name: Mypy
+        run: mypy app/
+
+      - name: Tests
+        run: pytest --tb=short -q
