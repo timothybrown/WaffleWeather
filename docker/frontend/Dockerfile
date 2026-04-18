@@ -15,6 +15,15 @@ ARG NEXT_PUBLIC_WS_URL=""
 
 RUN pnpm generate && pnpm build
 
+FROM build AS dev
+
+ENV PORT=3000
+ENV HOSTNAME=0.0.0.0
+
+EXPOSE 3000
+
+CMD ["pnpm", "dev", "--hostname", "0.0.0.0", "--port", "3000"]
+
 FROM node:22-alpine AS runtime
 
 WORKDIR /app
