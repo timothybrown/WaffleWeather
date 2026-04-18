@@ -39,8 +39,8 @@ export default function MoonPhaseSmall({ phase }: MoonPhaseSmallProps) {
 
   return (
     <svg viewBox="0 0 32 32" className="h-6 w-6 vfd-svg-glow" aria-hidden="true">
-      <circle cx={CX} cy={CY} r={R} fill="rgba(212, 165, 116, 0.1)" />
-      {litPath && <path d={litPath} fill="#d4a574" opacity="0.85" />}
+      <circle cx={CX} cy={CY} r={R} fill="#d4a574" />
+      {litPath && <path d={litPath} fill="rgba(10, 8, 6, 0.85)" />}
       <circle cx={CX} cy={CY} r={R} fill="none" stroke="rgba(212, 165, 116, 0.2)" strokeWidth="0.5" />
     </svg>
   );

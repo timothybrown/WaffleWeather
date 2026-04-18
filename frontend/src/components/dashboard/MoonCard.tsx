@@ -68,16 +68,13 @@ function MoonPhaseSVG({ phase }: { phase: number }) {
   return (
     <svg
       viewBox="0 0 60 60"
-      className="mx-auto h-16 w-16"
+      className="mx-auto h-20 w-20"
       aria-hidden="true"
     >
-      {/* Dim base circle */}
-      <circle cx="30" cy="30" r="22" fill="var(--color-text)" opacity="0.15" />
-      {/* Illuminated portion */}
+      <circle cx="30" cy="30" r="22" fill="var(--color-moon-lit)" />
       {litPath && (
-        <path d={litPath} fill="var(--color-text)" opacity="0.85" />
+        <path d={litPath} fill="var(--color-moon-shadow)" opacity="0.85" />
       )}
-      {/* Subtle outer ring */}
       <circle
         cx="30"
         cy="30"
@@ -156,18 +153,14 @@ export default function MoonCard() {
 
   return (
     <WeatherCard title="Lunar" icon={<RiMoonLine className="h-4 w-4" />} info="Lunar phase, illumination percentage, and rise/set times. Phase and illumination are location-independent; rise/set times use your station's coordinates.">
-      {/* Top row: SVG + phase info */}
-      <div className="flex items-center gap-4">
+      <div className="text-center">
         <MoonPhaseSVG phase={phase} />
-        <div>
-          <p className="text-sm font-medium text-text">{phaseName}</p>
-          <p className="font-mono text-2xl font-semibold tabular-nums text-text">
-            {Math.round(fraction * 100)}%
-          </p>
-        </div>
+        <p className="mt-2 text-sm font-medium text-text">{phaseName}</p>
+        <p className="font-mono text-2xl font-semibold tabular-nums text-text">
+          {Math.round(fraction * 100)}%
+        </p>
       </div>
 
-      {/* 2x2 detail grid */}
       <div className="mt-4 grid grid-cols-2 gap-3">
         <div>
           <p className="text-xs text-text-faint">Moonrise</p>

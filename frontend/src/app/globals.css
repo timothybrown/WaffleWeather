@@ -14,6 +14,8 @@
   --color-success: #5a9e6a;
   --color-warning: #b87a22;
   --color-danger: #c45050;
+  --color-moon-lit: #e8e0d4;
+  --color-moon-shadow: #8a7e6e;
   --font-sans: var(--font-outfit);
   --font-display: var(--font-fraunces);
   --font-mono: var(--font-ibm-plex-mono);
@@ -34,6 +36,8 @@
   --color-success: #7ec89a;
   --color-warning: #dba355;
   --color-danger: #d47272;
+  --color-moon-lit: #c8bfb0;
+  --color-moon-shadow: #1a1714;
 }
 
 /* ── Keyframe animations ─────────────────────────────────────── */
