@@ -7,7 +7,6 @@ docs
 deploy
 scripts
 screenshots
-openapi
 *.md
 .env
 .env.local
