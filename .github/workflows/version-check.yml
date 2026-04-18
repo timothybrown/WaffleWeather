@@ -1,0 +1,34 @@
+name: Version Check
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Extract versions
+        id: versions
+        run: |
+          BACKEND=$(python3 -c "
+          import tomllib
+          with open('backend/pyproject.toml', 'rb') as f:
+              print(tomllib.load(f)['project']['version'])
+          ")
+          FRONTEND=$(node -p "require('./frontend/package.json').version")
+          echo "backend=$BACKEND" >> "$GITHUB_OUTPUT"
+          echo "frontend=$FRONTEND" >> "$GITHUB_OUTPUT"
+          echo "Backend version: $BACKEND"
+          echo "Frontend version: $FRONTEND"
+
+      - name: Check versions match
+        run: |
+          if [ "${{ steps.versions.outputs.backend }}" != "${{ steps.versions.outputs.frontend }}" ]; then
+            echo "::error::Version mismatch: backend=${{ steps.versions.outputs.backend }} frontend=${{ steps.versions.outputs.frontend }}"
+            exit 1
+          fi
+          echo "Versions match: ${{ steps.versions.outputs.backend }}"
