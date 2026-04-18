@@ -128,7 +128,9 @@ Sensors you don't have simply won't populate those cards — the dashboard grace
 
 ## Setup
 
-This guide assumes you have a Raspberry Pi running Debian 13 (Bookworm or Trixie) with SSH access and your weather station gateway on the same network.
+**Docker (recommended for homelab):** See [DOCKER.md](DOCKER.md) for Docker Compose setup — works on Unraid, Proxmox, Synology, or any Docker host. No weather station required if you use the [built-in simulator](tools/simulator/).
+
+**Native Raspberry Pi:** This guide assumes you have a Raspberry Pi running Debian 13 (Bookworm or Trixie) with SSH access and your weather station gateway on the same network.
 
 ### 1. Clone and run the setup script
 
