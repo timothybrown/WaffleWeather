@@ -46,7 +46,7 @@ services:
       ECOWITT2MQTT_DIAGNOSTICS: "true"
 
   backend-migrate:
-    image: ghcr.io/timb-machine-dreams/waffleweather-backend:latest
+    image: ghcr.io/timothybrown/waffleweather-backend:latest
     container_name: waffle-backend-migrate
     depends_on:
       timescaledb:
@@ -57,7 +57,7 @@ services:
     command: ["uv", "run", "alembic", "upgrade", "head"]
 
   backend:
-    image: ghcr.io/timb-machine-dreams/waffleweather-backend:latest
+    image: ghcr.io/timothybrown/waffleweather-backend:latest
     container_name: waffle-backend
     restart: unless-stopped
     depends_on:
@@ -71,7 +71,7 @@ services:
       WW_MQTT_BROKER: mosquitto
 
   frontend:
-    image: ghcr.io/timb-machine-dreams/waffleweather-frontend:latest
+    image: ghcr.io/timothybrown/waffleweather-frontend:latest
     container_name: waffle-frontend
     restart: unless-stopped
 
