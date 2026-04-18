@@ -1,0 +1,94 @@
+services:
+  timescaledb:
+    image: timescale/timescaledb:latest-pg17
+    container_name: waffle-timescaledb
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: waffleweather
+      POSTGRES_USER: waffleweather
+      POSTGRES_PASSWORD: ${WW_DB_PASSWORD:?Set WW_DB_PASSWORD in .env}
+      TIMESCALEDB_TELEMETRY: "off"
+    volumes:
+      - timescaledb_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U waffleweather -d waffleweather"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  mosquitto:
+    image: eclipse-mosquitto:2
+    container_name: waffle-mosquitto
+    restart: unless-stopped
+    env_file: ../.env
+    volumes:
+      - ./mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - ./mosquitto/entrypoint.sh:/entrypoint.sh:ro
+    entrypoint: /entrypoint.sh
+
+  ecowitt2mqtt:
+    image: bachya/ecowitt2mqtt:latest
+    container_name: waffle-ecowitt2mqtt
+    restart: unless-stopped
+    depends_on:
+      mosquitto:
+        condition: service_started
+    ports:
+      - "8080:8080"
+    environment:
+      ECOWITT2MQTT_MQTT_BROKER: mosquitto
+      ECOWITT2MQTT_MQTT_PORT: "1883"
+      ECOWITT2MQTT_MQTT_USERNAME: ${WW_MQTT_USERNAME:-waffleweather}
+      ECOWITT2MQTT_MQTT_PASSWORD: ${WW_MQTT_PASSWORD:?Set WW_MQTT_PASSWORD in .env}
+      ECOWITT2MQTT_MQTT_TOPIC: ${WW_MQTT_TOPIC:-Gateway}
+      ECOWITT2MQTT_PORT: "8080"
+      ECOWITT2MQTT_VERBOSE: "false"
+      ECOWITT2MQTT_DIAGNOSTICS: "true"
+
+  backend-migrate:
+    image: ghcr.io/timb-machine-dreams/waffleweather-backend:latest
+    container_name: waffle-backend-migrate
+    depends_on:
+      timescaledb:
+        condition: service_healthy
+    env_file: ../.env
+    environment:
+      WW_DATABASE_URL: postgresql+asyncpg://waffleweather:${WW_DB_PASSWORD}@timescaledb:5432/waffleweather
+    command: ["uv", "run", "alembic", "upgrade", "head"]
+
+  backend:
+    image: ghcr.io/timb-machine-dreams/waffleweather-backend:latest
+    container_name: waffle-backend
+    restart: unless-stopped
+    depends_on:
+      backend-migrate:
+        condition: service_completed_successfully
+      mosquitto:
+        condition: service_started
+    env_file: ../.env
+    environment:
+      WW_DATABASE_URL: postgresql+asyncpg://waffleweather:${WW_DB_PASSWORD}@timescaledb:5432/waffleweather
+      WW_MQTT_BROKER: mosquitto
+
+  frontend:
+    image: ghcr.io/timb-machine-dreams/waffleweather-frontend:latest
+    container_name: waffle-frontend
+    restart: unless-stopped
+
+  nginx:
+    image: nginx:alpine
+    container_name: waffle-nginx
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_started
+      frontend:
+        condition: service_started
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf.template:/etc/nginx/templates/default.conf.template:ro
+    env_file: ../.env
+
+volumes:
+  timescaledb_data:
