@@ -29,6 +29,9 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      - name: Generate API client
+        run: pnpm generate
+
       - name: TypeScript check
         run: pnpm tsc --noEmit
 
