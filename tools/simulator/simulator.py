@@ -183,14 +183,24 @@ def fetch_archive(lat: float, lon: float, start: date, end: date) -> list[dict[s
 
     timestamps = data["time"]
     rows: list[dict[str, object]] = []
+    daily_rain: float = 0.0
+    current_day: str = ""
     for i, ts_str in enumerate(timestamps):
-        row: dict[str, object] = {
-            "timestamp": datetime.fromisoformat(ts_str).replace(tzinfo=timezone.utc),
-        }
+        ts = datetime.fromisoformat(ts_str).replace(tzinfo=timezone.utc)
+        row: dict[str, object] = {"timestamp": ts}
         for om_key, db_col in OPENMETEO_TO_DB.items():
             val = data.get(om_key, [None] * len(timestamps))[i]
             if val is not None:
                 row[db_col] = float(val)
+        # Accumulate daily rain from hourly rain amounts
+        day_key = ts_str[:10]
+        if day_key != current_day:
+            daily_rain = 0.0
+            current_day = day_key
+        hourly_rain = row.get("rain_rate")
+        if isinstance(hourly_rain, (int, float)):
+            daily_rain += hourly_rain
+        row["rain_daily"] = round(daily_rain, 2)
         rows.append(row)
     return rows
 
@@ -198,7 +208,7 @@ def fetch_archive(lat: float, lon: float, start: date, end: date) -> list[dict[s
 DB_COLUMNS = [
     "timestamp", "station_id", "temp_outdoor", "humidity_outdoor",
     "pressure_abs", "pressure_rel", "wind_speed", "wind_gust", "wind_dir",
-    "rain_rate", "solar_radiation", "uv_index", "dewpoint",
+    "rain_rate", "rain_daily", "solar_radiation", "uv_index", "dewpoint",
 ]
 
 
@@ -214,10 +224,12 @@ def insert_rows(db_url: str, rows: list[dict[str, object]], station_id: str) -> 
             row["station_id"] = station_id
             values.append(tuple(row.get(col) for col in DB_COLUMNS))
 
+        data_cols = [c for c in DB_COLUMNS if c not in ("timestamp", "station_id")]
+        update_clause = ", ".join(f"{c} = EXCLUDED.{c}" for c in data_cols)
         sql = f"""
             INSERT INTO weather_observations ({', '.join(DB_COLUMNS)})
             VALUES %s
-            ON CONFLICT (timestamp, station_id) DO NOTHING
+            ON CONFLICT (timestamp, station_id) DO UPDATE SET {update_clause}
         """
         execute_values(cur, sql, values, page_size=500)
         inserted = cur.rowcount
