@@ -14,8 +14,6 @@ import { convertAltitude } from "@/lib/units";
 import { CADENCES } from "@/lib/queryCadences";
 import { useUnits } from "@/providers/UnitsProvider";
 
-const FRONTEND_VERSION = process.env.NEXT_PUBLIC_FRONTEND_VERSION ?? "unknown";
-
 function StationInfo({ station }: { station: Station }) {
   const { system } = useUnits();
   const alt = convertAltitude(station.altitude, system);
@@ -167,12 +165,12 @@ function DiagnosticsSection({ diagnostics }: { diagnostics: Diagnostics | null }
   );
 }
 
-function useBackendVersion() {
+function useVersion() {
   const [version, setVersion] = useState<string | null>(null);
   useEffect(() => {
     fetch("/api/v1/version")
       .then((r) => r.json())
-      .then((d) => setVersion(d.backend))
+      .then((d) => setVersion(d.version))
       .catch(() => setVersion("unavailable"));
   }, []);
   return version;
@@ -185,7 +183,7 @@ export default function SettingsPage() {
     query: { refetchInterval: CADENCES.none },
   });
   const { connected, diagnostics } = useWebSocket();
-  const backendVersion = useBackendVersion();
+  const appVersion = useVersion();
 
   const stations = (stationsResponse?.data as Station[] | undefined) ?? [];
 
@@ -235,12 +233,8 @@ export default function SettingsPage() {
               <dd className="font-medium">WaffleWeather</dd>
             </div>
             <div>
-              <dt className="text-xs text-text-faint">Frontend</dt>
-              <dd className="font-mono font-medium">{FRONTEND_VERSION}</dd>
-            </div>
-            <div>
-              <dt className="text-xs text-text-faint">Backend</dt>
-              <dd className="font-mono font-medium">{backendVersion ?? "..."}</dd>
+              <dt className="text-xs text-text-faint">Version</dt>
+              <dd className="font-mono font-medium">{appVersion ?? "..."}</dd>
             </div>
           </dl>
         </div>

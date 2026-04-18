@@ -1,0 +1,25 @@
+services:
+  backend-migrate:
+    image: waffleweather-backend-dev
+    build:
+      context: ..
+      dockerfile: docker/backend/Dockerfile
+
+  backend:
+    image: waffleweather-backend-dev
+    build:
+      context: ..
+      dockerfile: docker/backend/Dockerfile
+    volumes:
+      - ../backend/app:/app/app
+    command: ["uv", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+
+  frontend:
+    build:
+      context: ..
+      dockerfile: docker/frontend/Dockerfile
+      target: dev
+    volumes:
+      - ../frontend/src:/app/src
+      - ../frontend/public:/app/public
+    command: ["sh", "-c", "pnpm generate && pnpm dev --hostname 0.0.0.0 --port 3000"]

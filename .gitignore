@@ -15,6 +15,7 @@ frontend/src/generated/
 # Environment
 .env
 .env.local
+docker/.env
 
 # IDE
 .vscode/
