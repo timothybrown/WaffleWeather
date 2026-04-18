@@ -9,6 +9,7 @@ if [ ! -f "$PASSWD_FILE" ]; then
         exit 1
     fi
     mosquitto_passwd -b -c "$PASSWD_FILE" "$WW_MQTT_USERNAME" "$WW_MQTT_PASSWORD"
+    chown mosquitto:mosquitto "$PASSWD_FILE"
     echo "Created Mosquitto password file for user: $WW_MQTT_USERNAME"
 fi
 
