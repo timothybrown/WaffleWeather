@@ -6,12 +6,15 @@ pipeline via MQTT (simulate mode) or direct DB insert (backfill mode).
 
 from __future__ import annotations
 
+import json
 import os
+import random
 import time as _time
 from dataclasses import dataclass
 
 import click
 import httpx
+import paho.mqtt.client as mqtt
 from dotenv import dotenv_values
 
 
@@ -107,6 +110,55 @@ def fetch_current(lat: float, lon: float) -> dict[str, float]:
     return result
 
 
+JITTER: dict[str, float] = {
+    "temp": 0.05,
+    "humidity": 0.3,
+    "baromabs": 0.05,
+    "baromrel": 0.05,
+    "windspeed": 0.2,
+    "windgust": 0.3,
+    "winddir": 3.0,
+    "solarradiation": 5.0,
+    "uv": 0.1,
+    "dewpoint": 0.05,
+    "rainrate": 0.0,
+}
+
+
+def apply_jitter(truth: dict[str, float]) -> dict[str, float]:
+    """Apply Gaussian jitter to a truth snapshot, clamping to physical bounds."""
+    result: dict[str, float] = {}
+    for key, value in truth.items():
+        stddev = JITTER.get(key, 0.0)
+        if key == "rainrate" and value <= 0:
+            stddev = 0.0
+        jittered = value + random.gauss(0, stddev) if stddev > 0 else value
+        lo, hi = BOUNDS.get(key, (float("-inf"), float("inf")))
+        if key == "winddir":
+            jittered = jittered % 360
+        else:
+            jittered = max(lo, min(hi, jittered))
+        result[key] = round(jittered, 2)
+    return result
+
+
+def publish_mqtt(cfg: Config, payload: dict[str, float | int], start_time: float) -> None:
+    """Publish a single observation to MQTT."""
+    payload["wh25batt"] = 0
+    payload["runtime"] = int(_time.time() - start_time)
+    payload["heap"] = 45000
+    payload["interval"] = cfg.interval
+
+    client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
+    if cfg.username:
+        client.username_pw_set(cfg.username, cfg.password)
+    client.connect(cfg.broker, cfg.port)
+    msg = json.dumps(payload)
+    result = client.publish(cfg.topic, msg)
+    result.wait_for_publish()
+    client.disconnect()
+
+
 def _resolve(cli_val: object, env: dict[str, str | None], env_key: str, default: object) -> object:
     """Resolve a config value: CLI arg > .env file > shell env > default."""
     if cli_val is not None:
@@ -190,8 +242,47 @@ def simulate(env_file, lat, lon, altitude, broker, port, username, password, top
         username=username, password=password, topic=topic, db_url=None,
         station_id=station_id, interval=interval,
     )
-    click.echo(f"Simulating for ({cfg.lat}, {cfg.lon}) → {cfg.broker}:{cfg.port}/{cfg.topic}")
-    click.echo(f"Interval: {cfg.interval}s")
+    click.echo(f"Simulator: ({cfg.lat}, {cfg.lon}) → mqtt://{cfg.broker}:{cfg.port}/{cfg.topic}")
+    click.echo(f"Interval: {cfg.interval}s | Open-Meteo poll: 15m")
+    click.echo("Press Ctrl+C to stop.\n")
+
+    poll_interval = 15 * 60  # 15 minutes
+    start_time = _time.time()
+    truth: dict[str, float] = {}
+    last_poll: float = 0
+
+    try:
+        while True:
+            now = _time.time()
+            if now - last_poll >= poll_interval or not truth:
+                try:
+                    truth = fetch_current(cfg.lat, cfg.lon)
+                    last_poll = now
+                    ts = _time.strftime("%H:%M:%S")
+                    click.echo(f"[{ts}] Open-Meteo poll: temp={truth.get('temp', '?')}°C wind={truth.get('windspeed', '?')}m/s")
+                except httpx.HTTPError as exc:
+                    ts = _time.strftime("%H:%M:%S")
+                    click.echo(f"[{ts}] Open-Meteo fetch failed: {exc}", err=True)
+                    if not truth:
+                        click.echo("No cached data — retrying in 30s", err=True)
+                        _time.sleep(30)
+                        continue
+
+            payload = apply_jitter(truth)
+            publish_mqtt(cfg, payload, start_time)
+
+            ts = _time.strftime("%H:%M:%S")
+            fields = " ".join(f"{k}={v}" for k, v in sorted(payload.items()) if k not in ("wh25batt", "runtime", "heap", "interval"))
+            click.echo(f"[{ts}] Published: {fields}")
+
+            remaining = poll_interval - (_time.time() - last_poll)
+            mins, secs = divmod(int(remaining), 60)
+            click.echo(f"         Next poll in {mins}m{secs:02d}s")
+
+            _time.sleep(cfg.interval)
+
+    except KeyboardInterrupt:
+        click.echo("\nStopped.")
 
 
 @cli.command()
