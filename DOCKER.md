@@ -120,6 +120,19 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d
 - Backend: source changes auto-reload via uvicorn `--reload`
 - Frontend: runs `next dev` with source volume mounts
 
+## Simulated Weather Data
+
+No weather station? Use the built-in simulator to feed real weather data from
+Open-Meteo:
+
+```bash
+cd tools/simulator
+uv run simulator simulate --env-file ../../docker/.env --lat 40.7128 --lon -74.006
+```
+
+See [`tools/simulator/README.md`](tools/simulator/README.md) for backfill mode
+and configuration options.
+
 ## Architecture
 
 ```
