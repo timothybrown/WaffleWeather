@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import { screen, act } from "@testing-library/react";
 import { renderHook } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -16,6 +16,10 @@ function TestConsumer() {
 }
 
 describe("UnitsProvider", () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
   it("defaults to metric", () => {
     render(
       <UnitsProvider>
