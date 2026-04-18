@@ -11,11 +11,14 @@ import os
 import random
 import time as _time
 from dataclasses import dataclass
+from datetime import date, datetime, timezone
 
 import click
 import httpx
 import paho.mqtt.client as mqtt
+import psycopg2
 from dotenv import dotenv_values
+from psycopg2.extras import execute_values
 
 
 @dataclass
@@ -159,6 +162,96 @@ def publish_mqtt(cfg: Config, payload: dict[str, float | int], start_time: float
     client.disconnect()
 
 
+def fetch_archive(lat: float, lon: float, start: date, end: date) -> list[dict[str, object]]:
+    """Fetch hourly historical data from Open-Meteo Archive API.
+
+    Returns a list of dicts keyed by DB column names.
+    """
+    url = "https://archive-api.open-meteo.com/v1/archive"
+    params = {
+        "latitude": lat,
+        "longitude": lon,
+        "start_date": start.isoformat(),
+        "end_date": end.isoformat(),
+        "hourly": ",".join(OPEN_METEO_FIELDS),
+        "wind_speed_unit": "ms",
+        "timezone": "UTC",
+    }
+    resp = httpx.get(url, params=params, timeout=60)
+    resp.raise_for_status()
+    data = resp.json()["hourly"]
+
+    timestamps = data["time"]
+    rows: list[dict[str, object]] = []
+    for i, ts_str in enumerate(timestamps):
+        row: dict[str, object] = {
+            "timestamp": datetime.fromisoformat(ts_str).replace(tzinfo=timezone.utc),
+        }
+        for om_key, db_col in OPENMETEO_TO_DB.items():
+            val = data.get(om_key, [None] * len(timestamps))[i]
+            if val is not None:
+                row[db_col] = float(val)
+        rows.append(row)
+    return rows
+
+
+DB_COLUMNS = [
+    "timestamp", "station_id", "temp_outdoor", "humidity_outdoor",
+    "pressure_abs", "pressure_rel", "wind_speed", "wind_gust", "wind_dir",
+    "rain_rate", "solar_radiation", "uv_index", "dewpoint",
+]
+
+
+def insert_rows(db_url: str, rows: list[dict[str, object]], station_id: str) -> int:
+    """Batch-insert observation rows into weather_observations. Returns count inserted."""
+    sync_url = db_url.replace("postgresql+asyncpg://", "postgresql://")
+
+    conn = psycopg2.connect(sync_url)
+    try:
+        cur = conn.cursor()
+        values = []
+        for row in rows:
+            row["station_id"] = station_id
+            values.append(tuple(row.get(col) for col in DB_COLUMNS))
+
+        sql = f"""
+            INSERT INTO weather_observations ({', '.join(DB_COLUMNS)})
+            VALUES %s
+            ON CONFLICT (timestamp, station_id) DO NOTHING
+        """
+        execute_values(cur, sql, values, page_size=500)
+        inserted = cur.rowcount
+        conn.commit()
+        return inserted
+    finally:
+        conn.close()
+
+
+CONTINUOUS_AGGREGATES = [
+    "observations_hourly",
+    "observations_daily",
+    "observations_monthly",
+]
+
+
+def refresh_aggregates(db_url: str, start: date, end: date) -> None:
+    """Refresh TimescaleDB continuous aggregates for the given date range."""
+    sync_url = db_url.replace("postgresql+asyncpg://", "postgresql://")
+    conn = psycopg2.connect(sync_url)
+    try:
+        cur = conn.cursor()
+        for agg in CONTINUOUS_AGGREGATES:
+            click.echo(f"  Refreshing {agg}...")
+            cur.execute(
+                f"CALL refresh_continuous_aggregate('{agg}', %s::timestamptz, %s::timestamptz)",
+                (datetime.combine(start, datetime.min.time(), tzinfo=timezone.utc),
+                 datetime.combine(end, datetime.min.time(), tzinfo=timezone.utc)),
+            )
+            conn.commit()
+    finally:
+        conn.close()
+
+
 def _resolve(cli_val: object, env: dict[str, str | None], env_key: str, default: object) -> object:
     """Resolve a config value: CLI arg > .env file > shell env > default."""
     if cli_val is not None:
@@ -300,8 +393,24 @@ def backfill(env_file, lat, lon, altitude, db_url, start, end, station_id, **_) 
     )
     if not cfg.db_url:
         raise click.UsageError("--db-url is required for backfill (or set WW_DATABASE_URL)")
-    click.echo(f"Backfill for ({cfg.lat}, {cfg.lon}), station_id={cfg.station_id}")
-    click.echo(f"Range: {start.date()} to {end.date()}")
+
+    start_date = start.date()
+    end_date = end.date()
+    click.echo(f"Fetching {start_date} to {end_date} for ({cfg.lat}, {cfg.lon})...")
+
+    t0 = _time.time()
+    rows = fetch_archive(cfg.lat, cfg.lon, start_date, end_date)
+    click.echo(f"  Got {len(rows)} hourly observations from Open-Meteo")
+
+    click.echo(f"Inserting into weather_observations (station_id={cfg.station_id})...")
+    inserted = insert_rows(cfg.db_url, rows, cfg.station_id)
+    click.echo(f"  {inserted} rows inserted ({len(rows) - inserted} skipped as duplicates)")
+
+    click.echo("Refreshing continuous aggregates...")
+    refresh_aggregates(cfg.db_url, start_date, end_date)
+
+    elapsed = _time.time() - t0
+    click.echo(f"\nDone: {inserted} rows in {elapsed:.1f}s")
 
 
 if __name__ == "__main__":
