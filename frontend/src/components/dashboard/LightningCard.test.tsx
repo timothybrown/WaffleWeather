@@ -7,7 +7,7 @@ import LightningCard from "./LightningCard";
 // Default mock: summary not loaded
 const mockUseGetLightningSummary = vi.fn((): { data: unknown } => ({ data: undefined }));
 vi.mock("@/generated/lightning/lightning", () => ({
-  useGetLightningSummary: (...args: unknown[]) => mockUseGetLightningSummary(...args),
+  useGetLightningSummary: () => mockUseGetLightningSummary(),
 }));
 
 describe("LightningCard", () => {
