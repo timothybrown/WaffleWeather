@@ -20,7 +20,7 @@ services:
     image: eclipse-mosquitto:2
     container_name: waffle-mosquitto
     restart: unless-stopped
-    env_file: ../.env
+    env_file: ./.env
     volumes:
       - ./mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
       - ./mosquitto/entrypoint.sh:/entrypoint.sh:ro
@@ -51,7 +51,7 @@ services:
     depends_on:
       timescaledb:
         condition: service_healthy
-    env_file: ../.env
+    env_file: ./.env
     environment:
       WW_DATABASE_URL: postgresql+asyncpg://waffleweather:${WW_DB_PASSWORD}@timescaledb:5432/waffleweather
     command: ["uv", "run", "alembic", "upgrade", "head"]
@@ -65,7 +65,7 @@ services:
         condition: service_completed_successfully
       mosquitto:
         condition: service_started
-    env_file: ../.env
+    env_file: ./.env
     environment:
       WW_DATABASE_URL: postgresql+asyncpg://waffleweather:${WW_DB_PASSWORD}@timescaledb:5432/waffleweather
       WW_MQTT_BROKER: mosquitto
@@ -88,7 +88,7 @@ services:
       - "80:80"
     volumes:
       - ./nginx/nginx.conf.template:/etc/nginx/templates/default.conf.template:ro
-    env_file: ../.env
+    env_file: ./.env
 
 volumes:
   timescaledb_data:

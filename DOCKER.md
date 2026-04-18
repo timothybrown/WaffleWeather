@@ -23,10 +23,11 @@ For native Raspberry Pi installation, see the [setup guide](deploy/setup.sh).
 2. Create your environment file:
 
    ```bash
+   cd docker
    cp .env.example .env
    ```
 
-3. Edit `.env` and set at minimum:
+3. Edit `docker/.env` and set at minimum:
    - `WW_DB_PASSWORD` — a strong database password
    - `WW_MQTT_PASSWORD` — MQTT broker password
    - `WW_STATION_NAME` — your station's display name
@@ -35,7 +36,6 @@ For native Raspberry Pi installation, see the [setup guide](deploy/setup.sh).
 4. Start all services:
 
    ```bash
-   cd docker
    docker compose up -d
    ```
 
@@ -46,10 +46,10 @@ For native Raspberry Pi installation, see the [setup guide](deploy/setup.sh).
 
 ## Environment Variables
 
-See [`.env.example`](.env.example) for all available variables with descriptions.
-
-Docker Compose overrides `WW_DATABASE_URL` and `WW_MQTT_BROKER` automatically
-so you only need to set `WW_DB_PASSWORD` (not the full database URL).
+See [`docker/.env.example`](docker/.env.example) for all available variables with
+descriptions. Docker Compose handles `WW_DATABASE_URL` and `WW_MQTT_BROKER`
+automatically, so you only need to set `WW_DB_PASSWORD` (not the full
+database URL).
 
 ## Upgrading
 
