@@ -9,4 +9,4 @@ router = APIRouter(tags=["version"])
 async def get_version() -> dict[str, str]:
     from app.main import BACKEND_VERSION
 
-    return {"backend": BACKEND_VERSION}
+    return {"version": BACKEND_VERSION}
