@@ -236,18 +236,23 @@ CONTINUOUS_AGGREGATES = [
 
 def refresh_aggregates(db_url: str, start: date, end: date) -> None:
     """Refresh TimescaleDB continuous aggregates for the given date range."""
+    from dateutil.relativedelta import relativedelta
+
     sync_url = db_url.replace("postgresql+asyncpg://", "postgresql://")
     conn = psycopg2.connect(sync_url)
+    conn.autocommit = True
     try:
         cur = conn.cursor()
+        start_ts = datetime.combine(start, datetime.min.time(), tzinfo=timezone.utc)
+        end_ts = datetime.combine(end, datetime.min.time(), tzinfo=timezone.utc)
         for agg in CONTINUOUS_AGGREGATES:
+            # Monthly aggregate needs window covering at least two full buckets
+            agg_end = end_ts + relativedelta(months=2) if "monthly" in agg else end_ts
             click.echo(f"  Refreshing {agg}...")
             cur.execute(
                 f"CALL refresh_continuous_aggregate('{agg}', %s::timestamptz, %s::timestamptz)",
-                (datetime.combine(start, datetime.min.time(), tzinfo=timezone.utc),
-                 datetime.combine(end, datetime.min.time(), tzinfo=timezone.utc)),
+                (start_ts, agg_end),
             )
-            conn.commit()
     finally:
         conn.close()
 

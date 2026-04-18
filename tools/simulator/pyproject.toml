@@ -8,6 +8,7 @@ dependencies = [
     "paho-mqtt>=2.0",
     "httpx>=0.27",
     "psycopg2-binary>=2.9",
+    "python-dateutil>=2.9",
     "python-dotenv>=1.0",
 ]
 
