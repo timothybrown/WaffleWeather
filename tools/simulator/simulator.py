@@ -7,9 +7,11 @@ pipeline via MQTT (simulate mode) or direct DB insert (backfill mode).
 from __future__ import annotations
 
 import os
+import time as _time
 from dataclasses import dataclass
 
 import click
+import httpx
 from dotenv import dotenv_values
 
 
@@ -26,6 +28,83 @@ class Config:
     db_url: str | None
     station_id: str
     interval: int
+
+
+OPEN_METEO_FIELDS = [
+    "temperature_2m",
+    "relative_humidity_2m",
+    "surface_pressure",
+    "pressure_msl",
+    "wind_speed_10m",
+    "wind_gusts_10m",
+    "wind_direction_10m",
+    "rain",
+    "shortwave_radiation",
+    "uv_index",
+    "dew_point_2m",
+]
+
+OPENMETEO_TO_MQTT: dict[str, str] = {
+    "temperature_2m": "temp",
+    "relative_humidity_2m": "humidity",
+    "surface_pressure": "baromabs",
+    "pressure_msl": "baromrel",
+    "wind_speed_10m": "windspeed",
+    "wind_gusts_10m": "windgust",
+    "wind_direction_10m": "winddir",
+    "rain": "rainrate",
+    "shortwave_radiation": "solarradiation",
+    "uv_index": "uv",
+    "dew_point_2m": "dewpoint",
+}
+
+OPENMETEO_TO_DB: dict[str, str] = {
+    "temperature_2m": "temp_outdoor",
+    "relative_humidity_2m": "humidity_outdoor",
+    "surface_pressure": "pressure_abs",
+    "pressure_msl": "pressure_rel",
+    "wind_speed_10m": "wind_speed",
+    "wind_gusts_10m": "wind_gust",
+    "wind_direction_10m": "wind_dir",
+    "rain": "rain_rate",
+    "shortwave_radiation": "solar_radiation",
+    "uv_index": "uv_index",
+    "dew_point_2m": "dewpoint",
+}
+
+BOUNDS: dict[str, tuple[float, float]] = {
+    "temp": (-60.0, 60.0),
+    "humidity": (0.0, 100.0),
+    "baromabs": (800.0, 1100.0),
+    "baromrel": (800.0, 1100.0),
+    "windspeed": (0.0, 150.0),
+    "windgust": (0.0, 200.0),
+    "winddir": (0.0, 360.0),
+    "rainrate": (0.0, 500.0),
+    "solarradiation": (0.0, 2000.0),
+    "uv": (0.0, 20.0),
+    "dewpoint": (-80.0, 50.0),
+}
+
+
+def fetch_current(lat: float, lon: float) -> dict[str, float]:
+    """Fetch current conditions from Open-Meteo. Returns MQTT-keyed dict."""
+    url = "https://api.open-meteo.com/v1/forecast"
+    params = {
+        "latitude": lat,
+        "longitude": lon,
+        "current": ",".join(OPEN_METEO_FIELDS),
+        "wind_speed_unit": "ms",
+    }
+    resp = httpx.get(url, params=params, timeout=15)
+    resp.raise_for_status()
+    current = resp.json()["current"]
+    result: dict[str, float] = {}
+    for om_key, mqtt_key in OPENMETEO_TO_MQTT.items():
+        val = current.get(om_key)
+        if val is not None:
+            result[mqtt_key] = float(val)
+    return result
 
 
 def _resolve(cli_val: object, env: dict[str, str | None], env_key: str, default: object) -> object:
