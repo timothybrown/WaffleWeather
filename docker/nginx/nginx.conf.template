@@ -1,0 +1,56 @@
+limit_req_zone $binary_remote_addr zone=waffle_api:10m rate=30r/s;
+limit_req_zone $binary_remote_addr zone=waffle_ws:10m rate=5r/s;
+
+gzip on;
+gzip_comp_level 5;
+gzip_min_length 256;
+gzip_vary on;
+gzip_proxied any;
+gzip_types
+    text/plain text/css text/javascript
+    application/javascript application/json application/xml
+    image/svg+xml font/woff2;
+
+server {
+    listen 80 default_server;
+    server_name _;
+
+    set $ww_api_key "${WW_API_KEY}";
+
+    add_header X-Frame-Options "DENY" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+    add_header Permissions-Policy "geolocation=(), microphone=(), camera=()" always;
+    add_header Content-Security-Policy "default-src 'self'; img-src 'self' data: blob: https://*.basemaps.cartocdn.com; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; connect-src 'self'; worker-src 'self' blob:; manifest-src 'self'" always;
+
+    location /api/ {
+        limit_req zone=waffle_api burst=60 nodelay;
+        limit_req_status 429;
+        proxy_pass http://backend:8000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-API-Key $ww_api_key;
+    }
+
+    location /ws/ {
+        limit_req zone=waffle_ws burst=10 nodelay;
+        limit_req_status 429;
+        proxy_pass http://backend:8000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-API-Key $ww_api_key;
+        proxy_read_timeout 86400;
+    }
+
+    location / {
+        proxy_pass http://frontend:3000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
