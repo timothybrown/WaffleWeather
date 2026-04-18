@@ -9,7 +9,7 @@ RUN uv sync --frozen --no-dev --no-install-project
 
 COPY backend/ .
 
-RUN uv sync --frozen --no-dev
+RUN uv sync --frozen --no-dev && uv pip install --no-deps -e .
 
 EXPOSE 8000
 
