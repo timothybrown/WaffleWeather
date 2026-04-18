@@ -13,7 +13,7 @@ async def test_cors_methods_restricted():
         r = await c.options(
             "/api/v1/stations",
             headers={
-                "Origin": "http://localhost:3000",
+                "Origin": "http://localhost",
                 "Access-Control-Request-Method": "DELETE",
             },
         )
@@ -28,7 +28,7 @@ async def test_cors_credentials_false():
         r = await c.options(
             "/api/v1/stations",
             headers={
-                "Origin": "http://localhost:3000",
+                "Origin": "http://localhost",
                 "Access-Control-Request-Method": "GET",
             },
         )

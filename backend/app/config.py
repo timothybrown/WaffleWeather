@@ -9,7 +9,7 @@ class Settings(BaseSettings):
     mqtt_client_id: str = "waffleweather-backend"
     mqtt_username: str | None = None
     mqtt_password: str | None = None
-    cors_origins: list[str] = ["http://localhost:3000"]
+    cors_origins: list[str] = ["http://localhost"]
     enable_docs: bool = False  # Set WW_ENABLE_DOCS=true to expose /docs and /openapi.json
     api_key: str | None = None  # Set WW_API_KEY to require authentication on all endpoints
 

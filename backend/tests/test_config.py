@@ -16,7 +16,7 @@ class TestSettings:
         assert s.mqtt_client_id == "waffleweather-backend"
         assert s.mqtt_username is None
         assert s.mqtt_password is None
-        assert s.cors_origins == ["http://localhost:3000"]
+        assert s.cors_origins == ["http://localhost"]
         assert s.enable_docs is False
         assert s.api_key is None
 

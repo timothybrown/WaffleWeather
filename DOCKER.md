@@ -61,6 +61,21 @@ docker compose up -d
 
 Database migrations run automatically on startup.
 
+## CORS and WebSocket
+
+The backend validates the browser's `Origin` header on WebSocket connections.
+By default, `http://localhost` is allowed, which works for Docker out of the box.
+
+If you access WaffleWeather via a hostname (e.g., LAN or Tailscale), add it to
+`WW_CORS_ORIGINS` in `docker/.env`:
+
+```
+WW_CORS_ORIGINS=["http://localhost","http://myhost.local","https://myhost.ts.net"]
+```
+
+Without the correct origin, the WebSocket will be rejected with a 403 and the
+UI will show the connection as disconnected.
+
 ## Using an Existing MQTT Broker
 
 If you already run Mosquitto (e.g., for Home Assistant), you can point
