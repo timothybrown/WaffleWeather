@@ -23,5 +23,6 @@ class Settings(BaseSettings):
     station_latitude: float | None = None
     station_longitude: float | None = None
     station_altitude: float | None = None  # meters above sea level
+    station_timezone: str = "UTC"  # IANA timezone (e.g. "America/New_York")
 
     model_config = {"env_file": [".env", "../.env"], "env_prefix": "WW_", "extra": "ignore"}

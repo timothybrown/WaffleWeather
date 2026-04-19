@@ -69,6 +69,7 @@ services:
     environment:
       WW_DATABASE_URL: postgresql+asyncpg://waffleweather:${WW_DB_PASSWORD}@timescaledb:5432/waffleweather
       WW_MQTT_BROKER: mosquitto
+      # WW_STATION_TIMEZONE: America/New_York  # IANA timezone for daily aggregate boundaries (default: UTC)
 
   frontend:
     image: ghcr.io/timothybrown/waffleweather-frontend:latest

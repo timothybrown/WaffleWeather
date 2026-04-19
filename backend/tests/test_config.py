@@ -53,6 +53,15 @@ class TestSettings:
         assert s.enable_docs is True
         assert s.api_key == "secret-key"
 
+    def test_station_timezone_default(self):
+        s = Settings(database_url="postgresql+asyncpg://test:test@localhost/test")
+        assert s.station_timezone == "UTC"
+
+    def test_station_timezone_from_env(self, monkeypatch):
+        monkeypatch.setenv("WW_STATION_TIMEZONE", "America/New_York")
+        s = Settings(database_url="postgresql+asyncpg://test:test@localhost/test", _env_file=None)
+        assert s.station_timezone == "America/New_York"
+
     def test_extra_fields_ignored(self):
         """extra='ignore' prevents validation errors from non-WW_ env vars."""
         s = Settings(
