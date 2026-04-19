@@ -494,6 +494,48 @@ paths:
               schema:
                 type: string
 
+  /api/v1/records:
+    get:
+      summary: Get all station records
+      operationId: getRecords
+      tags: [records]
+      parameters:
+        - name: station_id
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Station records grouped by category
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RecordsResponse"
+        "404":
+          description: Station not found
+
+  /api/v1/records/broken:
+    get:
+      summary: Check which all-time records were broken today
+      operationId: getBrokenRecords
+      tags: [records]
+      parameters:
+        - name: station_id
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Broken records status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BrokenRecordsResponse"
+        "404":
+          description: Station not found
+
 components:
   schemas:
     Station:
@@ -733,8 +775,17 @@ components:
         pressure_rel_avg:
           type: number
           nullable: true
+        pressure_rel_min:
+          type: number
+          nullable: true
+        pressure_rel_max:
+          type: number
+          nullable: true
         # Wind
         wind_speed_avg:
+          type: number
+          nullable: true
+        wind_speed_max:
           type: number
           nullable: true
         wind_gust_max:
@@ -746,6 +797,9 @@ components:
           nullable: true
         # Solar / UV
         solar_radiation_avg:
+          type: number
+          nullable: true
+        solar_radiation_max:
           type: number
           nullable: true
         uv_index_max:
@@ -1019,3 +1073,92 @@ components:
             $ref: "#/components/schemas/ReportRow"
         summary:
           $ref: "#/components/schemas/ReportSummary"
+
+    RecordEntry:
+      type: object
+      required: [value, date]
+      properties:
+        value:
+          type: number
+        date:
+          type: string
+          format: date
+
+    RecordMetric:
+      type: object
+      required: [metric, label]
+      properties:
+        metric:
+          type: string
+        label:
+          type: string
+        this_month:
+          oneOf:
+            - $ref: "#/components/schemas/RecordEntry"
+            - type: "null"
+        this_year:
+          oneOf:
+            - $ref: "#/components/schemas/RecordEntry"
+            - type: "null"
+        all_time:
+          oneOf:
+            - $ref: "#/components/schemas/RecordEntry"
+            - type: "null"
+
+    RecordCategory:
+      type: object
+      required: [label, records]
+      properties:
+        label:
+          type: string
+        records:
+          type: array
+          items:
+            $ref: "#/components/schemas/RecordMetric"
+
+    RecordsResponse:
+      type: object
+      required: [station_id, days_of_data, categories]
+      properties:
+        station_id:
+          type: string
+        records_since:
+          type: string
+          format: date
+          nullable: true
+        days_of_data:
+          type: integer
+        categories:
+          type: object
+          additionalProperties:
+            $ref: "#/components/schemas/RecordCategory"
+
+    BrokenRecord:
+      type: object
+      required: [is_broken, current_value, previous_value, previous_date]
+      properties:
+        is_broken:
+          type: boolean
+        current_value:
+          type: number
+        previous_value:
+          type: number
+        previous_date:
+          type: string
+          format: date
+
+    BrokenRecordsResponse:
+      type: object
+      required: [station_id, date, broken]
+      properties:
+        station_id:
+          type: string
+        date:
+          type: string
+          format: date
+        broken:
+          type: object
+          additionalProperties:
+            oneOf:
+              - $ref: "#/components/schemas/BrokenRecord"
+              - type: "null"
