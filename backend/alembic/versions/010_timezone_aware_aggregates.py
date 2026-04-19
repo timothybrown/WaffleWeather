@@ -4,20 +4,21 @@ Revision ID: 010
 Revises: 009
 Create Date: 2026-04-19
 """
-import os
 from typing import Sequence, Union
 
 from alembic import op
+
+from app.config import Settings
 
 revision: str = "010"
 down_revision: Union[str, None] = "009"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
-_TZ = os.environ.get("WW_STATION_TIMEZONE", "UTC")
-
 
 def upgrade() -> None:
+    tz = Settings().station_timezone
+
     # Drop in reverse dependency order (monthly depends on daily)
     op.execute("SELECT remove_continuous_aggregate_policy('observations_monthly', if_not_exists => true)")
     op.execute("DROP MATERIALIZED VIEW IF EXISTS observations_monthly CASCADE")
@@ -30,7 +31,7 @@ def upgrade() -> None:
         WITH (timescaledb.continuous) AS
         SELECT
             station_id,
-            time_bucket('1 day', bucket, timezone => '{_TZ}') AS bucket,
+            time_bucket('1 day', bucket, timezone => '{tz}') AS bucket,
             AVG(temp_outdoor_avg) AS temp_outdoor_avg,
             MIN(temp_outdoor_min) AS temp_outdoor_min,
             MAX(temp_outdoor_max) AS temp_outdoor_max,
@@ -51,7 +52,7 @@ def upgrade() -> None:
             MAX(solar_radiation_max) AS solar_radiation_max,
             MAX(uv_index_max) AS uv_index_max
         FROM observations_hourly
-        GROUP BY station_id, time_bucket('1 day', bucket, timezone => '{_TZ}')
+        GROUP BY station_id, time_bucket('1 day', bucket, timezone => '{tz}')
         WITH NO DATA
     """)
     op.execute("""
@@ -68,7 +69,7 @@ def upgrade() -> None:
         WITH (timescaledb.continuous) AS
         SELECT
             station_id,
-            time_bucket('1 month', bucket, timezone => '{_TZ}') AS bucket,
+            time_bucket('1 month', bucket, timezone => '{tz}') AS bucket,
             AVG(temp_outdoor_avg) AS temp_outdoor_avg,
             MIN(temp_outdoor_min) AS temp_outdoor_min,
             MAX(temp_outdoor_max) AS temp_outdoor_max,
@@ -89,7 +90,7 @@ def upgrade() -> None:
             MAX(solar_radiation_max) AS solar_radiation_max,
             MAX(uv_index_max) AS uv_index_max
         FROM observations_daily
-        GROUP BY station_id, time_bucket('1 month', bucket, timezone => '{_TZ}')
+        GROUP BY station_id, time_bucket('1 month', bucket, timezone => '{tz}')
         WITH NO DATA
     """)
     op.execute("""
