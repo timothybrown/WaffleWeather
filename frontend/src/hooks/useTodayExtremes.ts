@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import type { AggregatedObservation } from "@/generated/models";
 import { useListHourlyObservations } from "@/generated/aggregates/aggregates";
 import { CADENCES } from "@/lib/queryCadences";
+import { useStationTimezone, getStationToday } from "@/hooks/useStationTimezone";
 
 interface TodayExtremes {
   tempMin: number | null;
@@ -12,14 +13,14 @@ interface TodayExtremes {
 
 /** Fetch today's hourly aggregates and derive daily extremes for temp & humidity. */
 export function useTodayExtremes(): TodayExtremes {
-  const params = useMemo(() => {
-    const now = new Date();
-    const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    return { start: start.toISOString(), end: now.toISOString() };
-  }, []);
+  const timezone = useStationTimezone();
 
-  // Today's hourly extremes — rolls forward once per hour. 5-minute poll keeps
-  // the min/max bars reasonably fresh without the 60s churn.
+  const params = useMemo(() => {
+    const start = getStationToday(timezone);
+    const end = new Date();
+    return { start: start.toISOString(), end: end.toISOString() };
+  }, [timezone]);
+
   const { data: response } = useListHourlyObservations(params, {
     query: { refetchInterval: CADENCES.aggregate5m },
   });
