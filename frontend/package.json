@@ -1,6 +1,6 @@
 {
   "name": "frontend",
-  "version": "2026.4.19.1",
+  "version": "2026.4.19.2",
   "private": true,
   "scripts": {
     "dev": "next dev",
