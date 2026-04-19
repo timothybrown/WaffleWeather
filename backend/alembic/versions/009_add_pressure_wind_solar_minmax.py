@@ -149,6 +149,11 @@ def upgrade() -> None:
             f"ALTER MATERIALIZED VIEW {view} SET (timescaledb.materialized_only = false)"
         )
 
+    # Backfill aggregates from existing raw data (order matters: hourly → daily → monthly)
+    op.execute("CALL refresh_continuous_aggregate('observations_hourly', '2020-01-01', now()::timestamptz)")
+    op.execute("CALL refresh_continuous_aggregate('observations_daily', '2020-01-01', now()::timestamptz)")
+    op.execute("CALL refresh_continuous_aggregate('observations_monthly', '2020-01-01', now()::timestamptz)")
+
 
 def downgrade() -> None:
     # Reverse: drop and recreate at 008 state (with dewpoint, without pressure min/max etc.)
@@ -263,3 +268,8 @@ def downgrade() -> None:
         op.execute(
             f"ALTER MATERIALIZED VIEW {view} SET (timescaledb.materialized_only = false)"
         )
+
+    # Backfill aggregates from existing raw data
+    op.execute("CALL refresh_continuous_aggregate('observations_hourly', '2020-01-01', now()::timestamptz)")
+    op.execute("CALL refresh_continuous_aggregate('observations_daily', '2020-01-01', now()::timestamptz)")
+    op.execute("CALL refresh_continuous_aggregate('observations_monthly', '2020-01-01', now()::timestamptz)")

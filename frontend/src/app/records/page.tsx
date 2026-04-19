@@ -25,44 +25,35 @@ const CATEGORY_ICONS: Record<string, ReactNode> = {
 };
 
 function formatRecordValue(metric: string, value: number, system: "metric" | "imperial"): string {
-  // Temperature and dewpoint metrics
-  if (metric.startsWith("temp_") || metric.startsWith("dewpoint_")) {
+  if (metric.includes("temp") || metric.includes("dewpoint")) {
     const c = convertTemp(value, system);
     return `${fmt(c.value, 1)} ${c.unit}`;
   }
-  // Wind and gust metrics
-  if (metric.startsWith("wind_") || metric.startsWith("gust_")) {
+  if (metric.includes("wind") || metric.includes("gust")) {
     const w = convertSpeed(value, system);
     return `${fmt(w.value, 1)} ${w.unit}`;
   }
-  // Daily rain accumulation
-  if (metric === "rain_daily") {
+  if (metric.includes("rain_daily")) {
     const r = convertRain(value, system);
     return `${fmt(r.value, system === "imperial" ? 3 : 1)} ${r.unit}`;
   }
-  // Rain rate
-  if (metric === "rain_rate") {
+  if (metric.includes("rain_rate")) {
     const r = convertRainRate(value, system);
     return `${fmt(r.value, system === "imperial" ? 3 : 1)} ${r.unit}`;
   }
-  // Pressure
-  if (metric.startsWith("pressure_")) {
+  if (metric.includes("pressure")) {
     const p = convertPressure(value, system);
     return `${fmt(p.value, 2)} ${p.unit}`;
   }
-  // Humidity
-  if (metric.startsWith("humidity_")) {
+  if (metric.includes("humidity")) {
     return `${Math.round(value)}%`;
   }
-  // Solar radiation
-  if (metric.startsWith("solar_")) {
+  if (metric.includes("solar")) {
     return `${Math.round(value)} W/m\u00B2`;
   }
-  // UV index
-  if (metric.startsWith("uv_")) {
+  if (metric.includes("uv")) {
     return fmt(value, 1);
   }
-  // Fallback
   return fmt(value, 1);
 }
 
