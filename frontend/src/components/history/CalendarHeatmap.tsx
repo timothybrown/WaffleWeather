@@ -7,6 +7,7 @@ import type { AggregatedObservation, CalendarDataPoint } from "@/generated/model
 import { convertTemp, convertSpeed, convertRain } from "@/lib/units";
 import { CADENCES } from "@/lib/queryCadences";
 import { useUnits } from "@/providers/UnitsProvider";
+import { useStationTimezone, getStationToday } from "@/hooks/useStationTimezone";
 import { fmt } from "@/lib/utils";
 
 const METRICS: { value: GetCalendarDataMetric; label: string; unitFn: string }[] = [
@@ -252,7 +253,8 @@ function HeatmapSVG({
 export default function CalendarHeatmap() {
   const { system } = useUnits();
   const [metric, setMetric] = useState<GetCalendarDataMetric>(GetCalendarDataMetric.temp_outdoor_max);
-  const year = new Date().getFullYear();
+  const timezone = useStationTimezone();
+  const year = getStationToday(timezone).getFullYear();
 
   // 365-day calendar heatmap + daily aggregates are a static annual view.
   // Re-runs naturally on metric/year/unit changes — no background polling.
