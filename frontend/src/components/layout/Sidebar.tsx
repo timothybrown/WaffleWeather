@@ -10,6 +10,7 @@ import {
   RiHistoryLine,
   RiFileChartLine,
   RiCompassLine,
+  RiTrophyLine,
   RiSettings4Line,
   RiCloseLine,
   RiComputerLine,
@@ -29,6 +30,7 @@ const navItems = [
   { href: "/wind-rose", label: "Wind Rose", icon: RiCompassLine },
   { href: "/history", label: "History", icon: RiHistoryLine },
   { href: "/reports", label: "Reports", icon: RiFileChartLine },
+  { href: "/records", label: "Records", icon: RiTrophyLine },
   { href: "/settings", label: "Diagnostics", icon: RiSettings4Line },
 ];
 
