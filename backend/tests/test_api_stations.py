@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 class TestListStations:
     async def test_returns_list(self, test_client, mock_db_session):
-        s1 = MagicMock()
+        s1 = MagicMock(spec=[])
         s1.id = "station-1"
         s1.name = "Main Station"
         s1.model = "GW3000B"
@@ -39,7 +39,7 @@ class TestListStations:
 
 class TestGetStation:
     async def test_found(self, test_client, mock_db_session):
-        station = MagicMock()
+        station = MagicMock(spec=[])
         station.id = "s1"
         station.name = "Test"
         station.model = None

@@ -14,5 +14,6 @@ class StationSchema(BaseModel):
     latitude: float | None = None
     longitude: float | None = None
     altitude: float | None = None
+    timezone: str | None = None
 
     model_config = {"from_attributes": True}
