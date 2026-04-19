@@ -1,13 +1,15 @@
 """Station records API endpoints (all-time, yearly, monthly extremes)."""
 
-from datetime import date
+from datetime import date, datetime
 from typing import Any, cast
+from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.reports import _get_station
+from app.config import Settings
 from app.database import get_db
 from app.schemas.records import (
     BrokenRecord,
@@ -59,6 +61,7 @@ async def _query_record(
     station_id: str,
     column: str,
     agg_func: str,
+    tz_str: str,
     date_filter: str | None = None,
 ) -> RecordEntry | None:
     """Query a single record from observations_daily.
@@ -71,13 +74,13 @@ async def _query_record(
         where += " AND " + date_filter
 
     sql = text(
-        f"SELECT {column} AS value, bucket::date AS record_date "
+        f"SELECT {column} AS value, (bucket AT TIME ZONE :tz)::date AS record_date "
         f"FROM observations_daily "
         f"{where} "
         f"ORDER BY {column} {order}, bucket ASC "
         f"LIMIT 1"
     )
-    result = await db.execute(sql, {"station_id": station_id})
+    result = await db.execute(sql, {"station_id": station_id, "tz": tz_str})
     row = result.mappings().first()
     if row is None:
         return None
@@ -87,6 +90,7 @@ async def _query_record(
 async def _query_rain_rate_record(
     db: AsyncSession,
     station_id: str,
+    tz_str: str,
     date_filter: str | None = None,
 ) -> RecordEntry | None:
     """Query the highest rain rate from the raw weather_observations table."""
@@ -95,13 +99,13 @@ async def _query_rain_rate_record(
         where += " AND " + date_filter
 
     sql = text(
-        "SELECT rain_rate AS value, timestamp::date AS record_date "
+        "SELECT rain_rate AS value, (timestamp AT TIME ZONE :tz)::date AS record_date "
         "FROM weather_observations "
         f"{where} "
         "ORDER BY rain_rate DESC, timestamp ASC "
         "LIMIT 1"
     )
-    result = await db.execute(sql, {"station_id": station_id})
+    result = await db.execute(sql, {"station_id": station_id, "tz": tz_str})
     row = result.mappings().first()
     if row is None:
         return None
@@ -109,16 +113,16 @@ async def _query_rain_rate_record(
 
 
 async def _query_station_metadata(
-    db: AsyncSession, station_id: str
+    db: AsyncSession, station_id: str, tz_str: str
 ) -> tuple[date | None, int]:
     """Return (earliest_date, days_of_data) from observations_daily."""
     sql = text(
-        "SELECT MIN(bucket::date) AS records_since, "
-        "COUNT(DISTINCT bucket::date) AS days_of_data "
+        "SELECT MIN((bucket AT TIME ZONE :tz)::date) AS records_since, "
+        "COUNT(DISTINCT (bucket AT TIME ZONE :tz)::date) AS days_of_data "
         "FROM observations_daily "
         "WHERE station_id = :station_id"
     )
-    result = await db.execute(sql, {"station_id": station_id})
+    result = await db.execute(sql, {"station_id": station_id, "tz": tz_str})
     row = result.mappings().first()
     if row is None or row["records_since"] is None:
         return None, 0
@@ -137,19 +141,22 @@ async def get_records(
     station = await _get_station(station_id, db)
     sid = cast(str, station.id)
 
-    today = date.today()
+    _settings = Settings()
+    _tz = ZoneInfo(_settings.station_timezone)
+    _tz_str = _settings.station_timezone
+    today = datetime.now(_tz).date()
     first_of_month = today.replace(day=1)
     first_of_year = date(today.year, 1, 1)
 
     period_filters: dict[str, str | None] = {
-        "this_month": f"bucket::date >= '{first_of_month.isoformat()}'",
-        "this_year": f"bucket::date >= '{first_of_year.isoformat()}'",
+        "this_month": f"(bucket AT TIME ZONE '{_tz_str}')::date >= '{first_of_month.isoformat()}'",
+        "this_year": f"(bucket AT TIME ZONE '{_tz_str}')::date >= '{first_of_year.isoformat()}'",
         "all_time": None,
     }
 
     rain_rate_filters: dict[str, str | None] = {
-        "this_month": f"timestamp::date >= '{first_of_month.isoformat()}'",
-        "this_year": f"timestamp::date >= '{first_of_year.isoformat()}'",
+        "this_month": f"(timestamp AT TIME ZONE '{_tz_str}')::date >= '{first_of_month.isoformat()}'",
+        "this_year": f"(timestamp AT TIME ZONE '{_tz_str}')::date >= '{first_of_year.isoformat()}'",
         "all_time": None,
     }
 
@@ -159,7 +166,7 @@ async def get_records(
     for key, label, column, agg_func, category in _DAILY_METRICS:
         period_entries: dict[str, RecordEntry | None] = {}
         for period_name, date_filter in period_filters.items():
-            entry = await _query_record(db, sid, column, agg_func, date_filter)
+            entry = await _query_record(db, sid, column, agg_func, _tz_str, date_filter)
             period_entries[period_name] = entry
 
         metrics_by_key[key] = RecordMetric(
@@ -173,7 +180,7 @@ async def get_records(
     # Rain rate (from raw observations)
     rain_rate_entries: dict[str, RecordEntry | None] = {}
     for period_name, date_filter in rain_rate_filters.items():
-        entry = await _query_rain_rate_record(db, sid, date_filter)
+        entry = await _query_rain_rate_record(db, sid, _tz_str, date_filter)
         rain_rate_entries[period_name] = entry
 
     metrics_by_key["highest_rain_rate"] = RecordMetric(
@@ -199,7 +206,7 @@ async def get_records(
             records=cat_records,
         )
 
-    records_since, days_of_data = await _query_station_metadata(db, sid)
+    records_since, days_of_data = await _query_station_metadata(db, sid, _tz_str)
 
     return RecordsResponse(
         station_id=sid,
@@ -217,17 +224,21 @@ async def get_broken_records(
     """Return which all-time records were broken today."""
     station = await _get_station(station_id, db)
     sid = cast(str, station.id)
-    today = date.today()
+    _settings = Settings()
+    _tz = ZoneInfo(_settings.station_timezone)
+    today = datetime.now(_tz).date()
 
     broken: dict[str, BrokenRecord | None] = {}
 
     for key, _label, column, agg_func, _category in _DAILY_METRICS:
         broken[key] = await _check_broken_daily(
-            db, sid, column, agg_func, today
+            db, sid, column, agg_func, today, _settings.station_timezone
         )
 
     # Rain rate from raw observations
-    broken["highest_rain_rate"] = await _check_broken_rain_rate(db, sid, today)
+    broken["highest_rain_rate"] = await _check_broken_rain_rate(
+        db, sid, today, _settings.station_timezone
+    )
 
     return BrokenRecordsResponse(
         station_id=sid,
@@ -242,11 +253,12 @@ async def _check_broken_daily(
     column: str,
     agg_func: str,
     today: date,
+    tz_str: str,
 ) -> BrokenRecord | None:
     """Check if today's value in observations_hourly beats the historical record.
 
-    Historical record is from observations_daily WHERE bucket::date < today.
-    Today's value comes from observations_hourly WHERE bucket::date = today.
+    Historical record is from observations_daily WHERE bucket < today.
+    Today's value comes from observations_hourly WHERE bucket = today.
     """
     # Get today's extreme from hourly aggregates
     if agg_func == "MAX":
@@ -258,10 +270,12 @@ async def _check_broken_daily(
         f"SELECT {today_agg} AS value "
         f"FROM observations_hourly "
         f"WHERE station_id = :station_id "
-        f"AND bucket::date = :today "
+        f"AND (bucket AT TIME ZONE :tz)::date = :today "
         f"AND {column} IS NOT NULL"
     )
-    today_result = await db.execute(today_sql, {"station_id": station_id, "today": today})
+    today_result = await db.execute(
+        today_sql, {"station_id": station_id, "today": today, "tz": tz_str}
+    )
     today_row = today_result.mappings().first()
     if today_row is None or today_row["value"] is None:
         return None
@@ -271,15 +285,17 @@ async def _check_broken_daily(
     # Get historical record from daily aggregates (before today)
     order = "DESC" if agg_func == "MAX" else "ASC"
     hist_sql = text(
-        f"SELECT {column} AS value, bucket::date AS record_date "
+        f"SELECT {column} AS value, (bucket AT TIME ZONE :tz)::date AS record_date "
         f"FROM observations_daily "
         f"WHERE station_id = :station_id "
-        f"AND bucket::date < :today "
+        f"AND (bucket AT TIME ZONE :tz)::date < :today "
         f"AND {column} IS NOT NULL "
         f"ORDER BY {column} {order}, bucket ASC "
         f"LIMIT 1"
     )
-    hist_result = await db.execute(hist_sql, {"station_id": station_id, "today": today})
+    hist_result = await db.execute(
+        hist_sql, {"station_id": station_id, "today": today, "tz": tz_str}
+    )
     hist_row = hist_result.mappings().first()
 
     if hist_row is None:
@@ -312,6 +328,7 @@ async def _check_broken_rain_rate(
     db: AsyncSession,
     station_id: str,
     today: date,
+    tz_str: str,
 ) -> BrokenRecord | None:
     """Check if today's rain rate beats the all-time record."""
     # Today's max rain rate
@@ -319,10 +336,12 @@ async def _check_broken_rain_rate(
         "SELECT MAX(rain_rate) AS value "
         "FROM weather_observations "
         "WHERE station_id = :station_id "
-        "AND timestamp::date = :today "
+        "AND (timestamp AT TIME ZONE :tz)::date = :today "
         "AND rain_rate IS NOT NULL"
     )
-    today_result = await db.execute(today_sql, {"station_id": station_id, "today": today})
+    today_result = await db.execute(
+        today_sql, {"station_id": station_id, "today": today, "tz": tz_str}
+    )
     today_row = today_result.mappings().first()
     if today_row is None or today_row["value"] is None:
         return None
@@ -331,15 +350,17 @@ async def _check_broken_rain_rate(
 
     # Historical max rain rate (before today)
     hist_sql = text(
-        "SELECT rain_rate AS value, timestamp::date AS record_date "
+        "SELECT rain_rate AS value, (timestamp AT TIME ZONE :tz)::date AS record_date "
         "FROM weather_observations "
         "WHERE station_id = :station_id "
-        "AND timestamp::date < :today "
+        "AND (timestamp AT TIME ZONE :tz)::date < :today "
         "AND rain_rate IS NOT NULL "
         "ORDER BY rain_rate DESC, timestamp ASC "
         "LIMIT 1"
     )
-    hist_result = await db.execute(hist_sql, {"station_id": station_id, "today": today})
+    hist_result = await db.execute(
+        hist_sql, {"station_id": station_id, "today": today, "tz": tz_str}
+    )
     hist_row = hist_result.mappings().first()
 
     if hist_row is None:

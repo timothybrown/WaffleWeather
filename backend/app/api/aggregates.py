@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import Settings
 from app.database import get_db
 from app.schemas.observation import (
     AggregatedObservationSchema,
@@ -145,29 +146,31 @@ async def get_calendar_data(
     start = datetime(target_year, 1, 1)
     end = datetime(target_year, 12, 31, 23, 59, 59)
 
+    tz = Settings().station_timezone
+
     # Lightning strikes come from lightning_events table, not daily aggregates
     if metric == "lightning_strikes":
         where_clauses = ["timestamp >= :start", "timestamp <= :end"]
-        params: dict[str, object] = {"start": start, "end": end}
+        params: dict[str, object] = {"start": start, "end": end, "tz": tz}
         if station_id:
             where_clauses.append("station_id = :station_id")
             params["station_id"] = station_id
         where = " AND ".join(where_clauses)
         sql = text(
-            f"SELECT timestamp::date AS date, SUM(new_strikes) AS value "
+            f"SELECT (timestamp AT TIME ZONE :tz)::date AS date, SUM(new_strikes) AS value "
             f"FROM lightning_events WHERE {where} "
-            f"GROUP BY timestamp::date ORDER BY date"
+            f"GROUP BY (timestamp AT TIME ZONE :tz)::date ORDER BY date"
         )
     else:
         where_clauses = ["bucket >= :start", "bucket <= :end"]
-        params = {"start": start, "end": end}
+        params = {"start": start, "end": end, "tz": tz}
         if station_id:
             where_clauses.append("station_id = :station_id")
             params["station_id"] = station_id
         where = " AND ".join(where_clauses)
         # metric is from the allowlist so safe to interpolate
         sql = text(
-            f"SELECT bucket::date AS date, {metric} AS value "
+            f"SELECT (bucket AT TIME ZONE :tz)::date AS date, {metric} AS value "
             f"FROM observations_daily WHERE {where} ORDER BY date"
         )
 

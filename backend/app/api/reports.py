@@ -10,6 +10,7 @@ from fastapi.responses import PlainTextResponse
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import Settings
 from app.database import get_db
 from app.models.station import Station
 from app.schemas.climate import (
@@ -112,17 +113,22 @@ async def _query_daily_rows(
     station_id: str, start: date, end: date, db: AsyncSession
 ) -> list[dict[str, Any]]:
     """Query daily aggregate view for the given date range."""
+    tz = Settings().station_timezone
     sql = text(
-        "SELECT bucket::date AS day, "
+        "SELECT (bucket AT TIME ZONE :tz)::date AS day, "
         "temp_outdoor_avg, temp_outdoor_min, temp_outdoor_max, "
         "dewpoint_avg, dewpoint_min, dewpoint_max, "
         "humidity_outdoor_avg, pressure_rel_avg, "
         "wind_speed_avg, wind_gust_max, rain_daily_max "
         "FROM observations_daily "
-        "WHERE station_id = :station_id AND bucket::date >= :start AND bucket::date <= :end "
+        "WHERE station_id = :station_id "
+        "AND (bucket AT TIME ZONE :tz)::date >= :start "
+        "AND (bucket AT TIME ZONE :tz)::date <= :end "
         "ORDER BY day"
     )
-    result = await db.execute(sql, {"station_id": station_id, "start": start, "end": end})
+    result = await db.execute(
+        sql, {"station_id": station_id, "start": start, "end": end, "tz": tz}
+    )
     return [dict(row) for row in result.mappings().all()]
 
 
@@ -130,14 +136,18 @@ async def _query_wind_directions(
     station_id: str, start: date, end: date, db: AsyncSession
 ) -> list[Any]:
     """Query raw wind direction observations where wind_speed > 0."""
+    tz = Settings().station_timezone
     sql = text(
-        "SELECT timestamp::date AS day, wind_dir "
+        "SELECT (timestamp AT TIME ZONE :tz)::date AS day, wind_dir "
         "FROM weather_observations "
         "WHERE station_id = :station_id "
-        "AND timestamp::date >= :start AND timestamp::date <= :end "
+        "AND (timestamp AT TIME ZONE :tz)::date >= :start "
+        "AND (timestamp AT TIME ZONE :tz)::date <= :end "
         "AND wind_dir IS NOT NULL AND wind_speed > 0"
     )
-    result = await db.execute(sql, {"station_id": station_id, "start": start, "end": end})
+    result = await db.execute(
+        sql, {"station_id": station_id, "start": start, "end": end, "tz": tz}
+    )
     return list(result.all())
 
 
