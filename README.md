@@ -67,12 +67,7 @@ NOAA-style monthly and yearly climate summaries with daily breakdown tables show
 
 All-time, yearly, and monthly extremes across 6 categories: temperature, wind, rain, humidity, pressure, and solar. Each record shows the value and the date it was set. When an all-time record is broken today, a gold star badge appears on the corresponding Observatory card with a tooltip showing the previous record. Records are computed from continuous aggregates, so they stay fast even with years of data.
 
-<table align="center">
-  <tr>
-    <td align="center"><img src="screenshots/records-dark.png" alt="Station Records (dark)" width="100%" /></td>
-    <td align="center"><img src="screenshots/records-light.png" alt="Station Records (light)" width="100%" /></td>
-  </tr>
-</table>
+![Station Records](screenshots/records-light.png)
 
 ### Diagnostics
 
