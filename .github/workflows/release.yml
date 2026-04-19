@@ -43,11 +43,16 @@ jobs:
 
   build-backend:
     needs: validate
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      matrix:
+        include:
+          - platform: linux/amd64
+            runner: ubuntu-latest
+          - platform: linux/arm64
+            runner: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@v4
-
-      - uses: docker/setup-qemu-action@v3
 
       - uses: docker/setup-buildx-action@v3
 
@@ -56,26 +61,56 @@ jobs:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+
+      - id: slug
+        run: echo "arch=${PLATFORM##*/}" >> "$GITHUB_OUTPUT"
+        env:
+          PLATFORM: ${{ matrix.platform }}
 
       - uses: docker/build-push-action@v6
         with:
           context: .
           file: docker/backend/Dockerfile
-          platforms: linux/amd64,linux/arm64
+          platforms: ${{ matrix.platform }}
           push: true
           tags: |
-            ${{ env.REGISTRY }}/${{ github.repository_owner }}/waffleweather-backend:${{ needs.validate.outputs.version }}
-            ${{ env.REGISTRY }}/${{ github.repository_owner }}/waffleweather-backend:latest
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+            ${{ env.REGISTRY }}/${{ github.repository_owner }}/waffleweather-backend:${{ needs.validate.outputs.version }}-${{ steps.slug.outputs.arch }}
+          cache-from: type=gha,scope=backend-${{ steps.slug.outputs.arch }}
+          cache-to: type=gha,mode=max,scope=backend-${{ steps.slug.outputs.arch }}
+
+  merge-backend:
+    needs: [validate, build-backend]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create multi-arch manifest
+        run: |
+          IMAGE=${{ env.REGISTRY }}/${{ github.repository_owner }}/waffleweather-backend
+          VERSION=${{ needs.validate.outputs.version }}
+
+          docker buildx imagetools create \
+            -t "$IMAGE:$VERSION" \
+            -t "$IMAGE:latest" \
+            "$IMAGE:$VERSION-amd64" \
+            "$IMAGE:$VERSION-arm64"
 
   build-frontend:
     needs: validate
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      matrix:
+        include:
+          - platform: linux/amd64
+            runner: ubuntu-latest
+          - platform: linux/arm64
+            runner: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@v4
-
-      - uses: docker/setup-qemu-action@v3
 
       - uses: docker/setup-buildx-action@v3
 
@@ -85,23 +120,48 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - id: slug
+        run: echo "arch=${PLATFORM##*/}" >> "$GITHUB_OUTPUT"
+        env:
+          PLATFORM: ${{ matrix.platform }}
+
       - uses: docker/build-push-action@v6
         with:
           context: .
           file: docker/frontend/Dockerfile
-          platforms: linux/amd64,linux/arm64
+          platforms: ${{ matrix.platform }}
           push: true
           tags: |
-            ${{ env.REGISTRY }}/${{ github.repository_owner }}/waffleweather-frontend:${{ needs.validate.outputs.version }}
-            ${{ env.REGISTRY }}/${{ github.repository_owner }}/waffleweather-frontend:latest
+            ${{ env.REGISTRY }}/${{ github.repository_owner }}/waffleweather-frontend:${{ needs.validate.outputs.version }}-${{ steps.slug.outputs.arch }}
           build-args: |
             NEXT_PUBLIC_API_URL=
             NEXT_PUBLIC_WS_URL=
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=frontend-${{ steps.slug.outputs.arch }}
+          cache-to: type=gha,mode=max,scope=frontend-${{ steps.slug.outputs.arch }}
+
+  merge-frontend:
+    needs: [validate, build-frontend]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create multi-arch manifest
+        run: |
+          IMAGE=${{ env.REGISTRY }}/${{ github.repository_owner }}/waffleweather-frontend
+          VERSION=${{ needs.validate.outputs.version }}
+
+          docker buildx imagetools create \
+            -t "$IMAGE:$VERSION" \
+            -t "$IMAGE:latest" \
+            "$IMAGE:$VERSION-amd64" \
+            "$IMAGE:$VERSION-arm64"
 
   release:
-    needs: [validate, build-backend, build-frontend]
+    needs: [validate, merge-backend, merge-frontend]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
