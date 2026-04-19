@@ -125,8 +125,12 @@ class AggregatedObservationSchema(BaseModel):
     humidity_outdoor_min: float | None = None
     humidity_outdoor_max: float | None = None
     pressure_rel_avg: float | None = None
+    pressure_rel_min: float | None = None
+    pressure_rel_max: float | None = None
     wind_speed_avg: float | None = None
+    wind_speed_max: float | None = None
     wind_gust_max: float | None = None
     rain_daily_max: float | None = None
     solar_radiation_avg: float | None = None
+    solar_radiation_max: float | None = None
     uv_index_max: float | None = None
