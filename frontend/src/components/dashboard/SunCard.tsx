@@ -4,13 +4,14 @@ import { useMemo } from "react";
 import SunCalc from "suncalc";
 import { RiSunLine } from "@remixicon/react";
 import { useListStations } from "@/generated/stations/stations";
-import type { Station, Observation } from "@/generated/models";
+import type { Station, Observation, BrokenRecord } from "@/generated/models";
 import type { TrendDirection } from "@/hooks/useTrends";
 import { cn, fmt } from "@/lib/utils";
 import { CADENCES } from "@/lib/queryCadences";
 import WeatherCard from "./WeatherCard";
 import TrendIndicator from "./TrendIndicator";
 import InfoTip from "@/components/ui/InfoTip";
+import RecordBadge from "@/components/ui/RecordBadge";
 
 function fmtTime(d: Date): string {
   return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false });
@@ -30,7 +31,7 @@ function glowRadius(solar: number | null | undefined): number {
   return 6 + Math.sqrt(s / 1000) * 18;
 }
 
-export default function SunCard({ data, solarTrend, uvTrend }: { data: Observation | null; solarTrend: TrendDirection; uvTrend: TrendDirection }) {
+export default function SunCard({ data, solarTrend, uvTrend, brokenRecords }: { data: Observation | null; solarTrend: TrendDirection; uvTrend: TrendDirection; brokenRecords?: Record<string, BrokenRecord | null> }) {
   const { data: stationsResponse } = useListStations({
     query: { refetchInterval: CADENCES.none },
   });
@@ -116,8 +117,14 @@ export default function SunCard({ data, solarTrend, uvTrend }: { data: Observati
   const amp = Math.min(solar, 1000) / 1000 * 0.08;
   const uv = uvLevel(data?.uv_index);
 
+  const relevantMetrics = ["highest_solar_radiation", "highest_uv_index"];
+  const firstBroken = relevantMetrics.find((m) => brokenRecords?.[m]);
+  const badgeNode = firstBroken && brokenRecords?.[firstBroken]
+    ? <RecordBadge metric={firstBroken} record={brokenRecords[firstBroken]} />
+    : undefined;
+
   return (
-    <WeatherCard title="Solar" icon={<RiSunLine className="h-4 w-4" />} info="Solar radiation, UV index, and sun position. The arc traces the real altitude curve from astronomical algorithms. The sun's glow scales with measured irradiance — brighter outside means a bigger, more active glow. Updates every minute.">
+    <WeatherCard title="Solar" icon={<RiSunLine className="h-4 w-4" />} info="Solar radiation, UV index, and sun position. The arc traces the real altitude curve from astronomical algorithms. The sun's glow scales with measured irradiance — brighter outside means a bigger, more active glow. Updates every minute." badge={badgeNode}>
       {!hasLocation || !sunData ? (
         <p className="text-sm text-text-muted">
           Station location not configured. Set latitude and longitude to see sun

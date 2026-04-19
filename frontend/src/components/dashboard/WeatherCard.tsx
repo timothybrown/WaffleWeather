@@ -8,6 +8,7 @@ interface WeatherCardProps {
   title: string;
   icon: ReactNode;
   info?: string;
+  badge?: ReactNode;
   children: ReactNode;
   className?: string;
 }
@@ -16,6 +17,7 @@ export default function WeatherCard({
   title,
   icon,
   info,
+  badge,
   children,
   className,
 }: WeatherCardProps) {
@@ -30,6 +32,7 @@ export default function WeatherCard({
         {icon}
         <h3 className="text-xs font-semibold uppercase tracking-wider">{title}</h3>
         {info && <InfoTip text={info} />}
+        {badge}
       </div>
       {children}
     </div>

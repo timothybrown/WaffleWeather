@@ -1,7 +1,7 @@
 "use client";
 
 import { RiWindyLine } from "@remixicon/react";
-import type { Observation } from "@/generated/models";
+import type { Observation, BrokenRecord } from "@/generated/models";
 import type { TrendDirection } from "@/hooks/useTrends";
 import { fmt, degToCompass } from "@/lib/utils";
 import { convertSpeed } from "@/lib/units";
@@ -10,6 +10,7 @@ import WeatherCard from "./WeatherCard";
 import TrendIndicator from "./TrendIndicator";
 import InfoTip from "@/components/ui/InfoTip";
 import WindCompassRing from "./WindCompassRing";
+import RecordBadge from "@/components/ui/RecordBadge";
 
 function beaufort(kmh: number | null | undefined): { force: number; label: string } | null {
   if (kmh == null) return null;
@@ -26,16 +27,23 @@ function beaufort(kmh: number | null | undefined): { force: number; label: strin
   return { force: 12, label: "Hurricane force" };
 }
 
-export default function WindCard({ data, trend }: { data: Observation | null; trend: TrendDirection }) {
+export default function WindCard({ data, trend, brokenRecords }: { data: Observation | null; trend: TrendDirection; brokenRecords?: Record<string, BrokenRecord | null> }) {
   const { system } = useUnits();
   const speed = convertSpeed(data?.wind_speed, system);
   const gust = convertSpeed(data?.wind_gust, system);
+
+  const relevantMetrics = ["highest_wind_gust", "highest_wind_speed"];
+  const firstBroken = relevantMetrics.find((m) => brokenRecords?.[m]);
+  const badgeNode = firstBroken && brokenRecords?.[firstBroken]
+    ? <RecordBadge metric={firstBroken} record={brokenRecords[firstBroken]} />
+    : undefined;
 
   return (
     <WeatherCard
       title="Wind"
       icon={<RiWindyLine className="h-4 w-4" />}
       info="Wind speed and direction from the anemometer. Speed is a 1-minute average; gust is the peak in the current interval."
+      badge={badgeNode}
     >
       <div className="flex items-center gap-1.5">
         <span className="font-mono text-4xl font-semibold tabular-nums text-text">

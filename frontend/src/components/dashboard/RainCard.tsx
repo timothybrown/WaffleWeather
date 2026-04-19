@@ -1,15 +1,16 @@
 "use client";
 
 import { RiRainyLine } from "@remixicon/react";
-import type { Observation } from "@/generated/models";
+import type { Observation, BrokenRecord } from "@/generated/models";
 import type { TrendDirection } from "@/hooks/useTrends";
 import { fmt } from "@/lib/utils";
 import { convertRainRate, convertRain } from "@/lib/units";
 import { useUnits } from "@/providers/UnitsProvider";
 import WeatherCard from "./WeatherCard";
 import TrendIndicator from "./TrendIndicator";
+import RecordBadge from "@/components/ui/RecordBadge";
 
-export default function RainCard({ data, trend }: { data: Observation | null; trend: TrendDirection }) {
+export default function RainCard({ data, trend, brokenRecords }: { data: Observation | null; trend: TrendDirection; brokenRecords?: Record<string, BrokenRecord | null> }) {
   const { system } = useUnits();
   const rate = convertRainRate(data?.rain_rate, system);
   const daily = convertRain(data?.rain_daily, system);
@@ -18,11 +19,18 @@ export default function RainCard({ data, trend }: { data: Observation | null; tr
   const yearly = convertRain(data?.rain_yearly, system);
   const dp = system === "imperial" ? 3 : 1; // 0.001 in ≈ 0.025 mm
 
+  const relevantMetrics = ["highest_rain_daily", "highest_rain_rate"];
+  const firstBroken = relevantMetrics.find((m) => brokenRecords?.[m]);
+  const badgeNode = firstBroken && brokenRecords?.[firstBroken]
+    ? <RecordBadge metric={firstBroken} record={brokenRecords[firstBroken]} />
+    : undefined;
+
   return (
     <WeatherCard
       title="Rain"
       icon={<RiRainyLine className="h-4 w-4" />}
       info="Rainfall rate and accumulation totals. Rate measures current intensity; totals track accumulation over each period."
+      badge={badgeNode}
     >
       <div className="flex items-center gap-1.5">
         <span className="font-mono text-4xl font-semibold tabular-nums text-text">

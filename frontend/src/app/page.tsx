@@ -7,6 +7,7 @@ import { timeAgo } from "@/lib/utils";
 import { useTrends } from "@/hooks/useTrends";
 import { useTodayExtremes } from "@/hooks/useTodayExtremes";
 import { useSparklineData } from "@/hooks/useSparklineData";
+import { useRecordsBroken } from "@/hooks/useRecordsBroken";
 import { CADENCES } from "@/lib/queryCadences";
 import TemperatureCard from "@/components/dashboard/TemperatureCard";
 import HumidityCard from "@/components/dashboard/HumidityCard";
@@ -26,6 +27,7 @@ export default function DashboardPage() {
   const trends = useTrends();
   const extremes = useTodayExtremes();
   const sparklines = useSparklineData();
+  const { broken: brokenRecords } = useRecordsBroken();
 
   const apiData = apiResponse?.data as Observation | undefined;
   const data: Observation | null = wsData
@@ -48,13 +50,13 @@ export default function DashboardPage() {
       </div>
 
       <div className="card-stagger grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <TemperatureCard data={data} trend={trends.temp_outdoor} dayMin={extremes.tempMin} dayMax={extremes.tempMax} sparkline={sparklines.temperature} />
-        <HumidityCard data={data} trend={trends.humidity_outdoor} dayMin={extremes.humidityMin} dayMax={extremes.humidityMax} sparkline={sparklines.humidity} />
-        <PressureCard data={data} trend={trends.pressure_rel} sparkline={sparklines.pressure} />
+        <TemperatureCard data={data} trend={trends.temp_outdoor} dayMin={extremes.tempMin} dayMax={extremes.tempMax} sparkline={sparklines.temperature} brokenRecords={brokenRecords} />
+        <HumidityCard data={data} trend={trends.humidity_outdoor} dayMin={extremes.humidityMin} dayMax={extremes.humidityMax} sparkline={sparklines.humidity} brokenRecords={brokenRecords} />
+        <PressureCard data={data} trend={trends.pressure_rel} sparkline={sparklines.pressure} brokenRecords={brokenRecords} />
         <UTCICard data={data} />
-        <RainCard data={data} trend={trends.rain_rate} />
-        <WindCard data={data} trend={trends.wind_speed} />
-        <SunCard data={data} solarTrend={trends.solar_radiation} uvTrend={trends.uv_index} />
+        <RainCard data={data} trend={trends.rain_rate} brokenRecords={brokenRecords} />
+        <WindCard data={data} trend={trends.wind_speed} brokenRecords={brokenRecords} />
+        <SunCard data={data} solarTrend={trends.solar_radiation} uvTrend={trends.uv_index} brokenRecords={brokenRecords} />
         <MoonCard />
         <LightningCard data={data} />
       </div>

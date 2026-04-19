@@ -1,13 +1,14 @@
 "use client";
 
 import { RiDropLine } from "@remixicon/react";
-import type { Observation } from "@/generated/models";
+import type { Observation, BrokenRecord } from "@/generated/models";
 import type { TrendDirection } from "@/hooks/useTrends";
 import { fmt } from "@/lib/utils";
 import WeatherCard from "./WeatherCard";
 import TrendIndicator from "./TrendIndicator";
 import InfoTip from "@/components/ui/InfoTip";
 import Sparkline from "./Sparkline";
+import RecordBadge from "@/components/ui/RecordBadge";
 
 function comfortLevel(humidity: number | null | undefined): string {
   if (humidity == null) return "\u2014";
@@ -17,12 +18,19 @@ function comfortLevel(humidity: number | null | undefined): string {
   return "Very humid";
 }
 
-export default function HumidityCard({ data, trend, dayMin, dayMax, sparkline }: { data: Observation | null; trend: TrendDirection; dayMin?: number | null; dayMax?: number | null; sparkline?: (number | null)[] }) {
+export default function HumidityCard({ data, trend, dayMin, dayMax, sparkline, brokenRecords }: { data: Observation | null; trend: TrendDirection; dayMin?: number | null; dayMax?: number | null; sparkline?: (number | null)[]; brokenRecords?: Record<string, BrokenRecord | null> }) {
+  const relevantMetrics = ["highest_humidity", "lowest_humidity"];
+  const firstBroken = relevantMetrics.find((m) => brokenRecords?.[m]);
+  const badgeNode = firstBroken && brokenRecords?.[firstBroken]
+    ? <RecordBadge metric={firstBroken} record={brokenRecords[firstBroken]} />
+    : undefined;
+
   return (
     <WeatherCard
       title="Humidity"
       icon={<RiDropLine className="h-4 w-4" />}
       info="Relative humidity — how saturated the air is with moisture. 30–60% is generally comfortable indoors."
+      badge={badgeNode}
     >
       <div className="flex items-center gap-1.5">
         <span className="font-mono text-4xl font-semibold tabular-nums text-text">

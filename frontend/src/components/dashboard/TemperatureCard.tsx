@@ -1,7 +1,7 @@
 "use client";
 
 import { RiTempColdLine } from "@remixicon/react";
-import type { Observation } from "@/generated/models";
+import type { Observation, BrokenRecord } from "@/generated/models";
 import type { TrendDirection } from "@/hooks/useTrends";
 import { cn, fmt } from "@/lib/utils";
 import { convertTemp } from "@/lib/units";
@@ -10,6 +10,7 @@ import WeatherCard from "./WeatherCard";
 import TrendIndicator from "./TrendIndicator";
 import Sparkline from "./Sparkline";
 import InfoTip from "@/components/ui/InfoTip";
+import RecordBadge from "@/components/ui/RecordBadge";
 
 function dewpointComfort(dewC: number | null | undefined): { label: string; color: string } {
   if (dewC == null) return { label: "\u2014", color: "text-text-muted" };
@@ -21,7 +22,7 @@ function dewpointComfort(dewC: number | null | undefined): { label: string; colo
   return { label: "Miserable", color: "text-danger" };
 }
 
-export default function TemperatureCard({ data, trend, dayMin, dayMax, sparkline }: { data: Observation | null; trend: TrendDirection; dayMin?: number | null; dayMax?: number | null; sparkline?: (number | null)[] }) {
+export default function TemperatureCard({ data, trend, dayMin, dayMax, sparkline, brokenRecords }: { data: Observation | null; trend: TrendDirection; dayMin?: number | null; dayMax?: number | null; sparkline?: (number | null)[]; brokenRecords?: Record<string, BrokenRecord | null> }) {
   const { system } = useUnits();
   const temp = convertTemp(data?.temp_outdoor, system);
   const dew = convertTemp(data?.dewpoint, system);
@@ -29,11 +30,18 @@ export default function TemperatureCard({ data, trend, dayMin, dayMax, sparkline
   const hi = convertTemp(dayMax, system);
   const lo = convertTemp(dayMin, system);
 
+  const relevantMetrics = ["highest_temp", "lowest_temp", "highest_dewpoint", "lowest_dewpoint"];
+  const firstBroken = relevantMetrics.find((m) => brokenRecords?.[m]);
+  const badgeNode = firstBroken && brokenRecords?.[firstBroken]
+    ? <RecordBadge metric={firstBroken} record={brokenRecords[firstBroken]} />
+    : undefined;
+
   return (
     <WeatherCard
       title="Temperature"
       icon={<RiTempColdLine className="h-4 w-4" />}
       info="Outdoor temperature and dewpoint. Sensor updates every 30–60 seconds."
+      badge={badgeNode}
     >
       <div className="flex items-center gap-1.5">
         <span className="font-mono text-4xl font-semibold tabular-nums text-text">
