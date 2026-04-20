@@ -107,13 +107,7 @@ def upgrade() -> None:
             f"ALTER MATERIALIZED VIEW {view} SET (timescaledb.materialized_only = false)"
         )
 
-    # Backfill from existing hourly data.
-    # refresh_continuous_aggregate() cannot run inside a transaction block,
-    # so we commit the DDL first and re-open a transaction for alembic's stamp.
-    op.execute("COMMIT")
-    op.execute("CALL refresh_continuous_aggregate('observations_daily', '2020-01-01', now()::timestamptz)")
-    op.execute("CALL refresh_continuous_aggregate('observations_monthly', '2020-01-01', now()::timestamptz)")
-    op.execute("BEGIN")
+    # Aggregate backfill handled by policies + real-time aggregation.
 
 
 def downgrade() -> None:
@@ -202,7 +196,4 @@ def downgrade() -> None:
             f"ALTER MATERIALIZED VIEW {view} SET (timescaledb.materialized_only = false)"
         )
 
-    op.execute("COMMIT")
-    op.execute("CALL refresh_continuous_aggregate('observations_daily', '2020-01-01', now()::timestamptz)")
-    op.execute("CALL refresh_continuous_aggregate('observations_monthly', '2020-01-01', now()::timestamptz)")
-    op.execute("BEGIN")
+    # Aggregate backfill handled by policies + real-time aggregation.

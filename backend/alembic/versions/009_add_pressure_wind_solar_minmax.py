@@ -149,10 +149,9 @@ def upgrade() -> None:
             f"ALTER MATERIALIZED VIEW {view} SET (timescaledb.materialized_only = false)"
         )
 
-    # Backfill aggregates from existing raw data (order matters: hourly → daily → monthly)
-    op.execute("CALL refresh_continuous_aggregate('observations_hourly', '2020-01-01', now()::timestamptz)")
-    op.execute("CALL refresh_continuous_aggregate('observations_daily', '2020-01-01', now()::timestamptz)")
-    op.execute("CALL refresh_continuous_aggregate('observations_monthly', '2020-01-01', now()::timestamptz)")
+    # Aggregate backfill is handled by continuous aggregate policies and
+    # real-time aggregation (materialized_only = false). No explicit refresh
+    # needed here — avoids transaction/lock issues in Docker fresh installs.
 
 
 def downgrade() -> None:
@@ -269,7 +268,4 @@ def downgrade() -> None:
             f"ALTER MATERIALIZED VIEW {view} SET (timescaledb.materialized_only = false)"
         )
 
-    # Backfill aggregates from existing raw data
-    op.execute("CALL refresh_continuous_aggregate('observations_hourly', '2020-01-01', now()::timestamptz)")
-    op.execute("CALL refresh_continuous_aggregate('observations_daily', '2020-01-01', now()::timestamptz)")
-    op.execute("CALL refresh_continuous_aggregate('observations_monthly', '2020-01-01', now()::timestamptz)")
+    # Aggregate backfill handled by policies + real-time aggregation.
