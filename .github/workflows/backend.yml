@@ -22,7 +22,7 @@ jobs:
         with:
           python-version: "3.12"
 
-      - uses: astral-sh/setup-uv@v6
+      - uses: astral-sh/setup-uv@v7
 
       - run: uv pip install --system -e ".[dev]" types-PyYAML
 
