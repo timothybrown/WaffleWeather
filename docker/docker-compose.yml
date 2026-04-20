@@ -11,7 +11,10 @@ services:
     volumes:
       - timescaledb_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U waffleweather -d waffleweather"]
+      # -h 127.0.0.1 forces a TCP probe. Without -h, pg_isready connects via
+      # the unix socket and returns ready against the init-time localhost-only
+      # server, before Postgres has restarted to bind the container network.
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -p 5432 -U waffleweather -d waffleweather"]
       interval: 5s
       timeout: 5s
       retries: 10
