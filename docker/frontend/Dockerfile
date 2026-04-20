@@ -1,4 +1,4 @@
-FROM node:22-alpine AS build
+FROM node:24-alpine AS build
 
 RUN corepack enable && corepack prepare pnpm@10 --activate
 
@@ -24,7 +24,7 @@ EXPOSE 3000
 
 CMD ["pnpm", "dev", "--hostname", "0.0.0.0", "--port", "3000"]
 
-FROM node:22-alpine AS runtime
+FROM node:24-alpine AS runtime
 
 WORKDIR /app
 
