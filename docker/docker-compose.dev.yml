@@ -1,9 +1,19 @@
 services:
+  timescaledb:
+    ports:
+      - "5433:5432"
+
+  mosquitto:
+    ports:
+      - "1884:1883"
+
   backend-migrate:
     image: waffleweather-backend-dev
     build:
       context: ..
       dockerfile: docker/backend/Dockerfile
+    volumes:
+      - ../backend/alembic:/app/alembic
 
   backend:
     image: waffleweather-backend-dev
@@ -12,6 +22,7 @@ services:
       dockerfile: docker/backend/Dockerfile
     volumes:
       - ../backend/app:/app/app
+      - ../backend/alembic:/app/alembic
     command: ["uv", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
 
   frontend:
@@ -24,3 +35,7 @@ services:
       - ../frontend/src:/app/src
       - ../frontend/public:/app/public
     command: ["sh", "-c", "pnpm generate && pnpm dev --hostname 0.0.0.0 --port 3000"]
+
+  nginx:
+    volumes:
+      - ./nginx/nginx.dev.conf.template:/etc/nginx/templates/default.conf.template:ro
