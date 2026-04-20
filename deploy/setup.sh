@@ -2,8 +2,13 @@
 #
 # WaffleWeather - Raspberry Pi Setup Script
 #
-# Installs and configures all dependencies on Raspberry Pi OS (Debian trixie/arm64).
-# Run as your normal user (uses sudo internally where needed).
+# PLATFORM: Raspberry Pi OS (Raspbian) on Debian trixie / arm64 ONLY.
+# This script is Pi-specific. It has not been tested on other Debian
+# derivatives, other architectures, or other distros, and will likely
+# fail or produce surprising results elsewhere.
+#
+# Installs and configures all dependencies. Run as your normal user
+# (uses sudo internally where needed).
 #
 # Usage: bash deploy/setup.sh
 #
@@ -15,6 +20,9 @@ PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 echo "========================================="
 echo " WaffleWeather - Pi Setup"
 echo "========================================="
+echo ""
+echo " Target platform: Raspberry Pi OS (Raspbian) / Debian trixie / arm64"
+echo " This script is Pi-specific and may not work on other platforms."
 echo ""
 
 # -------------------------------------------
@@ -210,14 +218,17 @@ sudo systemctl enable --now nginx
 echo "  Nginx configured and started."
 
 # -------------------------------------------
-# 7. Install Node.js and pnpm
+# 7. Install Node.js 24 (NodeSource) and pnpm
 # -------------------------------------------
 echo ""
-echo "[7/9] Setting up Node.js and pnpm..."
+echo "[7/9] Setting up Node.js 24 and pnpm..."
 
-# Node.js 20 LTS is available from Debian trixie repos (already installed above or available)
-if ! command -v node &>/dev/null; then
-    sudo apt install -y nodejs npm
+# Debian trixie ships Node 20, which reaches EOL 2026-04-30. Install Node 24
+# (current Active LTS, supported through 2028-04) from NodeSource. The
+# NodeSource package replaces Debian's nodejs automatically on apt install.
+if ! command -v node &>/dev/null || [[ "$(node --version)" != v24.* ]]; then
+    curl -fsSL https://deb.nodesource.com/setup_24.x | sudo -E bash -
+    sudo apt install -y nodejs
 fi
 
 # Install pnpm
