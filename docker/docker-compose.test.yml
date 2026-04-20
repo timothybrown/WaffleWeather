@@ -30,7 +30,10 @@ services:
       dockerfile: docker/backend/Dockerfile
     env_file: []
     # Override depends_on to remove inherited backend-migrate dependency (disabled above).
-    depends_on: !reset
+    # !override replaces the inherited mapping entirely. !reset would *delete* the key
+    # outright and silently ignore the inline content below, causing backend to race
+    # the DB (and depend on nothing) — which is exactly what bit us before.
+    depends_on: !override
       timescaledb:
         condition: service_healthy
       mosquitto:
