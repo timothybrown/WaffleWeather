@@ -28,7 +28,7 @@ jobs:
       WW_DB_PASSWORD: testpassword
       WW_MQTT_PASSWORD: testpassword
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Run E2E test stack
         run: |
@@ -48,7 +48,7 @@ jobs:
 
       - name: Upload logs
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: e2e-logs
           path: e2e-logs.txt
