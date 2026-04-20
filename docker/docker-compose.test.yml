@@ -83,3 +83,9 @@ services:
       WW_STATION_LONGITUDE: "-97.52"
       WW_STATION_NAME: simulator
       WW_STATION_ALTITUDE: "370.0"
+      # Topic's last segment becomes station_id=simulator, matching the
+      # pre-baked golden fixtures (api_v1_...station_id=simulator.json).
+      WW_MQTT_TOPIC: ecowitt2mqtt/simulator
+      # Pin the backfill end date so golden fixtures stay deterministic.
+      # The dev stack lets this default to today (see seed.sh).
+      WW_BACKFILL_END: "2023-12-31"

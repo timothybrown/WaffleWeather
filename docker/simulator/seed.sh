@@ -45,7 +45,11 @@ fi
 TOPIC="${WW_MQTT_TOPIC:-ecowitt2mqtt/simulator}"
 STATION_ID="${TOPIC##*/}"
 
-BACKFILL_END="$(date -u +%Y-%m-%d)"
+# Dev stack wants a range that ends today so History/Reports views have
+# current data; the E2E stack pins this to a fixed date so golden fixtures
+# stay deterministic. Default to today; compose overrides set the pinned
+# value for tests.
+BACKFILL_END="${WW_BACKFILL_END:-$(date -u +%Y-%m-%d)}"
 
 echo "Database is empty, starting backfill (through $BACKFILL_END)..."
 uv run simulator backfill \
