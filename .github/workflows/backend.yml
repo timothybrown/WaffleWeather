@@ -6,6 +6,7 @@ on:
     paths: [backend/**]
   pull_request:
     paths: [backend/**]
+  workflow_call:
 
 defaults:
   run:

@@ -39,3 +39,33 @@ services:
   nginx:
     volumes:
       - ./nginx/nginx.dev.conf.template:/etc/nginx/templates/default.conf.template:ro
+
+  seed:
+    image: waffleweather-simulator-dev
+    build:
+      context: ..
+      dockerfile: docker/simulator/Dockerfile
+    depends_on:
+      backend-migrate:
+        condition: service_completed_successfully
+    env_file: ./.env
+    environment:
+      WW_DATABASE_URL: postgresql+asyncpg://waffleweather:${WW_DB_PASSWORD}@timescaledb:5432/waffleweather
+    entrypoint: ["sh", "/app/seed.sh"]
+    volumes:
+      - ../docker/simulator/seed.sh:/app/seed.sh:ro
+
+  simulator:
+    image: waffleweather-simulator-dev
+    build:
+      context: ..
+      dockerfile: docker/simulator/Dockerfile
+    depends_on:
+      seed:
+        condition: service_completed_successfully
+      mosquitto:
+        condition: service_started
+    env_file: ./.env
+    environment:
+      WW_MQTT_BROKER: mosquitto
+    command: ["simulate"]

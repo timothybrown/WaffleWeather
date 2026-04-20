@@ -1,0 +1,63 @@
+name: E2E Tests
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - backend/**
+      - docker/**
+      - openapi/**
+      - tests/e2e/**
+      - tools/simulator/**
+      - tools/fixtures/**
+  pull_request:
+    paths:
+      - backend/**
+      - docker/**
+      - openapi/**
+      - tests/e2e/**
+      - tools/simulator/**
+      - tools/fixtures/**
+  workflow_call:
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      WW_DB_PASSWORD: testpassword
+      WW_MQTT_PASSWORD: testpassword
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run E2E test stack
+        run: |
+          touch docker/.env
+          docker compose \
+            -f docker/docker-compose.yml \
+            -f docker/docker-compose.test.yml \
+            up --build --abort-on-container-exit --exit-code-from test-runner
+
+      - name: Collect logs on failure
+        if: failure()
+        run: |
+          docker compose \
+            -f docker/docker-compose.yml \
+            -f docker/docker-compose.test.yml \
+            logs --no-color > e2e-logs.txt 2>&1
+
+      - name: Upload logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-logs
+          path: e2e-logs.txt
+          retention-days: 7
+
+      - name: Tear down
+        if: always()
+        run: |
+          docker compose \
+            -f docker/docker-compose.yml \
+            -f docker/docker-compose.test.yml \
+            down -v

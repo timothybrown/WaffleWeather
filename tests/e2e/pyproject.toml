@@ -1,0 +1,11 @@
+[project]
+name = "waffleweather-e2e-tests"
+version = "0.1.0"
+description = "E2E API tests for WaffleWeather"
+requires-python = ">=3.12"
+dependencies = [
+    "pytest>=8.0",
+    "httpx>=0.27",
+    "jsonschema>=4.20",
+    "pyyaml>=6.0",
+]

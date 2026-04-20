@@ -12,7 +12,20 @@ env:
   REGISTRY: ghcr.io
 
 jobs:
+  ci-backend:
+    uses: ./.github/workflows/backend.yml
+
+  ci-frontend:
+    uses: ./.github/workflows/frontend.yml
+
+  ci-version-check:
+    uses: ./.github/workflows/version-check.yml
+
+  ci-e2e:
+    uses: ./.github/workflows/e2e.yml
+
   validate:
+    needs: [ci-backend, ci-frontend, ci-version-check, ci-e2e]
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.check.outputs.version }}

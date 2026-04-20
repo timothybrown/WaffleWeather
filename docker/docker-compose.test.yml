@@ -1,0 +1,82 @@
+services:
+  timescaledb:
+    volumes: !reset []
+    tmpfs:
+      - /var/lib/postgresql/data
+    environment:
+      POSTGRES_DB: waffleweather
+      POSTGRES_USER: waffleweather
+      POSTGRES_PASSWORD: testpassword
+      TIMESCALEDB_TELEMETRY: "off"
+
+  mosquitto:
+    env_file: []
+    environment:
+      WW_MQTT_USERNAME: waffleweather
+      WW_MQTT_PASSWORD: testpassword
+
+  ecowitt2mqtt:
+    profiles: [disabled]
+
+  # Disabled: migrations run inline in backend's command instead, so no one-shot
+  # container exits early and triggers --abort-on-container-exit teardown.
+  backend-migrate:
+    profiles: [disabled]
+
+  backend:
+    image: waffleweather-backend-test
+    build:
+      context: ..
+      dockerfile: docker/backend/Dockerfile
+    env_file: []
+    # Override depends_on to remove inherited backend-migrate dependency (disabled above).
+    depends_on: !reset
+      timescaledb:
+        condition: service_healthy
+      mosquitto:
+        condition: service_started
+    ports:
+      - "18000:8000"
+    environment:
+      WW_DATABASE_URL: postgresql+asyncpg://waffleweather:testpassword@timescaledb:5432/waffleweather
+      WW_MQTT_BROKER: mosquitto
+      WW_STATION_TIMEZONE: America/Chicago
+      WW_STATION_LATITUDE: "35.47"
+      WW_STATION_LONGITUDE: "-97.52"
+      WW_CORS_ORIGINS: '["http://localhost"]'
+      WW_STATION_NAME: simulator
+      WW_STATION_ALTITUDE: "370.0"
+    # Run migrations inline so backend-migrate can be disabled. Without this,
+    # backend-migrate exits 0 after running and --abort-on-container-exit tears
+    # down the entire stack before tests can run.
+    command:
+      - sh
+      - -c
+      - uv run alembic upgrade head && exec uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 --limit-concurrency 100 --limit-max-requests 10000
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/version')"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  frontend:
+    profiles: [disabled]
+
+  nginx:
+    env_file: []
+    profiles: [disabled]
+
+  test-runner:
+    build:
+      context: ..
+      dockerfile: docker/test-runner/Dockerfile
+    depends_on:
+      backend:
+        condition: service_healthy
+    environment:
+      BASE_URL: http://backend:8000
+      WW_DATABASE_URL: postgresql+asyncpg://waffleweather:testpassword@timescaledb:5432/waffleweather
+      WW_STATION_LATITUDE: "35.47"
+      WW_STATION_LONGITUDE: "-97.52"
+      WW_STATION_NAME: simulator
+      WW_STATION_ALTITUDE: "370.0"

@@ -1,0 +1,174 @@
+{
+  "categories": {
+    "humidity": {
+      "label": "Humidity",
+      "records": [
+        {
+          "all_time": {
+            "date": "2021-03-06",
+            "value": 100.0
+          },
+          "label": "Highest Humidity",
+          "metric": "highest_humidity",
+          "this_month": null,
+          "this_year": null
+        },
+        {
+          "all_time": {
+            "date": "2022-03-05",
+            "value": 7.0
+          },
+          "label": "Lowest Humidity",
+          "metric": "lowest_humidity",
+          "this_month": null,
+          "this_year": null
+        }
+      ]
+    },
+    "pressure": {
+      "label": "Pressure",
+      "records": [
+        {
+          "all_time": {
+            "date": "2022-12-23",
+            "value": 1044.8
+          },
+          "label": "Highest Pressure",
+          "metric": "highest_pressure",
+          "this_month": null,
+          "this_year": null
+        },
+        {
+          "all_time": {
+            "date": "2023-02-14",
+            "value": 991.5
+          },
+          "label": "Lowest Pressure",
+          "metric": "lowest_pressure",
+          "this_month": null,
+          "this_year": null
+        }
+      ]
+    },
+    "rain": {
+      "label": "Rain",
+      "records": [
+        {
+          "all_time": {
+            "date": "2022-05-24",
+            "value": 64.6
+          },
+          "label": "Highest Daily Rainfall",
+          "metric": "highest_rain_daily",
+          "this_month": null,
+          "this_year": null
+        },
+        {
+          "all_time": {
+            "date": "2022-06-05",
+            "value": 23.9
+          },
+          "label": "Highest Rain Rate",
+          "metric": "highest_rain_rate",
+          "this_month": null,
+          "this_year": null
+        }
+      ]
+    },
+    "solar": {
+      "label": "Solar",
+      "records": [
+        {
+          "all_time": {
+            "date": "2021-06-14",
+            "value": 990.0
+          },
+          "label": "Highest Solar Radiation",
+          "metric": "highest_solar_radiation",
+          "this_month": null,
+          "this_year": null
+        },
+        {
+          "all_time": null,
+          "label": "Highest UV Index",
+          "metric": "highest_uv_index",
+          "this_month": null,
+          "this_year": null
+        }
+      ]
+    },
+    "temperature": {
+      "label": "Temperature",
+      "records": [
+        {
+          "all_time": {
+            "date": "2022-07-19",
+            "value": 43.5
+          },
+          "label": "Highest Temperature",
+          "metric": "highest_temp",
+          "this_month": null,
+          "this_year": null
+        },
+        {
+          "all_time": {
+            "date": "2021-02-16",
+            "value": -25.8
+          },
+          "label": "Lowest Temperature",
+          "metric": "lowest_temp",
+          "this_month": null,
+          "this_year": null
+        },
+        {
+          "all_time": {
+            "date": "2023-07-12",
+            "value": 25.4
+          },
+          "label": "Highest Dewpoint",
+          "metric": "highest_dewpoint",
+          "this_month": null,
+          "this_year": null
+        },
+        {
+          "all_time": {
+            "date": "2022-12-22",
+            "value": -28.0
+          },
+          "label": "Lowest Dewpoint",
+          "metric": "lowest_dewpoint",
+          "this_month": null,
+          "this_year": null
+        }
+      ]
+    },
+    "wind": {
+      "label": "Wind",
+      "records": [
+        {
+          "all_time": {
+            "date": "2021-12-15",
+            "value": 24.6
+          },
+          "label": "Highest Gust",
+          "metric": "highest_wind_gust",
+          "this_month": null,
+          "this_year": null
+        },
+        {
+          "all_time": {
+            "date": "2021-12-15",
+            "value": 15.03
+          },
+          "label": "Highest Wind Speed",
+          "metric": "highest_wind_speed",
+          "this_month": null,
+          "this_year": null
+        }
+      ]
+    }
+  },
+  "days_of_data": 1095,
+  "records_since": "2021-01-01",
+  "station_id": "simulator"
+}

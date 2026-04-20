@@ -1,7 +1,7 @@
 # Docker Installation
 
 Run WaffleWeather using Docker Compose. This is the recommended method for
-homelab deployments (Unraid, Proxmox, Synology, etc.) and local development.
+homelab deployments (Unraid, Proxmox, Synology, etc.).
 
 For native Raspberry Pi installation, see the [setup guide](deploy/setup.sh).
 
@@ -16,7 +16,7 @@ For native Raspberry Pi installation, see the [setup guide](deploy/setup.sh).
 1. Clone the repository:
 
    ```bash
-   git clone https://github.com/timb-machine-dreams/WaffleWeather.git
+   git clone https://github.com/timothybrown/WaffleWeather.git
    cd WaffleWeather
    ```
 
@@ -110,28 +110,8 @@ docker compose exec -T timescaledb psql -U waffleweather waffleweather < backup.
 
 ## Development
 
-Build from source with hot reload:
-
-```bash
-cd docker
-docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d
-```
-
-- Backend: source changes auto-reload via uvicorn `--reload`
-- Frontend: runs `next dev` with source volume mounts
-
-## Simulated Weather Data
-
-No weather station? Use the built-in simulator to feed real weather data from
-Open-Meteo:
-
-```bash
-cd tools/simulator
-uv run simulator simulate --env-file ../../docker/.env --lat 40.7128 --lon -74.006
-```
-
-See [`tools/simulator/README.md`](tools/simulator/README.md) for backfill mode
-and configuration options.
+See [DEVELOPMENT.md](DEVELOPMENT.md) for setting up a development environment,
+running E2E tests, and contributing.
 
 ## Architecture
 

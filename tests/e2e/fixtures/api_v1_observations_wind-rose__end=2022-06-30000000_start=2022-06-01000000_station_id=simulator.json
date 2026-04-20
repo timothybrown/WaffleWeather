@@ -1,0 +1,127 @@
+[
+  {
+    "count": 20,
+    "direction": 0.0,
+    "speed_range": "0-5"
+  },
+  {
+    "count": 12,
+    "direction": 0.0,
+    "speed_range": "5-15"
+  },
+  {
+    "count": 21,
+    "direction": 22.5,
+    "speed_range": "0-5"
+  },
+  {
+    "count": 15,
+    "direction": 22.5,
+    "speed_range": "5-15"
+  },
+  {
+    "count": 21,
+    "direction": 45.0,
+    "speed_range": "0-5"
+  },
+  {
+    "count": 3,
+    "direction": 45.0,
+    "speed_range": "5-15"
+  },
+  {
+    "count": 25,
+    "direction": 67.5,
+    "speed_range": "0-5"
+  },
+  {
+    "count": 2,
+    "direction": 67.5,
+    "speed_range": "5-15"
+  },
+  {
+    "count": 22,
+    "direction": 90.0,
+    "speed_range": "0-5"
+  },
+  {
+    "count": 2,
+    "direction": 90.0,
+    "speed_range": "5-15"
+  },
+  {
+    "count": 26,
+    "direction": 112.5,
+    "speed_range": "0-5"
+  },
+  {
+    "count": 1,
+    "direction": 112.5,
+    "speed_range": "5-15"
+  },
+  {
+    "count": 81,
+    "direction": 135.0,
+    "speed_range": "0-5"
+  },
+  {
+    "count": 18,
+    "direction": 135.0,
+    "speed_range": "5-15"
+  },
+  {
+    "count": 86,
+    "direction": 157.5,
+    "speed_range": "0-5"
+  },
+  {
+    "count": 61,
+    "direction": 157.5,
+    "speed_range": "5-15"
+  },
+  {
+    "count": 80,
+    "direction": 180.0,
+    "speed_range": "0-5"
+  },
+  {
+    "count": 105,
+    "direction": 180.0,
+    "speed_range": "5-15"
+  },
+  {
+    "count": 31,
+    "direction": 202.5,
+    "speed_range": "0-5"
+  },
+  {
+    "count": 43,
+    "direction": 202.5,
+    "speed_range": "5-15"
+  },
+  {
+    "count": 10,
+    "direction": 225.0,
+    "speed_range": "0-5"
+  },
+  {
+    "count": 1,
+    "direction": 270.0,
+    "speed_range": "0-5"
+  },
+  {
+    "count": 2,
+    "direction": 292.5,
+    "speed_range": "5-15"
+  },
+  {
+    "count": 3,
+    "direction": 315.0,
+    "speed_range": "0-5"
+  },
+  {
+    "count": 6,
+    "direction": 337.5,
+    "speed_range": "0-5"
+  }
+]
