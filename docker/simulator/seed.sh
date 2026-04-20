@@ -37,15 +37,23 @@ if [ "$ROW_COUNT" -gt 0 ]; then
     exit 0
 fi
 
-STATION_ID="${WW_STATION_NAME:-simulator}"
+# Derive station_id from the MQTT topic rather than WW_STATION_NAME.
+# The backend stamps each realtime observation with station_id = last segment
+# of the topic it was received on. Using WW_STATION_NAME here would tag
+# backfill rows differently from realtime rows, and the frontend would only
+# ever see one pipeline's data. Keep the topic as the single source of truth.
+TOPIC="${WW_MQTT_TOPIC:-ecowitt2mqtt/simulator}"
+STATION_ID="${TOPIC##*/}"
 
-echo "Database is empty, starting backfill..."
+BACKFILL_END="$(date -u +%Y-%m-%d)"
+
+echo "Database is empty, starting backfill (through $BACKFILL_END)..."
 uv run simulator backfill \
     --db-url "$DB_URL" \
     --lat "${WW_STATION_LATITUDE}" \
     --lon "${WW_STATION_LONGITUDE}" \
     --start 2021-01-01 \
-    --end 2023-12-31 \
+    --end "$BACKFILL_END" \
     --station-id "$STATION_ID"
 
 echo "Registering station record..."

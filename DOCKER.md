@@ -30,7 +30,10 @@ For native Raspberry Pi installation, see the [setup guide](deploy/setup.sh).
 3. Edit `docker/.env` and set at minimum:
    - `WW_DB_PASSWORD` — a strong database password
    - `WW_MQTT_PASSWORD` — MQTT broker password
-   - `WW_STATION_NAME` — your station's display name
+   - `WW_STATION_NAME` — display name shown in the UI (cosmetic)
+   - `WW_MQTT_TOPIC` — the MQTT topic your gateway publishes on. The
+     last segment becomes the station ID used in the database and API
+     (e.g. `Gateway` → `Gateway`, `ecowitt2mqtt/home` → `home`).
    - `WW_STATION_LATITUDE` / `WW_STATION_LONGITUDE` / `WW_STATION_ALTITUDE`
 
 4. Start all services:
