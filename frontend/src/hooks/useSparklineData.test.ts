@@ -99,4 +99,25 @@ describe("useSparklineData", () => {
     const options = callArgs[1] as { query?: { refetchInterval?: number } };
     expect(options?.query?.refetchInterval).toBe(300_000);
   });
+
+  it("slides the 24h window forward as time passes", () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date("2026-04-25T10:00:00Z"));
+      mockHook.mockClear();
+
+      const { rerender } = renderHook(() => useSparklineData(), { wrapper });
+      const firstParams = mockHook.mock.calls[0]?.[0] as { start: string; end: string };
+
+      // Advance past the 5-minute tick boundary
+      vi.setSystemTime(new Date("2026-04-25T10:06:00Z"));
+      rerender();
+
+      const latestParams = mockHook.mock.calls[mockHook.mock.calls.length - 1]?.[0] as { start: string; end: string };
+      expect(new Date(latestParams.end).getTime()).toBeGreaterThan(new Date(firstParams.end).getTime());
+      expect(new Date(latestParams.start).getTime()).toBeGreaterThan(new Date(firstParams.start).getTime());
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });

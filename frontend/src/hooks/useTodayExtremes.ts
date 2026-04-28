@@ -19,7 +19,10 @@ export function useTodayExtremes(): TodayExtremes {
     const start = getStationToday(timezone);
     const end = new Date();
     return { start: start.toISOString(), end: end.toISOString() };
-  }, [timezone]);
+    // Re-evaluate every 5 minutes so the window tracks "now" and crosses
+    // station-local midnight without needing a page refresh.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [timezone, Math.floor(Date.now() / 300_000)]);
 
   const { data: response } = useListHourlyObservations(params, {
     query: { refetchInterval: CADENCES.aggregate5m },

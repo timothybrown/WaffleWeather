@@ -16,7 +16,10 @@ export function useSparklineData(): SparklineData {
     const end = new Date();
     const start = new Date(end.getTime() - 24 * 60 * 60 * 1000);
     return { start: start.toISOString(), end: end.toISOString() };
-  }, []);
+    // Re-evaluate every 5 minutes so the rolling 24h window slides forward
+    // instead of freezing at mount time.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [Math.floor(Date.now() / 300_000)]);
 
   const { data: response } = useListHourlyObservations(params, {
     query: { refetchInterval: CADENCES.aggregate5m },
