@@ -1,127 +1,222 @@
 [
   {
-    "count": 20,
+    "count": 1,
     "direction": 0.0,
     "speed_range": "0-5"
   },
   {
-    "count": 12,
+    "count": 13,
     "direction": 0.0,
     "speed_range": "5-15"
   },
   {
-    "count": 21,
+    "count": 15,
+    "direction": 0.0,
+    "speed_range": "15-25"
+  },
+  {
+    "count": 3,
+    "direction": 0.0,
+    "speed_range": "25-40"
+  },
+  {
+    "count": 14,
     "direction": 22.5,
-    "speed_range": "0-5"
+    "speed_range": "5-15"
   },
   {
     "count": 15,
     "direction": 22.5,
+    "speed_range": "15-25"
+  },
+  {
+    "count": 7,
+    "direction": 22.5,
+    "speed_range": "25-40"
+  },
+  {
+    "count": 17,
+    "direction": 45.0,
     "speed_range": "5-15"
+  },
+  {
+    "count": 6,
+    "direction": 45.0,
+    "speed_range": "15-25"
+  },
+  {
+    "count": 1,
+    "direction": 45.0,
+    "speed_range": "25-40"
+  },
+  {
+    "count": 2,
+    "direction": 67.5,
+    "speed_range": "0-5"
   },
   {
     "count": 21,
-    "direction": 45.0,
-    "speed_range": "0-5"
+    "direction": 67.5,
+    "speed_range": "5-15"
   },
   {
     "count": 3,
-    "direction": 45.0,
-    "speed_range": "5-15"
-  },
-  {
-    "count": 25,
     "direction": 67.5,
-    "speed_range": "0-5"
+    "speed_range": "15-25"
   },
   {
-    "count": 2,
+    "count": 1,
     "direction": 67.5,
-    "speed_range": "5-15"
+    "speed_range": "25-40"
   },
   {
-    "count": 22,
+    "count": 5,
     "direction": 90.0,
     "speed_range": "0-5"
   },
   {
-    "count": 2,
+    "count": 16,
     "direction": 90.0,
     "speed_range": "5-15"
   },
   {
-    "count": 26,
-    "direction": 112.5,
-    "speed_range": "0-5"
+    "count": 2,
+    "direction": 90.0,
+    "speed_range": "15-25"
+  },
+  {
+    "count": 1,
+    "direction": 90.0,
+    "speed_range": "25-40"
   },
   {
     "count": 1,
     "direction": 112.5,
+    "speed_range": "0-5"
+  },
+  {
+    "count": 22,
+    "direction": 112.5,
     "speed_range": "5-15"
   },
   {
-    "count": 81,
+    "count": 4,
+    "direction": 112.5,
+    "speed_range": "15-25"
+  },
+  {
+    "count": 3,
     "direction": 135.0,
     "speed_range": "0-5"
+  },
+  {
+    "count": 66,
+    "direction": 135.0,
+    "speed_range": "5-15"
+  },
+  {
+    "count": 28,
+    "direction": 135.0,
+    "speed_range": "15-25"
+  },
+  {
+    "count": 2,
+    "direction": 135.0,
+    "speed_range": "25-40"
+  },
+  {
+    "count": 65,
+    "direction": 157.5,
+    "speed_range": "5-15"
+  },
+  {
+    "count": 63,
+    "direction": 157.5,
+    "speed_range": "15-25"
+  },
+  {
+    "count": 19,
+    "direction": 157.5,
+    "speed_range": "25-40"
+  },
+  {
+    "count": 2,
+    "direction": 180.0,
+    "speed_range": "0-5"
+  },
+  {
+    "count": 53,
+    "direction": 180.0,
+    "speed_range": "5-15"
+  },
+  {
+    "count": 83,
+    "direction": 180.0,
+    "speed_range": "15-25"
+  },
+  {
+    "count": 47,
+    "direction": 180.0,
+    "speed_range": "25-40"
+  },
+  {
+    "count": 2,
+    "direction": 202.5,
+    "speed_range": "0-5"
+  },
+  {
+    "count": 22,
+    "direction": 202.5,
+    "speed_range": "5-15"
+  },
+  {
+    "count": 32,
+    "direction": 202.5,
+    "speed_range": "15-25"
   },
   {
     "count": 18,
-    "direction": 135.0,
-    "speed_range": "5-15"
-  },
-  {
-    "count": 86,
-    "direction": 157.5,
-    "speed_range": "0-5"
-  },
-  {
-    "count": 61,
-    "direction": 157.5,
-    "speed_range": "5-15"
-  },
-  {
-    "count": 80,
-    "direction": 180.0,
-    "speed_range": "0-5"
-  },
-  {
-    "count": 105,
-    "direction": 180.0,
-    "speed_range": "5-15"
-  },
-  {
-    "count": 31,
     "direction": 202.5,
-    "speed_range": "0-5"
+    "speed_range": "25-40"
   },
   {
-    "count": 43,
-    "direction": 202.5,
-    "speed_range": "5-15"
-  },
-  {
-    "count": 10,
+    "count": 1,
     "direction": 225.0,
     "speed_range": "0-5"
   },
   {
+    "count": 7,
+    "direction": 225.0,
+    "speed_range": "5-15"
+  },
+  {
+    "count": 2,
+    "direction": 225.0,
+    "speed_range": "15-25"
+  },
+  {
     "count": 1,
     "direction": 270.0,
-    "speed_range": "0-5"
+    "speed_range": "5-15"
   },
   {
     "count": 2,
     "direction": 292.5,
-    "speed_range": "5-15"
+    "speed_range": "15-25"
   },
   {
-    "count": 3,
+    "count": 1,
     "direction": 315.0,
     "speed_range": "0-5"
   },
   {
+    "count": 2,
+    "direction": 315.0,
+    "speed_range": "5-15"
+  },
+  {
     "count": 6,
     "direction": 337.5,
-    "speed_range": "0-5"
+    "speed_range": "5-15"
   }
 ]

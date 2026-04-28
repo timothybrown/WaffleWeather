@@ -18,8 +18,8 @@
     "temp_outdoor_max": 20.7,
     "temp_outdoor_min": -15.4,
     "uv_index_max": null,
-    "wind_gust_max": 22.0,
-    "wind_speed_avg": 4.566760752688173,
+    "wind_gust_max": 79.2,
+    "wind_speed_avg": 16.440322580645162,
     "wind_speed_max": null
   },
   {
@@ -41,8 +41,8 @@
     "temp_outdoor_max": 25.4,
     "temp_outdoor_min": -4.0,
     "uv_index_max": null,
-    "wind_gust_max": 17.1,
-    "wind_speed_avg": 4.781511666666666,
+    "wind_gust_max": 61.6,
+    "wind_speed_avg": 17.213138888888885,
     "wind_speed_max": null
   },
   {
@@ -64,8 +64,8 @@
     "temp_outdoor_max": 32.3,
     "temp_outdoor_min": 2.0,
     "uv_index_max": null,
-    "wind_gust_max": 20.9,
-    "wind_speed_avg": 4.151061827956989,
+    "wind_gust_max": 75.2,
+    "wind_speed_avg": 14.944489247311829,
     "wind_speed_max": null
   },
   {
@@ -87,8 +87,8 @@
     "temp_outdoor_max": 36.5,
     "temp_outdoor_min": 14.8,
     "uv_index_max": null,
-    "wind_gust_max": 14.2,
-    "wind_speed_avg": 3.9611111111111104,
+    "wind_gust_max": 51.1,
+    "wind_speed_avg": 14.261805555555553,
     "wind_speed_max": null
   },
   {
@@ -110,8 +110,8 @@
     "temp_outdoor_max": 38.7,
     "temp_outdoor_min": 19.8,
     "uv_index_max": null,
-    "wind_gust_max": 13.2,
-    "wind_speed_avg": 3.748575268817205,
+    "wind_gust_max": 47.5,
+    "wind_speed_avg": 13.494623655913976,
     "wind_speed_max": null
   },
   {
@@ -133,8 +133,8 @@
     "temp_outdoor_max": 43.5,
     "temp_outdoor_min": 21.9,
     "uv_index_max": null,
-    "wind_gust_max": 13.3,
-    "wind_speed_avg": 4.299220430107527,
+    "wind_gust_max": 47.9,
+    "wind_speed_avg": 15.479301075268815,
     "wind_speed_max": null
   },
   {
@@ -156,8 +156,8 @@
     "temp_outdoor_max": 38.0,
     "temp_outdoor_min": 15.8,
     "uv_index_max": null,
-    "wind_gust_max": 17.6,
-    "wind_speed_avg": 4.500402777777778,
+    "wind_gust_max": 63.4,
+    "wind_speed_avg": 16.203472222222228,
     "wind_speed_max": null
   },
   {
@@ -179,8 +179,8 @@
     "temp_outdoor_max": 35.1,
     "temp_outdoor_min": 7.1,
     "uv_index_max": null,
-    "wind_gust_max": 19.8,
-    "wind_speed_avg": 5.857190860215053,
+    "wind_gust_max": 71.3,
+    "wind_speed_avg": 21.088172043010758,
     "wind_speed_max": null
   },
   {
@@ -202,8 +202,8 @@
     "temp_outdoor_max": 34.5,
     "temp_outdoor_min": 3.7,
     "uv_index_max": null,
-    "wind_gust_max": 22.1,
-    "wind_speed_avg": 6.238972222222222,
+    "wind_gust_max": 79.6,
+    "wind_speed_avg": 22.46138888888889,
     "wind_speed_max": null
   },
   {
@@ -225,8 +225,8 @@
     "temp_outdoor_max": 29.0,
     "temp_outdoor_min": -6.9,
     "uv_index_max": null,
-    "wind_gust_max": 20.3,
-    "wind_speed_avg": 5.4284344319775615,
+    "wind_gust_max": 73.1,
+    "wind_speed_avg": 19.54445418419823,
     "wind_speed_max": null
   },
   {
@@ -248,8 +248,8 @@
     "temp_outdoor_max": 23.2,
     "temp_outdoor_min": -13.4,
     "uv_index_max": null,
-    "wind_gust_max": 21.2,
-    "wind_speed_avg": 5.095119047619048,
+    "wind_gust_max": 76.3,
+    "wind_speed_avg": 18.342857142857145,
     "wind_speed_max": null
   },
   {
@@ -271,8 +271,8 @@
     "temp_outdoor_max": 20.5,
     "temp_outdoor_min": -10.9,
     "uv_index_max": null,
-    "wind_gust_max": 21.0,
-    "wind_speed_avg": 4.696505376344086,
+    "wind_gust_max": 75.6,
+    "wind_speed_avg": 16.90806451612903,
     "wind_speed_max": null
   }
 ]
