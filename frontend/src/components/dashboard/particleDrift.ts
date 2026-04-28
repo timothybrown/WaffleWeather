@@ -28,6 +28,8 @@ export class ParticleDrift {
   particles: Particle[] = [];
   private spawnAccum = 0;
 
+  constructor(private readonly random: () => number = Math.random) {}
+
   update(
     dt: number,
     speedKmh: number,
@@ -81,16 +83,16 @@ export class ParticleDrift {
 
   private spawn(dirDeg: number, speedMph: number): Particle {
     const wr = dirDeg * RAD;
-    const spread = (Math.random() - 0.5) * Math.PI;
+    const spread = (this.random() - 0.5) * Math.PI;
     const angle = wr + spread;
     return {
       x: CENTER + CLIP_R * Math.sin(angle),
       y: CENTER - CLIP_R * Math.cos(angle),
-      speed: (20 + speedMph * 5) * (0.7 + Math.random() * 0.6),
-      size: 0.8 + Math.random() * (1.2 + Math.min(speedMph / 15, 1.2)),
+      speed: (20 + speedMph * 5) * (0.7 + this.random() * 0.6),
+      size: 0.8 + this.random() * (1.2 + Math.min(speedMph / 15, 1.2)),
       opacity: 0,
-      maxOpacity: 0.25 + Math.random() * 0.3,
-      fadeRate: 0.1 + Math.random() * 0.08,
+      maxOpacity: 0.25 + this.random() * 0.3,
+      fadeRate: 0.1 + this.random() * 0.08,
     };
   }
 

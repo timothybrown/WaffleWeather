@@ -1,11 +1,19 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { ParticleDrift, gustPulseAt } from "./particleDrift";
 
+function seededRandom(seed: number): () => number {
+  let state = seed >>> 0;
+  return () => {
+    state = (state * 1664525 + 1013904223) >>> 0;
+    return state / 0x100000000;
+  };
+}
+
 describe("ParticleDrift", () => {
   let drift: ParticleDrift;
 
   beforeEach(() => {
-    drift = new ParticleDrift();
+    drift = new ParticleDrift(seededRandom(1234));
   });
 
   it("spawns no particles when speed is 0", () => {
@@ -19,8 +27,8 @@ describe("ParticleDrift", () => {
   });
 
   it("spawns more particles at higher speed", () => {
-    const slow = new ParticleDrift();
-    const fast = new ParticleDrift();
+    const slow = new ParticleDrift(seededRandom(1234));
+    const fast = new ParticleDrift(seededRandom(1234));
     for (let i = 0; i < 60; i++) {
       slow.update(1 / 60, 8, null, 180, i * 16);
       fast.update(1 / 60, 48, null, 180, i * 16);
@@ -66,14 +74,13 @@ describe("ParticleDrift", () => {
   });
 
   it("does not apply gust pulse when gust is below speed", () => {
-    const noGust = new ParticleDrift();
-    const lowGust = new ParticleDrift();
+    const noGust = new ParticleDrift(seededRandom(1234));
+    const lowGust = new ParticleDrift(seededRandom(1234));
     for (let i = 0; i < 120; i++) {
       noGust.update(1 / 60, 16, null, 180, i * 16);
       lowGust.update(1 / 60, 16, 8, 180, i * 16);
     }
-    const diff = Math.abs(noGust.particles.length - lowGust.particles.length);
-    expect(diff).toBeLessThan(5);
+    expect(lowGust.particles).toEqual(noGust.particles);
   });
 
   it("clear() empties all particles and resets accumulator", () => {
