@@ -148,7 +148,7 @@
         {
           "all_time": {
             "date": "2021-12-15",
-            "value": 24.6
+            "value": 88.6
           },
           "label": "Highest Gust",
           "metric": "highest_wind_gust",
@@ -158,7 +158,7 @@
         {
           "all_time": {
             "date": "2021-12-15",
-            "value": 15.03
+            "value": 54.1
           },
           "label": "Highest Wind Speed",
           "metric": "highest_wind_speed",

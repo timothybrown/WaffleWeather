@@ -20,8 +20,8 @@
       "temp_max": 20.5,
       "temp_min": -10.9,
       "wind_dir_prevailing": "N",
-      "wind_gust_max": 21.0,
-      "wind_speed_avg": 4.7
+      "wind_gust_max": 75.6,
+      "wind_speed_avg": 16.9
     },
     {
       "cdd": 0.0,
@@ -38,8 +38,8 @@
       "temp_max": 23.2,
       "temp_min": -13.4,
       "wind_dir_prevailing": "S",
-      "wind_gust_max": 21.2,
-      "wind_speed_avg": 5.1
+      "wind_gust_max": 76.3,
+      "wind_speed_avg": 18.3
     },
     {
       "cdd": 0.0,
@@ -56,8 +56,8 @@
       "temp_max": 29.0,
       "temp_min": -6.9,
       "wind_dir_prevailing": "S",
-      "wind_gust_max": 20.3,
-      "wind_speed_avg": 5.4
+      "wind_gust_max": 73.1,
+      "wind_speed_avg": 19.5
     },
     {
       "cdd": 0.0,
@@ -74,8 +74,8 @@
       "temp_max": 34.5,
       "temp_min": 3.7,
       "wind_dir_prevailing": "S",
-      "wind_gust_max": 22.1,
-      "wind_speed_avg": 6.2
+      "wind_gust_max": 79.6,
+      "wind_speed_avg": 22.5
     },
     {
       "cdd": 3.9,
@@ -92,8 +92,8 @@
       "temp_max": 35.1,
       "temp_min": 7.1,
       "wind_dir_prevailing": "S",
-      "wind_gust_max": 19.8,
-      "wind_speed_avg": 5.9
+      "wind_gust_max": 71.3,
+      "wind_speed_avg": 21.1
     },
     {
       "cdd": 8.7,
@@ -110,8 +110,8 @@
       "temp_max": 38.0,
       "temp_min": 15.8,
       "wind_dir_prevailing": "S",
-      "wind_gust_max": 17.6,
-      "wind_speed_avg": 4.5
+      "wind_gust_max": 63.4,
+      "wind_speed_avg": 16.2
     },
     {
       "cdd": 13.3,
@@ -128,8 +128,8 @@
       "temp_max": 43.5,
       "temp_min": 21.9,
       "wind_dir_prevailing": "S",
-      "wind_gust_max": 13.3,
-      "wind_speed_avg": 4.3
+      "wind_gust_max": 47.9,
+      "wind_speed_avg": 15.5
     },
     {
       "cdd": 10.4,
@@ -146,8 +146,8 @@
       "temp_max": 38.7,
       "temp_min": 19.8,
       "wind_dir_prevailing": "S",
-      "wind_gust_max": 13.2,
-      "wind_speed_avg": 3.7
+      "wind_gust_max": 47.5,
+      "wind_speed_avg": 13.5
     },
     {
       "cdd": 7.2,
@@ -164,8 +164,8 @@
       "temp_max": 36.5,
       "temp_min": 14.8,
       "wind_dir_prevailing": "S",
-      "wind_gust_max": 14.2,
-      "wind_speed_avg": 4.0
+      "wind_gust_max": 51.1,
+      "wind_speed_avg": 14.3
     },
     {
       "cdd": 0.0,
@@ -182,8 +182,8 @@
       "temp_max": 32.3,
       "temp_min": 2.0,
       "wind_dir_prevailing": "S",
-      "wind_gust_max": 20.9,
-      "wind_speed_avg": 4.2
+      "wind_gust_max": 75.2,
+      "wind_speed_avg": 14.9
     },
     {
       "cdd": 0.0,
@@ -200,8 +200,8 @@
       "temp_max": 25.4,
       "temp_min": -4.0,
       "wind_dir_prevailing": "S",
-      "wind_gust_max": 17.1,
-      "wind_speed_avg": 4.8
+      "wind_gust_max": 61.6,
+      "wind_speed_avg": 17.2
     },
     {
       "cdd": 0.0,
@@ -218,8 +218,8 @@
       "temp_max": 20.7,
       "temp_min": -15.4,
       "wind_dir_prevailing": "S",
-      "wind_gust_max": 22.0,
-      "wind_speed_avg": 4.6
+      "wind_gust_max": 79.2,
+      "wind_speed_avg": 16.4
     }
   ],
   "station": {
@@ -239,7 +239,7 @@
     "temp_min": -15.4,
     "temp_min_date": "2022-12-23",
     "wind_dir_prevailing": "S",
-    "wind_gust_max": 22.1,
+    "wind_gust_max": 79.6,
     "wind_gust_max_date": "2022-04-23"
   }
 }
