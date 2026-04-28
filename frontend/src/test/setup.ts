@@ -13,13 +13,17 @@ const localStorageStub: Storage = {
   key: (index: number) => [...storage.keys()][index] ?? null,
 };
 
-if (typeof globalThis.localStorage === "undefined" || !globalThis.localStorage?.getItem) {
-  vi.stubGlobal("localStorage", localStorageStub);
-}
+vi.stubGlobal("localStorage", localStorageStub);
+
+const unhandledFetch = vi.fn((input: RequestInfo | URL) =>
+  Promise.reject(new Error(`Unhandled fetch in test: ${String(input)}`)),
+);
 
 // Auto-cleanup after each test
 beforeEach(() => {
   storage.clear();
+  unhandledFetch.mockClear();
+  vi.stubGlobal("fetch", unhandledFetch);
 });
 
 afterEach(() => {

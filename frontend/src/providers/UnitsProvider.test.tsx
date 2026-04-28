@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { screen, act } from "@testing-library/react";
-import { renderHook } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { render } from "@testing-library/react";
 import UnitsProvider, { useUnits } from "./UnitsProvider";

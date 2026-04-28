@@ -7,7 +7,7 @@ import { ApiError } from "@/lib/fetcher";
 import { convertAltitude } from "@/lib/units";
 import { CADENCES } from "@/lib/queryCadences";
 import { useUnits } from "@/providers/UnitsProvider";
-import { useStationTimezone, getStationToday } from "@/hooks/useStationTimezone";
+import { useStationTimezone, getStationTodayParts } from "@/hooks/useStationTimezone";
 import { useGetMonthlyReport, useGetYearlyReport } from "@/generated/reports/reports";
 import ReportTable from "@/components/reports/ReportTable";
 import ReportSummary from "@/components/reports/ReportSummary";
@@ -23,9 +23,9 @@ const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "";
 
 export default function ReportsPage() {
   const timezone = useStationTimezone();
-  const stationNow = getStationToday(timezone);
-  const [year, setYear] = useState(stationNow.getFullYear());
-  const [month, setMonth] = useState(stationNow.getMonth() + 1);
+  const stationToday = getStationTodayParts(timezone);
+  const [year, setYear] = useState(stationToday.year);
+  const [month, setMonth] = useState(stationToday.month);
   const [mode, setMode] = useState<Mode>("monthly");
   const { system } = useUnits();
 

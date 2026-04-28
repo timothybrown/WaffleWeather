@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useListStations } from "@/generated/stations/stations";
 import { useWebSocket, type Diagnostics, type BatteryInfo } from "@/providers/WebSocketProvider";
 import { fmt, timeAgo } from "@/lib/utils";
+import { formatBatteryInfo } from "@/lib/diagnostics";
 import type { Station } from "@/generated/models";
 import {
   RiBatteryLine,
@@ -72,33 +73,20 @@ function formatUptime(seconds: number): string {
   return `${m}m`;
 }
 
-function BatteryDisplay({ id, info }: { id: string; info: BatteryInfo }) {
-  let display: string;
-  let level: "ok" | "low" | "unknown" = "unknown";
-
-  if (info.type === "boolean") {
-    const isOk = info.value === "OFF" || info.value === 0;
-    display = isOk ? "OK" : "Low";
-    level = isOk ? "ok" : "low";
-  } else if (info.type === "voltage") {
-    const v = Number(info.value);
-    display = `${v.toFixed(2)} V`;
-    level = v > 1.2 ? "ok" : "low";
-  } else {
-    const pct = Number(info.value);
-    display = `${Math.round(pct)}%`;
-    level = pct > 20 ? "ok" : "low";
-  }
+function BatteryDisplay({ info }: { info: BatteryInfo }) {
+  const { display, level } = formatBatteryInfo(info);
 
   const Icon = level === "low" ? RiBatteryLowLine : level === "ok" ? RiBatteryLine : RiBattery2Line;
+  const iconClass = level === "low" ? "text-danger" : level === "ok" ? "text-success" : "text-text-faint";
+  const valueClass = level === "low" ? "text-danger" : "text-text-muted";
 
   return (
     <div className="flex items-center justify-between rounded-lg border border-border bg-surface px-3 py-2">
       <div className="flex items-center gap-2">
-        <Icon className={`h-4 w-4 ${level === "low" ? "text-danger" : "text-success"}`} />
+        <Icon className={`h-4 w-4 ${iconClass}`} />
         <span className="text-sm font-medium text-text">{info.label}</span>
       </div>
-      <span className={`font-mono text-sm font-medium tabular-nums ${level === "low" ? "text-danger" : "text-text-muted"}`}>
+      <span className={`font-mono text-sm font-medium tabular-nums ${valueClass}`}>
         {display}
       </span>
     </div>
@@ -127,7 +115,7 @@ function DiagnosticsSection({ diagnostics }: { diagnostics: Diagnostics | null }
           </h3>
           <div className="space-y-2">
             {batteries.map(([id, info]) => (
-              <BatteryDisplay key={id} id={id} info={info} />
+              <BatteryDisplay key={id} info={info} />
             ))}
           </div>
         </div>

@@ -126,19 +126,18 @@ export default function UPlotChart({
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<uPlot | null>(null);
   const onZoomRef = useRef(onZoom);
-  onZoomRef.current = onZoom;
+  useEffect(() => {
+    onZoomRef.current = onZoom;
+  }, [onZoom]);
 
   // Hold latest data in a ref so chart creation uses fresh data without
   // making `data` a dependency of `createChart`. Data updates flow through
   // the dedicated `setData` effect below, avoiding destroy/recreate on every
   // WebSocket tick.
-  //
-  // Assign during render (not in useEffect) so a newly-mounted uPlot instance
-  // sees the CURRENT render's data rather than the previous one. React
-  // officially supports ref mutation during render for this cache-latest-value
-  // pattern; the assignment is idempotent across re-renders.
   const dataRef = useRef(data);
-  dataRef.current = data;
+  useEffect(() => {
+    dataRef.current = data;
+  }, [data]);
 
   const createChart = useCallback(() => {
     const el = containerRef.current;

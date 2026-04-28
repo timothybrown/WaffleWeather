@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import { keepPreviousData } from "@tanstack/react-query";
 import { RiFlashlightLine } from "@remixicon/react";
 import type { Observation, LightningSummary } from "@/generated/models";
 import { useGetLightningSummary } from "@/generated/lightning/lightning";
@@ -8,6 +9,7 @@ import { fmt, timeAgo } from "@/lib/utils";
 import { convertDistance } from "@/lib/units";
 import { CADENCES } from "@/lib/queryCadences";
 import { useUnits } from "@/providers/UnitsProvider";
+import { useRollingTimeRange } from "@/hooks/useRollingTimeRange";
 import WeatherCard from "./WeatherCard";
 
 /** Determine if lightning is "active" — last strike within 30 minutes. */
@@ -53,13 +55,9 @@ export default function LightningCard({ data }: { data: Observation | null }) {
   const active = isActive(data?.lightning_time);
 
   // Fetch 24h lightning summary for sparkline and context
-  const summaryParams = useMemo(() => {
-    const end = new Date();
-    const start = new Date(end.getTime() - 24 * 60 * 60 * 1000);
-    return { start: start.toISOString(), end: end.toISOString() };
-  }, []);
+  const summaryParams = useRollingTimeRange(24 * 60 * 60 * 1000);
   const { data: summaryResponse } = useGetLightningSummary(summaryParams, {
-    query: { refetchInterval: CADENCES.summary },
+    query: { refetchInterval: CADENCES.summary, placeholderData: keepPreviousData },
   });
   const summary = summaryResponse?.data as LightningSummary | undefined;
 

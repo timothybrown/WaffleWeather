@@ -17,6 +17,7 @@ from app.models.lightning import LightningEvent
 from app.models.observation import WeatherObservation
 from app.models.station import Station
 from app.mqtt.parser import parse_ecowitt_payload
+from app.schemas.observation import ObservationSchema
 from app.services.derived import dew_point, enrich_observation, zambretti_forecast
 
 logger = logging.getLogger(__name__)
@@ -128,6 +129,18 @@ async def _seed_pressure_history(
         logger.warning("Failed to seed pressure history for %s from DB", station_id, exc_info=True)
 
 
+def _build_broadcast_payload(
+    observation: WeatherObservation,
+    forecast: str | None,
+    diagnostics: dict[str, object],
+) -> dict[str, object]:
+    schema = ObservationSchema.model_validate(observation)
+    schema.zambretti_forecast = forecast
+    payload = schema.model_dump(mode="json")
+    payload["diagnostics"] = diagnostics
+    return payload
+
+
 async def _handle_message(
     message: aiomqtt.Message,
     settings: Settings,
@@ -168,6 +181,7 @@ async def _handle_message(
             parsed["dewpoint"] = dew_point(float(temp), float(rh))
 
     try:
+        obs: WeatherObservation
         async with async_session() as session:
             async with session.begin():
                 # Build station values from config (only non-None fields)
@@ -260,13 +274,35 @@ async def _handle_message(
 
     if broadcast_fn:
         try:
-            broadcast_data = enriched if enriched is not None else enrich_observation(dict(parsed))
-            if forecast is not None:
-                broadcast_data["zambretti_forecast"] = forecast
-            broadcast_data["diagnostics"] = diagnostics
-            await broadcast_fn(broadcast_data)
+            await broadcast_fn(_build_broadcast_payload(obs, forecast, diagnostics))
         except Exception:
             logger.exception("Failed to broadcast observation")
+
+
+async def _load_previous_lightning_state(
+    device_id: str, before_timestamp: datetime
+) -> tuple[int, datetime | None] | None:
+    """Load the most recent stored lightning counter before this observation."""
+    try:
+        async with async_session() as session:
+            result = await session.execute(
+                select(WeatherObservation.lightning_count, WeatherObservation.lightning_time)
+                .where(
+                    WeatherObservation.station_id == device_id,
+                    WeatherObservation.timestamp < before_timestamp,
+                    WeatherObservation.lightning_count.is_not(None),
+                )
+                .order_by(WeatherObservation.timestamp.desc())
+                .limit(1)
+            )
+            row = result.first()
+    except Exception:
+        logger.warning("Failed to seed lightning state for %s from DB", device_id, exc_info=True)
+        return None
+
+    if row is None or row[0] is None:
+        return None
+    return int(row[0]), row[1] if isinstance(row[1], datetime) else None
 
 
 async def _detect_lightning_event(device_id: str, parsed: dict[str, object], settings: Settings) -> None:
@@ -279,6 +315,9 @@ async def _detect_lightning_event(device_id: str, parsed: dict[str, object], set
     lt_time: datetime | None = lt_time_raw if isinstance(lt_time_raw, datetime) else None
 
     prev = _last_lightning.get(device_id)
+    timestamp = parsed.get("timestamp")
+    if prev is None and isinstance(timestamp, datetime):
+        prev = await _load_previous_lightning_state(device_id, timestamp)
     _last_lightning[device_id] = (count, lt_time)
 
     if prev is None:

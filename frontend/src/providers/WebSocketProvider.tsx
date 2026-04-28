@@ -14,7 +14,7 @@ import type { Observation } from "@/generated/models";
 export interface BatteryInfo {
   label: string;
   type: "boolean" | "voltage" | "percentage";
-  value: number | string;
+  value: number | string | null;
 }
 
 export interface Diagnostics {
@@ -80,9 +80,14 @@ export default function WebSocketProvider({
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const retryCountRef = useRef(0);
+  const connectRef = useRef<() => void>(() => {});
 
   const connect = useCallback(() => {
-    if (wsRef.current?.readyState === WebSocket.OPEN) return;
+    const existingState = wsRef.current?.readyState;
+    const isConnecting =
+      typeof WebSocket.CONNECTING === "number" &&
+      existingState === WebSocket.CONNECTING;
+    if (existingState === WebSocket.OPEN || isConnecting) return;
 
     const ws = new WebSocket(WS_URL);
     wsRef.current = ws;
@@ -131,7 +136,7 @@ export default function WebSocketProvider({
 
       reconnectTimerRef.current = setTimeout(() => {
         reconnectTimerRef.current = null;
-        connect();
+        connectRef.current();
       }, delay);
     };
 
@@ -139,6 +144,10 @@ export default function WebSocketProvider({
       ws.close();
     };
   }, []);
+
+  useEffect(() => {
+    connectRef.current = connect;
+  }, [connect]);
 
   // Manual retry: cancel any pending timer, reset the retry counter, clear
   // the offline flag, and kick off a fresh connect. Exposed via context so
@@ -168,7 +177,11 @@ export default function WebSocketProvider({
         clearTimeout(reconnectTimerRef.current);
         reconnectTimerRef.current = null;
       }
-      wsRef.current?.close();
+      if (wsRef.current) {
+        wsRef.current.onclose = null;
+        wsRef.current.close();
+        wsRef.current = null;
+      }
     };
   }, [connect]);
 

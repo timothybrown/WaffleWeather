@@ -1,4 +1,5 @@
 import { render, act } from "@testing-library/react";
+import { useEffect } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import WebSocketProvider, {
   MAX_RETRIES,
@@ -81,6 +82,15 @@ describe("WebSocketProvider", () => {
     const callCountBeforeUnmount = clearSpy.mock.calls.length;
     unmount();
     expect(clearSpy.mock.calls.length).toBeGreaterThan(callCountBeforeUnmount);
+  });
+
+  it("detaches onclose before closing the socket on unmount", () => {
+    const { unmount } = render(<WebSocketProvider>{null}</WebSocketProvider>);
+    const socket = FakeWS.latest;
+
+    unmount();
+
+    expect(socket?.onclose).toBeNull();
   });
 
   it("adds jitter to reconnect delay (Math.random is consulted)", () => {
@@ -227,7 +237,9 @@ describe("WebSocketProvider", () => {
     let captured: { offline: boolean; connected: boolean; reconnect: () => void } | null = null;
     function Probe() {
       const ctx = useWebSocket();
-      captured = ctx;
+      useEffect(() => {
+        captured = ctx;
+      }, [ctx]);
       return null;
     }
 

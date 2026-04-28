@@ -100,7 +100,7 @@ def fetch_current(lat: float, lon: float) -> dict[str, float]:
         "latitude": lat,
         "longitude": lon,
         "current": ",".join(OPEN_METEO_FIELDS),
-        "wind_speed_unit": "ms",
+        "wind_speed_unit": "kmh",
     }
     resp = httpx.get(url, params=params, timeout=15)
     resp.raise_for_status()
@@ -174,7 +174,7 @@ def fetch_archive(lat: float, lon: float, start: date, end: date) -> list[dict[s
         "start_date": start.isoformat(),
         "end_date": end.isoformat(),
         "hourly": ",".join(OPEN_METEO_FIELDS),
-        "wind_speed_unit": "ms",
+        "wind_speed_unit": "kmh",
         "timezone": "UTC",
     }
     resp = httpx.get(url, params=params, timeout=60)
@@ -369,7 +369,9 @@ def simulate(env_file, lat, lon, altitude, broker, port, username, password, top
                     truth = fetch_current(cfg.lat, cfg.lon)
                     last_poll = now
                     ts = _time.strftime("%H:%M:%S")
-                    click.echo(f"[{ts}] Open-Meteo poll: temp={truth.get('temp', '?')}°C wind={truth.get('windspeed', '?')}m/s")
+                    temp = truth.get("temp", "?")
+                    wind = truth.get("windspeed", "?")
+                    click.echo(f"[{ts}] Open-Meteo poll: temp={temp}°C wind={wind}km/h")
                 except httpx.HTTPError as exc:
                     ts = _time.strftime("%H:%M:%S")
                     click.echo(f"[{ts}] Open-Meteo fetch failed: {exc}", err=True)

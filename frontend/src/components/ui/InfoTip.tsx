@@ -12,9 +12,7 @@ export default function InfoTip({ text, side = "top" }: InfoTipProps) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLSpanElement>(null);
   const tooltipRef = useRef<HTMLSpanElement>(null);
-  const [placement, setPlacement] = useState(side);
-  const [leftOffset, setLeftOffset] = useState(0);
-  const prevOffset = useRef(0);
+  const caretRef = useRef<HTMLSpanElement>(null);
 
   // Close on outside click (mobile tap-to-toggle)
   useEffect(() => {
@@ -32,43 +30,47 @@ export default function InfoTip({ text, side = "top" }: InfoTipProps) {
     };
   }, [open]);
 
-  // Reset positioning when closing so next open starts fresh
-  useEffect(() => {
-    if (!open) {
-      prevOffset.current = 0;
-      setLeftOffset(0);
-      setPlacement(side);
-    }
-  }, [open, side]);
-
   // Auto-flip vertically and nudge horizontally if tooltip would go off-screen
   // useLayoutEffect runs before paint so the tooltip doesn't visibly snap
   useLayoutEffect(() => {
     if (!open || !tooltipRef.current) return;
+    const tooltip = tooltipRef.current;
+    const caret = caretRef.current;
+
+    const setPlacementClass = (placement: "top" | "bottom") => {
+      tooltip.classList.toggle("info-tip-top", placement === "top");
+      tooltip.classList.toggle("info-tip-bottom", placement === "bottom");
+      caret?.classList.toggle("info-tip-caret-top", placement === "top");
+      caret?.classList.toggle("info-tip-caret-bottom", placement === "bottom");
+    };
+
+    tooltip.style.marginLeft = "";
+    if (caret) caret.style.marginLeft = "";
+
     const rect = tooltipRef.current.getBoundingClientRect();
     if (side === "top" && rect.top < 8) {
-      setPlacement("bottom");
+      setPlacementClass("bottom");
     } else if (side === "bottom" && rect.bottom > window.innerHeight - 8) {
-      setPlacement("top");
+      setPlacementClass("top");
     } else {
-      setPlacement(side);
+      setPlacementClass(side);
     }
+
     // Horizontal nudge: keep tooltip within visible content area
-    // Subtract current offset to get the "natural" (centered) position
-    const naturalLeft = rect.left - prevOffset.current;
-    const naturalRight = rect.right - prevOffset.current;
     const pad = 36;
     const main = tooltipRef.current.closest("main");
     const minLeft = main ? main.getBoundingClientRect().left + pad : pad;
     const maxRight = window.innerWidth - pad;
     let newOffset = 0;
-    if (naturalLeft < minLeft) {
-      newOffset = Math.round(minLeft - naturalLeft);
-    } else if (naturalRight > maxRight) {
-      newOffset = Math.round(maxRight - naturalRight);
+    if (rect.left < minLeft) {
+      newOffset = Math.round(minLeft - rect.left);
+    } else if (rect.right > maxRight) {
+      newOffset = Math.round(maxRight - rect.right);
     }
-    prevOffset.current = newOffset;
-    setLeftOffset(newOffset);
+    if (newOffset !== 0) {
+      tooltip.style.marginLeft = `${newOffset}px`;
+      if (caret) caret.style.marginLeft = `${-newOffset}px`;
+    }
   }, [open, side]);
 
   const toggle = useCallback((e: React.MouseEvent) => {
@@ -98,14 +100,13 @@ export default function InfoTip({ text, side = "top" }: InfoTipProps) {
       {open && (
         <span
           ref={tooltipRef}
-          className={`info-tip-bubble info-tip-${placement}`}
+          className={`info-tip-bubble info-tip-${side}`}
           role="tooltip"
-          style={leftOffset ? { marginLeft: leftOffset } : undefined}
         >
           {text}
           <span
-            className={`info-tip-caret info-tip-caret-${placement}`}
-            style={leftOffset ? { marginLeft: -leftOffset } : undefined}
+            ref={caretRef}
+            className={`info-tip-caret info-tip-caret-${side}`}
           />
         </span>
       )}

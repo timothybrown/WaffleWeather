@@ -28,7 +28,7 @@ interface Props {
 }
 
 export default function WindRoseChart({ data, onSelect, selectedKey }: Props) {
-  const { wedges, maxCount, rings } = useMemo(() => {
+  const { wedges, rings } = useMemo(() => {
     // Build a map: direction → [band counts in order]
     const sectorMap = new Map<number, Map<string, number>>();
     for (let i = 0; i < SECTORS; i++) {
@@ -91,7 +91,7 @@ export default function WindRoseChart({ data, onSelect, selectedKey }: Props) {
       label: `${Math.round(f * maxCount)}`,
     }));
 
-    return { wedges, maxCount, rings };
+    return { wedges, rings };
   }, [data]);
 
   const size = 300;

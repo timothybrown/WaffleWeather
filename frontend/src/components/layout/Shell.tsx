@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
+import Image from "next/image";
 import { RiMenuLine } from "@remixicon/react";
 import Sidebar from "./Sidebar";
 
@@ -22,7 +23,7 @@ export default function Shell({ children }: { children: React.ReactNode }) {
           >
             <RiMenuLine className="h-5 w-5" />
           </button>
-          <img src="/waffle-logo.png" alt="" width={24} height={24} className="drop-shadow-sm" />
+          <Image src="/waffle-logo.png" alt="" width={24} height={24} className="drop-shadow-sm" />
           <span className="font-display text-base font-semibold tracking-tight text-text">
             WaffleWeather
           </span>

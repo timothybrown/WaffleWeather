@@ -1,8 +1,10 @@
 import { useMemo } from "react";
+import { keepPreviousData } from "@tanstack/react-query";
 import type { AggregatedObservation } from "@/generated/models";
 import { useListHourlyObservations } from "@/generated/aggregates/aggregates";
 import { CADENCES } from "@/lib/queryCadences";
 import { useStationTimezone, getStationToday } from "@/hooks/useStationTimezone";
+import { useTimeBucket } from "@/hooks/useTimeBucket";
 
 interface TodayExtremes {
   tempMin: number | null;
@@ -11,23 +13,28 @@ interface TodayExtremes {
   humidityMax: number | null;
 }
 
+const REFRESH_MS = 300_000;
+
 /** Fetch today's hourly aggregates and derive daily extremes for temp & humidity. */
 export function useTodayExtremes(): TodayExtremes {
   const timezone = useStationTimezone();
+  const timeBucket = useTimeBucket(REFRESH_MS);
 
   const params = useMemo(() => {
-    const start = getStationToday(timezone);
-    const end = new Date();
+    const end = new Date(timeBucket * REFRESH_MS);
+    const start = getStationToday(timezone, end);
     return { start: start.toISOString(), end: end.toISOString() };
     // Re-evaluate every 5 minutes so the window tracks "now" and crosses
     // station-local midnight without needing a page refresh.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [timezone, Math.floor(Date.now() / 300_000)]);
+  }, [timezone, timeBucket]);
 
   const { data: response } = useListHourlyObservations(params, {
-    query: { refetchInterval: CADENCES.aggregate5m },
+    query: { refetchInterval: CADENCES.aggregate5m, placeholderData: keepPreviousData },
   });
-  const rows = (response?.data ?? []) as AggregatedObservation[];
+  const rows = useMemo(
+    () => (response?.data ?? []) as AggregatedObservation[],
+    [response],
+  );
 
   return useMemo(() => {
     let tempMin: number | null = null;

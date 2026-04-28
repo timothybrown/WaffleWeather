@@ -7,7 +7,7 @@ import type { AggregatedObservation, CalendarDataPoint } from "@/generated/model
 import { convertTemp, convertSpeed, convertRain } from "@/lib/units";
 import { CADENCES } from "@/lib/queryCadences";
 import { useUnits } from "@/providers/UnitsProvider";
-import { useStationTimezone, getStationToday } from "@/hooks/useStationTimezone";
+import { useStationTimezone, getStationTodayParts } from "@/hooks/useStationTimezone";
 import { fmt } from "@/lib/utils";
 
 const METRICS: { value: GetCalendarDataMetric; label: string; unitFn: string }[] = [
@@ -254,7 +254,7 @@ export default function CalendarHeatmap() {
   const { system } = useUnits();
   const [metric, setMetric] = useState<GetCalendarDataMetric>(GetCalendarDataMetric.temp_outdoor_max);
   const timezone = useStationTimezone();
-  const year = getStationToday(timezone).getFullYear();
+  const year = getStationTodayParts(timezone).year;
 
   // 365-day calendar heatmap + daily aggregates are a static annual view.
   // Re-runs naturally on metric/year/unit changes — no background polling.
@@ -262,7 +262,10 @@ export default function CalendarHeatmap() {
     { metric, year },
     { query: { refetchInterval: CADENCES.none } },
   );
-  const rawData = (response?.data as CalendarDataPoint[] | undefined) ?? [];
+  const rawData = useMemo(
+    () => (response?.data as CalendarDataPoint[] | undefined) ?? [],
+    [response],
+  );
 
   // Fetch daily aggregates for tooltip detail (temp & humidity min/avg/max)
   const dailyParams = useMemo(() => ({
@@ -272,7 +275,10 @@ export default function CalendarHeatmap() {
   const { data: dailyResponse } = useListDailyObservations(dailyParams, {
     query: { refetchInterval: CADENCES.none },
   });
-  const dailyRows = (dailyResponse?.data ?? []) as AggregatedObservation[];
+  const dailyRows = useMemo(
+    () => (dailyResponse?.data ?? []) as AggregatedObservation[],
+    [dailyResponse],
+  );
 
   // Convert daily aggregates to correct unit system and index by date
   const dailyMap = useMemo(() => {

@@ -144,6 +144,28 @@ class TestParseEcowittPayload:
         assert obs["rain_daily"] == 5.0
         assert obs["rain_rate"] == 1.2
 
+    def test_imperial_key_variants_convert_to_metric_storage_units(self):
+        payload = json.dumps({
+            "tempf": 68.0,
+            "baromrelin": 29.92,
+            "baromabsin": 29.80,
+            "windspeedmph": 10.0,
+            "windgustmph": 15.0,
+            "rainratein": 0.5,
+            "dailyrainin": 1.0,
+        }).encode()
+        result = parse_ecowitt_payload("dev1", payload)
+        assert result is not None
+        obs, _ = result
+
+        assert obs["temp_outdoor"] == 20.0
+        assert obs["pressure_rel"] == 1013.21
+        assert obs["pressure_abs"] == 1009.14
+        assert obs["wind_speed"] == 16.09
+        assert obs["wind_gust"] == 24.14
+        assert obs["rain_rate"] == 12.7
+        assert obs["rain_daily"] == 25.4
+
     def test_unknown_fields_ignored(self):
         payload = json.dumps({"temp1": 22.0, "unknown_field": "foo"}).encode()
         result = parse_ecowitt_payload("dev1", payload)

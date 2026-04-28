@@ -4,7 +4,6 @@ import {
   createContext,
   useCallback,
   useContext,
-  useEffect,
   useState,
   type ReactNode,
 } from "react";
@@ -24,16 +23,14 @@ export function useUnits() {
   return useContext(UnitsContext);
 }
 
-export default function UnitsProvider({ children }: { children: ReactNode }) {
-  const [system, setSystem] = useState<UnitSystem>("metric");
+function readStoredUnit(): UnitSystem {
+  if (typeof localStorage === "undefined") return "metric";
+  const stored = localStorage.getItem("ww-units");
+  return stored === "imperial" || stored === "metric" ? stored : "metric";
+}
 
-  // Load from localStorage on mount
-  useEffect(() => {
-    const stored = localStorage.getItem("ww-units");
-    if (stored === "imperial" || stored === "metric") {
-      setSystem(stored);
-    }
-  }, []);
+export default function UnitsProvider({ children }: { children: ReactNode }) {
+  const [system, setSystem] = useState<UnitSystem>(() => readStoredUnit());
 
   const toggle = useCallback(() => {
     setSystem((prev) => {

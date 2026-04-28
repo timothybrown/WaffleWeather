@@ -10,6 +10,7 @@ import { useListHourlyObservations } from "@/generated/aggregates/aggregates";
 import { useListStations } from "@/generated/stations/stations";
 import { useWebSocket } from "@/providers/WebSocketProvider";
 import { useUnits } from "@/providers/UnitsProvider";
+import { useRollingTimeRange } from "@/hooks/useRollingTimeRange";
 import { useTrends } from "@/hooks/useTrends";
 import { CADENCES } from "@/lib/queryCadences";
 import { fmt, degToCompass } from "@/lib/utils";
@@ -84,15 +85,7 @@ export default function ConsolePage() {
   // ── 24h pressure history for the barometer dot chart ──────────
   // Use hourly aggregates endpoint (one row per hour) instead of raw
   // observations — gives full 24h coverage with ~24 rows, not thousands.
-  const pressureRange = useMemo(() => {
-    const now = new Date();
-    return {
-      start: new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString(),
-      end: now.toISOString(),
-    };
-    // Re-compute every minute so the window slides forward
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [Math.floor(Date.now() / 60_000)]);
+  const pressureRange = useRollingTimeRange(24 * 60 * 60 * 1000);
   const { data: historyResponse } = useListHourlyObservations(
     pressureRange,
     { query: { refetchInterval: CADENCES.summary, placeholderData: keepPreviousData } },

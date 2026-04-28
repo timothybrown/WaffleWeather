@@ -4,7 +4,7 @@ import UPlotChart from "./UPlotChart";
 import type uPlot from "uplot";
 
 // Mock uPlot — Canvas is not available in happy-dom
-const { destroyMock, setSizeMock, setDataMock, UPlotConstructor } = vi.hoisted(() => {
+const { destroyMock, setDataMock, UPlotConstructor } = vi.hoisted(() => {
   const destroyMock = vi.fn();
   const setSizeMock = vi.fn();
   const setDataMock = vi.fn();
@@ -13,7 +13,7 @@ const { destroyMock, setSizeMock, setDataMock, UPlotConstructor } = vi.hoisted((
     this.setSize = setSizeMock;
     this.setData = setDataMock;
   }) as unknown as Mock<(opts: uPlot.Options, data: uPlot.AlignedData, el: HTMLElement) => void>;
-  return { destroyMock, setSizeMock, setDataMock, UPlotConstructor };
+  return { destroyMock, setDataMock, UPlotConstructor };
 });
 
 vi.mock("uplot", () => ({

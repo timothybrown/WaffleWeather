@@ -56,6 +56,7 @@ def _mock_db_session():
     and session.begin() -> async ctx mgr (non-coroutine call).
     """
     session = AsyncMock()
+    session.add = MagicMock()
 
     # session.begin() must return an async context manager directly (not a coroutine)
     begin_ctx = AsyncMock()
@@ -113,6 +114,30 @@ class TestHandleMessage:
         call_data = broadcast_fn.call_args[0][0]
         assert "diagnostics" in call_data
         assert call_data["temp_outdoor"] == 22.5
+
+    @patch("app.mqtt.client.async_session")
+    @patch("app.mqtt.client.parse_ecowitt_payload")
+    async def test_broadcast_is_full_observation_snapshot(self, mock_parse, mock_async_session):
+        factory, session = _mock_db_session()
+        mock_async_session.side_effect = factory
+
+        ts = datetime(2026, 4, 5, 12, 0, tzinfo=timezone.utc)
+        parsed = {"station_id": "device1", "timestamp": ts, "pressure_rel": 1013.0}
+        diagnostics = {"batteries": {}, "gateway": {}}
+        mock_parse.return_value = (parsed, diagnostics)
+        _pressure_history["device1"] = deque(maxlen=1000)
+
+        broadcast_fn = AsyncMock()
+        await _handle_message(_make_message(), _make_settings(), broadcast_fn=broadcast_fn)
+
+        call_data = broadcast_fn.call_args[0][0]
+        assert call_data["timestamp"] == "2026-04-05T12:00:00Z"
+        assert call_data["pressure_rel"] == 1013.0
+        assert "temp_outdoor" in call_data
+        assert call_data["temp_outdoor"] is None
+        assert "zambretti_forecast" in call_data
+        assert call_data["zambretti_forecast"] is None
+        assert call_data["diagnostics"] == diagnostics
 
     @patch("app.mqtt.client.async_session")
     @patch("app.mqtt.client.parse_ecowitt_payload")
@@ -312,10 +337,37 @@ class TestHandleMessage:
 class TestDetectLightningEvent:
     @patch("app.mqtt.client.async_session")
     async def test_first_observation_sets_baseline(self, mock_async_session):
+        factory, session = _mock_db_session()
+        result = MagicMock()
+        result.first.return_value = None
+        session.execute = AsyncMock(return_value=result)
+        mock_async_session.side_effect = factory
+
         parsed = {"station_id": "d1", "timestamp": datetime.now(timezone.utc), "lightning_count": 5}
         await _detect_lightning_event("d1", parsed, _make_settings())
         assert "d1" in _last_lightning
         assert _last_lightning["d1"][0] == 5
+
+    @patch("app.mqtt.client.async_session")
+    async def test_first_observation_after_restart_uses_previous_db_count(self, mock_async_session):
+        factory, session = _mock_db_session()
+        result = MagicMock()
+        result.first.return_value = (5, None)
+        session.execute = AsyncMock(return_value=result)
+        mock_async_session.side_effect = factory
+
+        parsed = {
+            "station_id": "d1",
+            "timestamp": datetime(2026, 4, 5, 12, 0, tzinfo=timezone.utc),
+            "lightning_count": 8,
+            "lightning_distance": 12.0,
+        }
+        await _detect_lightning_event("d1", parsed, _make_settings())
+
+        session.add.assert_called_once()
+        event = session.add.call_args[0][0]
+        assert event.new_strikes == 3
+        assert _last_lightning["d1"][0] == 8
 
     @patch("app.mqtt.client.async_session")
     async def test_count_increased_creates_event(self, mock_async_session):

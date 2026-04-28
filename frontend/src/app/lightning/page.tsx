@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { keepPreviousData } from "@tanstack/react-query";
 import dynamic from "next/dynamic";
 import type { Observation, Station, LightningSummary, LightningEventPage } from "@/generated/models";
 import { useGetLatestObservation } from "@/generated/observations/observations";
@@ -13,6 +14,7 @@ import { convertDistance } from "@/lib/units";
 import { CADENCES } from "@/lib/queryCadences";
 import { useUnits } from "@/providers/UnitsProvider";
 import { useResolvedColors } from "@/hooks/useResolvedColors";
+import { useRollingTimeRange } from "@/hooks/useRollingTimeRange";
 import { toColumnar } from "@/lib/uplot-data";
 import UPlotChart from "@/components/charts/UPlotChart";
 import {
@@ -33,6 +35,11 @@ const RANGES: { value: TimeRange; label: string }[] = [
   { value: "7d", label: "7 Days" },
   { value: "30d", label: "30 Days" },
 ];
+const RANGE_DURATIONS: Record<TimeRange, number> = {
+  "24h": 24 * 60 * 60 * 1000,
+  "7d": 7 * 24 * 60 * 60 * 1000,
+  "30d": 30 * 24 * 60 * 60 * 1000,
+};
 
 const COLOR_VARS = [
   "--color-border",
@@ -99,28 +106,25 @@ export default function LightningPage() {
     () => (v: number) => formatBucket(v, range),
     [range],
   );
+  const rollingRange = useRollingTimeRange(RANGE_DURATIONS[range]);
 
   // Summary for the selected time range
-  const summaryParams = useMemo(() => {
-    const end = new Date();
-    const ms = range === "24h" ? 24 * 3600000 : range === "7d" ? 7 * 24 * 3600000 : 30 * 24 * 3600000;
-    const start = new Date(end.getTime() - ms);
-    return { start: start.toISOString(), end: end.toISOString(), include_filtered: showFiltered };
-  }, [range, showFiltered]);
+  const summaryParams = useMemo(
+    () => ({ ...rollingRange, include_filtered: showFiltered }),
+    [rollingRange, showFiltered],
+  );
   const { data: summaryResponse } = useGetLightningSummary(summaryParams, {
-    query: { refetchInterval: CADENCES.summary },
+    query: { refetchInterval: CADENCES.summary, placeholderData: keepPreviousData },
   });
   const summary = summaryResponse?.data as LightningSummary | undefined;
 
   // Recent events for the timeline
-  const eventsParams = useMemo(() => {
-    const end = new Date();
-    const ms = range === "24h" ? 24 * 3600000 : range === "7d" ? 7 * 24 * 3600000 : 30 * 24 * 3600000;
-    const start = new Date(end.getTime() - ms);
-    return { start: start.toISOString(), end: end.toISOString(), limit: 50, include_filtered: showFiltered };
-  }, [range, showFiltered]);
+  const eventsParams = useMemo(
+    () => ({ ...rollingRange, limit: 50, include_filtered: showFiltered }),
+    [rollingRange, showFiltered],
+  );
   const { data: eventsResponse } = useListLightningEvents(eventsParams, {
-    query: { refetchInterval: CADENCES.summary },
+    query: { refetchInterval: CADENCES.summary, placeholderData: keepPreviousData },
   });
   const events = (eventsResponse?.data as LightningEventPage | undefined)?.items ?? [];
 

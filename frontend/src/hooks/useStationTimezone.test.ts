@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, afterEach } from "vitest";
-import { getStationToday } from "./useStationTimezone";
+import { getStationToday, getStationTodayParts } from "./useStationTimezone";
 
 afterEach(() => {
   vi.useRealTimers();
@@ -49,5 +49,26 @@ describe("getStationToday", () => {
 
     // Station Tokyo: today is 2026-04-28 → midnight = 2026-04-27T15:00:00Z
     expect(getStationToday("Asia/Tokyo").toISOString()).toBe("2026-04-27T15:00:00.000Z");
+  });
+
+  it("returns the true station-local midnight on spring DST transition days", () => {
+    vi.useFakeTimers();
+    // Noon UTC is 08:00 EDT on 2026-03-08; local 02:00-02:59 did not exist.
+    vi.setSystemTime(new Date("2026-03-08T12:00:00Z"));
+
+    expect(getStationToday("America/New_York").toISOString()).toBe("2026-03-08T05:00:00.000Z");
+  });
+
+  it("returns station calendar parts without browser-timezone Date getters", () => {
+    vi.useFakeTimers();
+    // Still Dec 31 in New York, already Jan 1 in UTC.
+    vi.setSystemTime(new Date("2027-01-01T03:30:00Z"));
+
+    expect(getStationTodayParts("America/New_York")).toEqual({
+      year: 2026,
+      month: 12,
+      day: 31,
+      startIso: "2026-12-31T05:00:00.000Z",
+    });
   });
 });

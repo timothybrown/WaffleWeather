@@ -3,6 +3,7 @@
 import json
 import logging
 import math
+from collections.abc import Callable
 from datetime import datetime, timezone
 from typing import Any, cast
 
@@ -90,6 +91,35 @@ DATETIME_FIELDS = {"lightning_time"}
 # (GW3000B passes BGT/WBGT in °F regardless of gateway unit setting)
 FAHRENHEIT_FIELDS = {"bgt", "wbgt"}
 
+INHG_TO_HPA = 33.8638866667
+MPH_TO_KMH = 1.609344
+INCH_TO_MM = 25.4
+
+
+def _fahrenheit_to_celsius(value: float) -> float:
+    return round((value - 32.0) * 5.0 / 9.0, 1)
+
+
+def _round2(value: float) -> float:
+    return round(value, 2)
+
+
+# ecowitt2mqtt can publish either metric or imperial-keyed variants depending
+# on gateway config. Database storage is metric-normalized.
+IMPERIAL_KEY_CONVERTERS: dict[str, Callable[[float], float]] = {
+    "tempf": _fahrenheit_to_celsius,
+    "baromabsin": lambda value: _round2(value * INHG_TO_HPA),
+    "baromrelin": lambda value: _round2(value * INHG_TO_HPA),
+    "windspeedmph": lambda value: _round2(value * MPH_TO_KMH),
+    "windgustmph": lambda value: _round2(value * MPH_TO_KMH),
+    "rainratein": lambda value: _round2(value * INCH_TO_MM),
+    "dailyrainin": lambda value: _round2(value * INCH_TO_MM),
+    "weeklyrainin": lambda value: _round2(value * INCH_TO_MM),
+    "monthlyrainin": lambda value: _round2(value * INCH_TO_MM),
+    "yearlyrainin": lambda value: _round2(value * INCH_TO_MM),
+    "eventrainin": lambda value: _round2(value * INCH_TO_MM),
+}
+
 # Battery fields: ecowitt key -> (label, type)
 # Types: "boolean" (OFF=OK, ON=Low), "voltage" (V), "percentage" (%)
 BATTERY_MAP: dict[str, tuple[str, str]] = {
@@ -115,9 +145,9 @@ GATEWAY_FIELDS = {"runtime", "heap", "interval"}
 
 # Physical-plausibility bounds per normalized (DB column) field name.
 # Values outside these are treated as bad-sensor-readings and dropped with a log.
-# Units: hPa (pressure), °C (temperature), % (humidity), m/s (wind — ecowitt2mqtt
-# typically publishes in SI, and bounds are generous enough to cover both systems),
-# mm (rain), W/m² (solar).
+# Units: hPa (pressure), °C (temperature), % (humidity), km/h (wind),
+# mm (rain), W/m² (solar). Imperial-keyed payload variants are converted
+# before these bounds are applied.
 _BOUNDS: dict[str, tuple[float, float]] = {
     "pressure_abs": (800.0, 1100.0),
     "pressure_rel": (800.0, 1100.0),
@@ -248,6 +278,20 @@ def parse_ecowitt_payload(
                 coerced = _coerce_float(db_column, raw_value, device_id)
                 if coerced is not None:
                     result[db_column] = int(coerced)
+            elif ecowitt_key in IMPERIAL_KEY_CONVERTERS:
+                try:
+                    converted = IMPERIAL_KEY_CONVERTERS[ecowitt_key](float(raw_value))
+                except (TypeError, ValueError):
+                    logger.warning(
+                        "Unparseable imperial value for %s: %r (device=%s)",
+                        ecowitt_key,
+                        raw_value,
+                        device_id,
+                    )
+                    continue
+                coerced = _coerce_float(db_column, converted, device_id)
+                if coerced is not None:
+                    result[db_column] = coerced
             elif db_column in FAHRENHEIT_FIELDS:
                 # Convert F->C then bounds-check in Celsius via _coerce_float.
                 try:
@@ -280,13 +324,13 @@ def parse_ecowitt_payload(
         # Boolean batteries publish as strings ("OFF"/"ON"); keep as-is.
         # Numeric batteries (voltage/percentage) must parse safely.
         if isinstance(raw, str) and batt_type == "boolean":
-            value: str | float | None = raw
+            battery_value: str | float | None = raw
         else:
             try:
                 parsed_val = float(raw)
                 if not math.isfinite(parsed_val):
                     raise ValueError("non-finite")
-                value = parsed_val
+                battery_value = parsed_val
             except (TypeError, ValueError):
                 logger.warning(
                     "Unparseable battery value for %s: %r (device=%s)",
@@ -294,11 +338,11 @@ def parse_ecowitt_payload(
                     raw,
                     device_id,
                 )
-                value = None
+                battery_value = None
         cast(dict[str, object], diagnostics["batteries"])[ecowitt_key] = {
             "label": label,
             "type": batt_type,
-            "value": value,
+            "value": battery_value,
         }
 
     for key in GATEWAY_FIELDS:

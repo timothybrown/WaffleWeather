@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -48,7 +49,9 @@ export default function Sidebar({
 
   // Close sidebar when navigating on mobile
   const onCloseRef = useRef(onClose);
-  onCloseRef.current = onClose;
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
   const [initialPath] = useState(pathname);
   useEffect(() => {
     if (pathname !== initialPath) {
@@ -78,7 +81,7 @@ export default function Sidebar({
         {/* Logo — hidden on mobile since Shell's sticky header already shows it */}
         <div className="hidden h-16 items-center border-b border-border px-5 md:flex">
           <div className="flex items-center gap-3">
-            <img src="/waffle-logo.png" alt="" width={28} height={28} className="drop-shadow-sm" />
+            <Image src="/waffle-logo.png" alt="" width={28} height={28} className="drop-shadow-sm" />
             <span className="font-display text-lg font-semibold tracking-tight text-text">
               WaffleWeather
             </span>

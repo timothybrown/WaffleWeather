@@ -1,18 +1,26 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { act } from "react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { screen } from "@testing-library/react";
 import { renderWithProviders } from "@/test/wrappers";
 import { makeObservation } from "@/test/fixtures";
 import LightningCard from "./LightningCard";
 
+type LightningSummaryHookMock = (params: unknown, options: unknown) => { data: unknown };
+
 // Default mock: summary not loaded
-const mockUseGetLightningSummary = vi.fn((): { data: unknown } => ({ data: undefined }));
+const mockUseGetLightningSummary = vi.fn<LightningSummaryHookMock>(() => ({ data: undefined }));
 vi.mock("@/generated/lightning/lightning", () => ({
-  useGetLightningSummary: () => mockUseGetLightningSummary(),
+  useGetLightningSummary: (params: unknown, options: unknown) => mockUseGetLightningSummary(params, options),
 }));
 
 describe("LightningCard", () => {
   beforeEach(() => {
+    mockUseGetLightningSummary.mockClear();
     mockUseGetLightningSummary.mockReturnValue({ data: undefined });
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it("renders em dash when summary not loaded", () => {
@@ -84,5 +92,23 @@ describe("LightningCard", () => {
       <LightningCard data={makeObservation({ lightning_distance: 14.0, lightning_time: recentTime })} />,
     );
     expect(container.querySelector(".lightning-active")).not.toBeInTheDocument();
+  });
+
+  it("slides the 24h summary window forward without relying on query data changes", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-04-28T12:00:00Z"));
+
+    renderWithProviders(<LightningCard data={makeObservation()} />);
+    const firstParams = mockUseGetLightningSummary.mock.calls[0][0] as { start: string; end: string };
+
+    act(() => {
+      vi.advanceTimersByTime(60_000);
+    });
+
+    const latestParams = mockUseGetLightningSummary.mock.calls[
+      mockUseGetLightningSummary.mock.calls.length - 1
+    ][0] as { start: string; end: string };
+    expect(new Date(latestParams.start).getTime()).toBeGreaterThan(new Date(firstParams.start).getTime());
+    expect(new Date(latestParams.end).getTime()).toBeGreaterThan(new Date(firstParams.end).getTime());
   });
 });
