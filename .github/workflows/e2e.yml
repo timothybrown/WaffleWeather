@@ -28,7 +28,7 @@ jobs:
       WW_DB_PASSWORD: testpassword
       WW_MQTT_PASSWORD: testpassword
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Run E2E test stack
         run: |
