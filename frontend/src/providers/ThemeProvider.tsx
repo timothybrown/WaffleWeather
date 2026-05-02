@@ -35,13 +35,6 @@ function getSystemDark() {
   return window.matchMedia("(prefers-color-scheme: dark)").matches;
 }
 
-function readStoredPreference(): Preference {
-  if (typeof window === "undefined") return "auto";
-  const stored = localStorage.getItem(STORAGE_KEY);
-  if (stored === "light" || stored === "dark" || stored === "auto") return stored;
-  return "auto";
-}
-
 const ThemeContext = createContext<ThemeContextValue>({
   preference: "auto",
   resolved: "dark",
@@ -53,8 +46,15 @@ export function useTheme() {
 }
 
 export default function ThemeProvider({ children }: { children: ReactNode }) {
-  const [preference, setPreferenceState] = useState<Preference>(readStoredPreference);
+  const [preference, setPreferenceState] = useState<Preference>("auto");
   const systemDark = useSyncExternalStore(subscribeSystemDark, getSystemDark, () => false);
+
+  useEffect(() => {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (stored === "light" || stored === "dark" || stored === "auto") {
+      setPreferenceState(stored);
+    }
+  }, []);
 
   const resolved: Resolved =
     preference === "auto" ? (systemDark ? "dark" : "light") : preference;

@@ -19,7 +19,13 @@ export default function RecordCard({ title, icon, records, formatValue }: Record
         <h3 className="text-xs font-semibold uppercase tracking-wider">{title}</h3>
       </div>
       <div className="overflow-x-auto">
-        <table className="w-full text-sm">
+        <table className="w-full table-fixed text-sm">
+          <colgroup>
+            <col />
+            <col className="w-[7rem] sm:w-[9rem]" />
+            <col className="w-[7rem] sm:w-[9rem]" />
+            <col className="w-[7rem] sm:w-[9rem]" />
+          </colgroup>
           <thead>
             <tr className="border-b border-border">
               <th className="pb-2 pr-2 text-left text-[0.65rem] font-medium uppercase tracking-wider text-text-faint">Record</th>
