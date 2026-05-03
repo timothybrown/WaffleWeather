@@ -10,6 +10,9 @@ interface UPlotChartProps {
   syncKey?: string;
   onZoom?: (min: number, max: number) => void;
   className?: string;
+  /** Visibility per non-x series. Length = options.series.length - 1.
+   *  Index 0 here corresponds to options.series[1], etc. */
+  seriesVisibility?: boolean[];
 }
 
 function fmtVal(v: number): string {
@@ -122,6 +125,7 @@ export default function UPlotChart({
   syncKey,
   onZoom,
   className,
+  seriesVisibility,
 }: UPlotChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<uPlot | null>(null);
@@ -204,6 +208,25 @@ export default function UPlotChart({
       chartRef.current.setData(data, true);
     }
   }, [data]);
+
+  // Series visibility — apply imperatively when prop changes.
+  // (Reapplication after chart recreation is handled in createChart effect — Task 5.)
+  const prevVisibilityRef = useRef(seriesVisibility);
+  useEffect(() => {
+    if (seriesVisibility === prevVisibilityRef.current) return;
+    const prev = prevVisibilityRef.current;
+    prevVisibilityRef.current = seriesVisibility;
+
+    const chart = chartRef.current;
+    if (!chart || !seriesVisibility) return;
+
+    for (let i = 0; i < seriesVisibility.length; i++) {
+      if (!prev || prev[i] !== seriesVisibility[i]) {
+        // uPlot series indices are 1-based (0 = x-axis)
+        chart.setSeries(i + 1, { show: seriesVisibility[i] });
+      }
+    }
+  }, [seriesVisibility]);
 
   // Zoom: apply scale changes imperatively without recreating chart
   const xScaleObj = options.scales?.x as Record<string, unknown> | undefined;

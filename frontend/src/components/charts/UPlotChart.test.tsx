@@ -4,16 +4,21 @@ import UPlotChart from "./UPlotChart";
 import type uPlot from "uplot";
 
 // Mock uPlot — Canvas is not available in happy-dom
-const { destroyMock, setDataMock, UPlotConstructor } = vi.hoisted(() => {
+const { destroyMock, setDataMock, setSeriesMock, redrawMock, UPlotConstructor } = vi.hoisted(() => {
   const destroyMock = vi.fn();
   const setSizeMock = vi.fn();
   const setDataMock = vi.fn();
+  const setSeriesMock = vi.fn();
+  const redrawMock = vi.fn();
   const UPlotConstructor = vi.fn(function (this: Record<string, unknown>) {
     this.destroy = destroyMock;
     this.setSize = setSizeMock;
     this.setData = setDataMock;
+    this.setSeries = setSeriesMock;
+    this.redraw = redrawMock;
+    this.bands = []; // mutable; tests assert on this
   }) as unknown as Mock<(opts: uPlot.Options, data: uPlot.AlignedData, el: HTMLElement) => void>;
-  return { destroyMock, setDataMock, UPlotConstructor };
+  return { destroyMock, setDataMock, setSeriesMock, redrawMock, UPlotConstructor };
 });
 
 vi.mock("uplot", () => ({
@@ -85,5 +90,45 @@ describe("UPlotChart", () => {
     );
     const opts = UPlotConstructor.mock.calls[0]?.[0] as uPlot.Options | undefined;
     expect(opts!.cursor!.sync!.key).toBe("test");
+  });
+
+  it("applies seriesVisibility via setSeries when the prop changes", () => {
+    const optsTwo: Omit<uPlot.Options, "width" | "height"> = {
+      series: [{}, { label: "A", stroke: "red" }, { label: "B", stroke: "blue" }],
+    };
+    const dataTwo: uPlot.AlignedData = [[1, 2], [10, 20], [11, 21]];
+
+    const { rerender } = render(
+      <UPlotChart options={optsTwo} data={dataTwo} seriesVisibility={[true, true]} />,
+    );
+
+    // No setSeries calls yet — initial state matches uPlot's series defaults
+    setSeriesMock.mockClear();
+
+    rerender(
+      <UPlotChart options={optsTwo} data={dataTwo} seriesVisibility={[true, false]} />,
+    );
+
+    // Series indices in setSeries are 1-based (skip x-axis at 0)
+    expect(setSeriesMock).toHaveBeenCalledWith(2, { show: false });
+  });
+
+  it("does not call setSeries when seriesVisibility prop is unchanged", () => {
+    const optsTwo: Omit<uPlot.Options, "width" | "height"> = {
+      series: [{}, { label: "A", stroke: "red" }, { label: "B", stroke: "blue" }],
+    };
+    const dataTwo: uPlot.AlignedData = [[1, 2], [10, 20], [11, 21]];
+
+    const visibility = [true, false];
+    const { rerender } = render(
+      <UPlotChart options={optsTwo} data={dataTwo} seriesVisibility={visibility} />,
+    );
+
+    setSeriesMock.mockClear();
+    rerender(
+      <UPlotChart options={optsTwo} data={dataTwo} seriesVisibility={visibility} />,
+    );
+
+    expect(setSeriesMock).not.toHaveBeenCalled();
   });
 });
