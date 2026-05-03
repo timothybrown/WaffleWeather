@@ -223,4 +223,57 @@ describe("UPlotChart", () => {
     // Must reassert the user's "Max ON" preference against the options-default
     expect(setSeriesMock).toHaveBeenCalledWith(2, { show: true });
   });
+
+  it("filters out bands whose bounding series are hidden", () => {
+    const tempOpts: Omit<uPlot.Options, "width" | "height"> = {
+      series: [
+        {},
+        { label: "Max", stroke: "red" },
+        { label: "Avg", stroke: "orange" },
+        { label: "Min", stroke: "blue" },
+      ],
+      bands: [{ series: [1, 3], fill: "rgba(0,0,0,0.1)" }],
+    };
+    const tempData: uPlot.AlignedData = [
+      [1, 2],
+      [60, 65],
+      [55, 58],
+      [50, 52],
+    ];
+
+    // Hide Min (series index 3 in uPlot, index 2 in seriesVisibility)
+    const { rerender } = render(
+      <UPlotChart
+        options={tempOpts}
+        data={tempData}
+        seriesVisibility={[true, true, true]}
+      />,
+    );
+
+    // Access the constructed uPlot instance via Vitest's mock.instances API
+    const inst = UPlotConstructor.mock.instances[0] as unknown as { bands: unknown[] };
+    expect(inst.bands).toHaveLength(1); // all visible → band kept
+
+    rerender(
+      <UPlotChart
+        options={tempOpts}
+        data={tempData}
+        seriesVisibility={[true, true, false]}
+      />,
+    );
+
+    expect(inst.bands).toHaveLength(0); // Min hidden → band filtered out
+    expect(redrawMock).toHaveBeenCalled();
+
+    // Restore Min — band returns
+    rerender(
+      <UPlotChart
+        options={tempOpts}
+        data={tempData}
+        seriesVisibility={[true, true, true]}
+      />,
+    );
+
+    expect(inst.bands).toHaveLength(1);
+  });
 });
