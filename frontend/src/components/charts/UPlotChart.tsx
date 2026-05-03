@@ -143,6 +143,14 @@ export default function UPlotChart({
     dataRef.current = data;
   }, [data]);
 
+  // Hold latest seriesVisibility in a ref so createChart can read the user's
+  // current toggle state without making it a dependency (which would cause
+  // unnecessary chart recreation on every visibility change).
+  const visibilityRef = useRef(seriesVisibility);
+  useEffect(() => {
+    visibilityRef.current = seriesVisibility;
+  }, [seriesVisibility]);
+
   const createChart = useCallback(() => {
     const el = containerRef.current;
     if (!el) return;
@@ -186,6 +194,19 @@ export default function UPlotChart({
     };
 
     chartRef.current = new uPlot(opts, dataRef.current, el);
+
+    // Apply visibility to the freshly-created instance for EVERY series, not
+    // just hidden ones. The new instance's series[i].show comes from
+    // opts.series[i].show, which may be `false` (e.g. Temperature Max/Min in
+    // raw 24h mode) — we must override it with the user's current toggle
+    // state in either direction. setSeries is cheap and idempotent for
+    // matching state, so calling it unconditionally is correct.
+    const visibility = visibilityRef.current;
+    if (visibility) {
+      for (let i = 0; i < visibility.length; i++) {
+        chartRef.current.setSeries(i + 1, { show: visibility[i] });
+      }
+    }
   }, [syncKey, options]);
 
   // Mount / options change → recreate chart.

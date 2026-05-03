@@ -131,4 +131,96 @@ describe("UPlotChart", () => {
 
     expect(setSeriesMock).not.toHaveBeenCalled();
   });
+
+  it("reapplies seriesVisibility after chart instance is recreated", () => {
+    const optsA: Omit<uPlot.Options, "width" | "height"> = {
+      series: [{}, { label: "A", stroke: "red" }, { label: "B", stroke: "blue" }],
+    };
+    const optsB: Omit<uPlot.Options, "width" | "height"> = {
+      series: [{}, { label: "A", stroke: "red" }, { label: "B", stroke: "blue" }],
+      // Different reference triggers recreation
+    };
+    const dataTwo: uPlot.AlignedData = [[1, 2], [10, 20], [11, 21]];
+
+    const { rerender } = render(
+      <UPlotChart
+        options={optsA}
+        data={dataTwo}
+        seriesVisibility={[true, false]}
+      />,
+    );
+
+    // After initial mount, setSeries should have been called for index 1 (=
+    // hiding series B) as part of the post-creation reapplication
+    expect(setSeriesMock).toHaveBeenCalledWith(2, { show: false });
+
+    setSeriesMock.mockClear();
+
+    // Force chart recreation by passing a fresh options reference
+    rerender(
+      <UPlotChart
+        options={optsB}
+        data={dataTwo}
+        seriesVisibility={[true, false]}
+      />,
+    );
+
+    // setSeries must be called again to re-hide B on the new chart instance
+    expect(setSeriesMock).toHaveBeenCalledWith(2, { show: false });
+  });
+
+  it("reapplies seriesVisibility after recreation when options-default is hidden but user toggled visible", () => {
+    // Mirrors the Temperature raw-24h scenario: options say series[1].show=false
+    // (Max hidden by default), but the user toggled Max ON in the chip row, so
+    // seriesVisibility[0] is true. After recreation, the new chart instance will
+    // honor options.series[1].show=false unless we explicitly call setSeries to
+    // re-show it. Without this fix, the chip says "Max" is on while the line
+    // is invisible.
+    const optsRaw: Omit<uPlot.Options, "width" | "height"> = {
+      series: [
+        {},
+        { label: "Max", stroke: "red", show: false },
+        { label: "Avg", stroke: "orange" },
+        { label: "Min", stroke: "blue", show: false },
+      ],
+    };
+    const optsRaw2: Omit<uPlot.Options, "width" | "height"> = {
+      series: [
+        {},
+        { label: "Max", stroke: "red", show: false },
+        { label: "Avg", stroke: "orange" },
+        { label: "Min", stroke: "blue", show: false },
+      ],
+    };
+    const tempData: uPlot.AlignedData = [[1, 2], [60, 65], [55, 58], [50, 52]];
+
+    // User toggled Max ON; Min still off; Avg always on
+    const visibility = [true, true, false];
+
+    const { rerender } = render(
+      <UPlotChart
+        options={optsRaw}
+        data={tempData}
+        seriesVisibility={visibility}
+      />,
+    );
+
+    // On initial mount, setSeries must restore Max to visible (overriding the
+    // options-default of false)
+    expect(setSeriesMock).toHaveBeenCalledWith(2, { show: true });
+
+    setSeriesMock.mockClear();
+
+    // Force recreation
+    rerender(
+      <UPlotChart
+        options={optsRaw2}
+        data={tempData}
+        seriesVisibility={visibility}
+      />,
+    );
+
+    // Must reassert the user's "Max ON" preference against the options-default
+    expect(setSeriesMock).toHaveBeenCalledWith(2, { show: true });
+  });
 });
