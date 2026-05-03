@@ -15,8 +15,17 @@ import {
   windOpts,
   rainOpts,
   solarUvOpts,
+  temperatureSeriesMeta,
+  humiditySeriesMeta,
+  pressureSeriesMeta,
+  windSeriesMeta,
+  rainSeriesMeta,
+  solarUvSeriesMeta,
+  temperatureDefaultVisibility,
   type ResolvedColors,
 } from "@/components/charts/chartConfigs";
+import ChartLegend from "@/components/charts/ChartLegend";
+import { useChartLegend } from "@/components/charts/useChartLegend";
 import CalendarHeatmap from "@/components/history/CalendarHeatmap";
 
 type ViewMode = "charts" | "calendar";
@@ -57,14 +66,17 @@ function formatTime(unix: number, resolution: string): string {
 function ChartPanel({
   title,
   children,
+  legend,
 }: {
   title: string;
   children: React.ReactNode;
+  legend: React.ReactNode;
 }) {
   return (
     <div className="weather-card rounded-xl p-4">
       <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-text-muted">{title}</h3>
       <div className="h-52">{children}</div>
+      {legend}
     </div>
   );
 }
@@ -104,6 +116,35 @@ export default function HistoryPage() {
     [rawData, system],
   );
 
+  const isRaw = resolution === "raw";
+
+  const tempMeta = useMemo(() => temperatureSeriesMeta(), []);
+  const humMeta = useMemo(() => humiditySeriesMeta(), []);
+  const presMeta = useMemo(() => pressureSeriesMeta(), []);
+  const wndMeta = useMemo(() => windSeriesMeta(), []);
+  const rnMeta = useMemo(() => rainSeriesMeta(), []);
+  const suvMeta = useMemo(() => solarUvSeriesMeta(), []);
+
+  // Stable initial-visibility arrays. Temp depends on resolution (raw mode
+  // hides Max/Min by default — see chartConfigs.ts and the design spec).
+  const tempInitial = useMemo(
+    () => temperatureDefaultVisibility(isRaw),
+    [isRaw],
+  );
+  const allTrue1 = useMemo(() => [true], []);
+  const allTrue2 = useMemo(() => [true, true], []);
+
+  // Legend visibility per chart.
+  // - Temp keys on `resolution` so range changes restore range-appropriate defaults.
+  // - Wind/Solar persist for the session (no resetKey).
+  // - Single-series charts (Hum/Pres/Rain) drive non-interactive chips with stable [true].
+  const tempLegend = useChartLegend(tempInitial, resolution);
+  const humLegend = useChartLegend(allTrue1);
+  const presLegend = useChartLegend(allTrue1);
+  const wndLegend = useChartLegend(allTrue2);
+  const rnLegend = useChartLegend(allTrue1);
+  const suvLegend = useChartLegend(allTrue2);
+
   // Convert to uPlot columnar format
   const columnar = useMemo(() => ({
     temp: toColumnar(data, "time", ["temp_max", "temp_avg", "temp_min"]),
@@ -118,8 +159,6 @@ export default function HistoryPage() {
     (v: number) => formatTime(v, resolution),
     [resolution],
   );
-
-  const isRaw = resolution === "raw";
 
   // Chart options — rebuilt when resolution, units, or theme change
   const tempOpts = useMemo(() => temperatureOpts(colors, tickFmt, isRaw), [colors, tickFmt, isRaw]);
@@ -230,28 +269,100 @@ export default function HistoryPage() {
         </div>
       ) : (
         <div className="card-stagger grid grid-cols-1 gap-4 lg:grid-cols-2">
-          <ChartPanel title={`Temperature (${tempUnit})`}>
-            <UPlotChart options={tempZoomedOpts} data={columnar.temp} syncKey="history" onZoom={handleZoom} />
+          <ChartPanel
+            title={`Temperature (${tempUnit})`}
+            legend={
+              <ChartLegend
+                series={tempMeta}
+                visibility={tempLegend.visibility}
+                onToggle={tempLegend.toggle}
+              />
+            }
+          >
+            <UPlotChart
+              options={tempZoomedOpts}
+              data={columnar.temp}
+              syncKey="history"
+              onZoom={handleZoom}
+              seriesVisibility={tempLegend.visibility}
+            />
           </ChartPanel>
 
-          <ChartPanel title="Humidity (%)">
-            <UPlotChart options={humZoomedOpts} data={columnar.humidity} syncKey="history" onZoom={handleZoom} />
+          <ChartPanel
+            title="Humidity (%)"
+            legend={<ChartLegend series={humMeta} visibility={humLegend.visibility} />}
+          >
+            <UPlotChart
+              options={humZoomedOpts}
+              data={columnar.humidity}
+              syncKey="history"
+              onZoom={handleZoom}
+              seriesVisibility={humLegend.visibility}
+            />
           </ChartPanel>
 
-          <ChartPanel title={`Pressure (${pressureUnit})`}>
-            <UPlotChart options={presZoomedOpts} data={columnar.pressure} syncKey="history" onZoom={handleZoom} />
+          <ChartPanel
+            title={`Pressure (${pressureUnit})`}
+            legend={<ChartLegend series={presMeta} visibility={presLegend.visibility} />}
+          >
+            <UPlotChart
+              options={presZoomedOpts}
+              data={columnar.pressure}
+              syncKey="history"
+              onZoom={handleZoom}
+              seriesVisibility={presLegend.visibility}
+            />
           </ChartPanel>
 
-          <ChartPanel title={`Wind (${windUnit})`}>
-            <UPlotChart options={wndZoomedOpts} data={columnar.wind} syncKey="history" onZoom={handleZoom} />
+          <ChartPanel
+            title={`Wind (${windUnit})`}
+            legend={
+              <ChartLegend
+                series={wndMeta}
+                visibility={wndLegend.visibility}
+                onToggle={wndLegend.toggle}
+              />
+            }
+          >
+            <UPlotChart
+              options={wndZoomedOpts}
+              data={columnar.wind}
+              syncKey="history"
+              onZoom={handleZoom}
+              seriesVisibility={wndLegend.visibility}
+            />
           </ChartPanel>
 
-          <ChartPanel title={`Rain (${rainUnit})`}>
-            <UPlotChart options={rnZoomedOpts} data={columnar.rain} syncKey="history" onZoom={handleZoom} />
+          <ChartPanel
+            title={`Rain (${rainUnit})`}
+            legend={<ChartLegend series={rnMeta} visibility={rnLegend.visibility} />}
+          >
+            <UPlotChart
+              options={rnZoomedOpts}
+              data={columnar.rain}
+              syncKey="history"
+              onZoom={handleZoom}
+              seriesVisibility={rnLegend.visibility}
+            />
           </ChartPanel>
 
-          <ChartPanel title="Solar (W/m&sup2;) & UV Index">
-            <UPlotChart options={suvZoomedOpts} data={columnar.solarUv} syncKey="history" onZoom={handleZoom} />
+          <ChartPanel
+            title="Solar (W/m²) & UV Index"
+            legend={
+              <ChartLegend
+                series={suvMeta}
+                visibility={suvLegend.visibility}
+                onToggle={suvLegend.toggle}
+              />
+            }
+          >
+            <UPlotChart
+              options={suvZoomedOpts}
+              data={columnar.solarUv}
+              syncKey="history"
+              onZoom={handleZoom}
+              seriesVisibility={suvLegend.visibility}
+            />
           </ChartPanel>
         </div>
       )}
