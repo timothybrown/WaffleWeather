@@ -10,6 +10,9 @@ interface UPlotChartProps {
   syncKey?: string;
   onZoom?: (min: number, max: number) => void;
   className?: string;
+  /** Visibility per non-x series. Length = options.series.length - 1.
+   *  Index 0 here corresponds to options.series[1], etc. */
+  seriesVisibility?: boolean[];
 }
 
 function fmtVal(v: number): string {
@@ -116,12 +119,42 @@ function tooltipPlugin(seriesValueFns: Set<number>): uPlot.Plugin {
   };
 }
 
+function applyBandsForVisibility(
+  chart: uPlot,
+  visibility: boolean[] | undefined,
+): void {
+  const mutableChart = chart as unknown as {
+    __originalBands?: uPlot.Band[];
+    bands: uPlot.Band[];
+  };
+  const original = mutableChart.__originalBands;
+  if (!original) return;
+
+  if (!visibility) {
+    mutableChart.bands = original;
+    chart.redraw();
+    return;
+  }
+
+  // A band is "active" iff every series it references is visible.
+  // uPlot band series indices are 1-based; visibility[i] corresponds to series[i+1].
+  mutableChart.bands = original.filter((b) => {
+    const bandSeriesIndices = Array.isArray(b.series) ? b.series : [];
+    return bandSeriesIndices.every((sIdx: number) => {
+      const visIdx = sIdx - 1;
+      return visIdx < 0 || visIdx >= visibility.length || visibility[visIdx];
+    });
+  });
+  chart.redraw();
+}
+
 export default function UPlotChart({
   options,
   data,
   syncKey,
   onZoom,
   className,
+  seriesVisibility,
 }: UPlotChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<uPlot | null>(null);
@@ -138,6 +171,14 @@ export default function UPlotChart({
   useEffect(() => {
     dataRef.current = data;
   }, [data]);
+
+  // Hold latest seriesVisibility in a ref so createChart can read the user's
+  // current toggle state without making it a dependency (which would cause
+  // unnecessary chart recreation on every visibility change).
+  const visibilityRef = useRef(seriesVisibility);
+  useEffect(() => {
+    visibilityRef.current = seriesVisibility;
+  }, [seriesVisibility]);
 
   const createChart = useCallback(() => {
     const el = containerRef.current;
@@ -182,6 +223,25 @@ export default function UPlotChart({
     };
 
     chartRef.current = new uPlot(opts, dataRef.current, el);
+
+    // Capture the original bands so we can recompute the visible subset
+    // each time visibility changes. Stored on the instance for simplicity.
+    (chartRef.current as unknown as { __originalBands: uPlot.Band[] }).__originalBands =
+      [...(opts.bands ?? [])] as uPlot.Band[];
+
+    // Apply visibility to the freshly-created instance for EVERY series, not
+    // just hidden ones. The new instance's series[i].show comes from
+    // opts.series[i].show, which may be `false` (e.g. Temperature Max/Min in
+    // raw 24h mode) — we must override it with the user's current toggle
+    // state in either direction. setSeries is cheap and idempotent for
+    // matching state, so calling it unconditionally is correct.
+    const visibility = visibilityRef.current;
+    if (visibility) {
+      for (let i = 0; i < visibility.length; i++) {
+        chartRef.current.setSeries(i + 1, { show: visibility[i] });
+      }
+    }
+    applyBandsForVisibility(chartRef.current, visibility);
   }, [syncKey, options]);
 
   // Mount / options change → recreate chart.
@@ -204,6 +264,28 @@ export default function UPlotChart({
       chartRef.current.setData(data, true);
     }
   }, [data]);
+
+  // Series visibility — apply imperatively when prop changes.
+  // (Reapplication after chart recreation is handled in createChart effect — Task 5.)
+  const prevVisibilityRef = useRef(seriesVisibility);
+  useEffect(() => {
+    if (seriesVisibility === prevVisibilityRef.current) return;
+    const prev = prevVisibilityRef.current;
+    prevVisibilityRef.current = seriesVisibility;
+
+    const chart = chartRef.current;
+    if (!chart) return;
+
+    if (seriesVisibility) {
+      for (let i = 0; i < seriesVisibility.length; i++) {
+        if (!prev || prev[i] !== seriesVisibility[i]) {
+          // uPlot series indices are 1-based (0 = x-axis)
+          chart.setSeries(i + 1, { show: seriesVisibility[i] });
+        }
+      }
+    }
+    applyBandsForVisibility(chart, seriesVisibility);
+  }, [seriesVisibility]);
 
   // Zoom: apply scale changes imperatively without recreating chart
   const xScaleObj = options.scales?.x as Record<string, unknown> | undefined;

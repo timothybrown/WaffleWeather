@@ -252,3 +252,55 @@ export function stormDistanceOpts(
     ],
   } as uPlot.Options;
 }
+
+// ── Series metadata for legend chips ───────────────────────────
+
+export interface SeriesMeta {
+  label: string;
+  color: string;
+  dashed?: boolean;
+}
+
+/** Returns metadata in the same order as the corresponding *Opts() series array
+ *  (excluding the x-axis placeholder at index 0). Used to populate <ChartLegend>. */
+
+export function temperatureSeriesMeta(): SeriesMeta[] {
+  return [
+    { label: "Max", color: "#d47272" },
+    { label: "Avg", color: "#d4a574" },
+    { label: "Min", color: "#7aaccc" },
+  ];
+}
+
+export function humiditySeriesMeta(): SeriesMeta[] {
+  return [{ label: "Humidity", color: "#5eada5" }];
+}
+
+export function pressureSeriesMeta(): SeriesMeta[] {
+  return [{ label: "Pressure", color: "#a07cc0" }];
+}
+
+export function windSeriesMeta(): SeriesMeta[] {
+  return [
+    { label: "Speed", color: "#6aae7a" },
+    { label: "Gust", color: "#dba060", dashed: true },
+  ];
+}
+
+export function rainSeriesMeta(): SeriesMeta[] {
+  return [{ label: "Rain", color: "#6a9ac4" }];
+}
+
+export function solarUvSeriesMeta(): SeriesMeta[] {
+  return [
+    { label: "Solar", color: "#d4a574" },
+    { label: "UV", color: "#d47272" },
+  ];
+}
+
+/** Returns the default visibility array for the Temperature chart based on
+ *  resolution. Mirrors the `show: !isRaw` flags in temperatureOpts(). */
+export function temperatureDefaultVisibility(isRaw: boolean): boolean[] {
+  // Order matches temperatureSeriesMeta(): [Max, Avg, Min]
+  return [!isRaw, true, !isRaw];
+}
