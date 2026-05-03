@@ -23,10 +23,18 @@ export function useChartLegend(
   const [visibility, setVisibility] = useState<boolean[]>(() => [...initial]);
   const lastKeyRef = useRef(resetKey);
 
+  // React docs §"Adjusting state while rendering": this is the recommended
+  // pattern for deriving state from props. The ref read+write is guarded by
+  // the key-change check, so it cannot recurse, and writing the ref before
+  // setVisibility ensures the next render (scheduled by setVisibility) sees
+  // the updated key. The lint rule treats render-time ref access as suspect
+  // by default — we suppress it here for this specific guarded pattern.
+  /* eslint-disable react-hooks/refs */
   if (resetKey !== lastKeyRef.current) {
     lastKeyRef.current = resetKey;
     setVisibility([...initial]);
   }
+  /* eslint-enable react-hooks/refs */
 
   const toggle = useCallback((idx: number) => {
     setVisibility((prev) => {
