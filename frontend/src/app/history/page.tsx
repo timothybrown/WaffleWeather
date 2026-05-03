@@ -131,6 +131,7 @@ export default function HistoryPage() {
     () => temperatureDefaultVisibility(isRaw),
     [isRaw],
   );
+  const tempLegendMeta = isRaw ? [tempMeta[1]!] : tempMeta;
   const allTrue1 = useMemo(() => [true], []);
   const allTrue2 = useMemo(() => [true, true], []);
 
@@ -144,6 +145,7 @@ export default function HistoryPage() {
   const wndLegend = useChartLegend(allTrue2);
   const rnLegend = useChartLegend(allTrue1);
   const suvLegend = useChartLegend(allTrue2);
+  const tempLegendVisibility = isRaw ? [tempLegend.visibility[1] ?? true] : tempLegend.visibility;
 
   // Convert to uPlot columnar format
   const columnar = useMemo(() => ({
@@ -273,9 +275,9 @@ export default function HistoryPage() {
             title={`Temperature (${tempUnit})`}
             legend={
               <ChartLegend
-                series={tempMeta}
-                visibility={tempLegend.visibility}
-                onToggle={tempLegend.toggle}
+                series={tempLegendMeta}
+                visibility={tempLegendVisibility}
+                onToggle={isRaw ? undefined : tempLegend.toggle}
               />
             }
           >

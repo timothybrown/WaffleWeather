@@ -3,6 +3,9 @@ import { fireEvent, screen } from "@testing-library/react";
 import { renderWithProviders } from "@/test/wrappers";
 
 const upChartCalls: { props: { seriesVisibility?: boolean[] } }[] = [];
+const historyDataState = vi.hoisted(() => ({
+  resolution: "hourly" as "raw" | "hourly",
+}));
 
 vi.mock("@/hooks/useHistoryData", () => ({
   useHistoryData: () => ({
@@ -18,7 +21,7 @@ vi.mock("@/hooks/useHistoryData", () => ({
       },
     ],
     isLoading: false,
-    resolution: "hourly" as const,
+    resolution: historyDataState.resolution,
   }),
 }));
 
@@ -53,6 +56,7 @@ import HistoryPage from "./page";
 describe("HistoryPage chart legends wiring", () => {
   beforeEach(() => {
     upChartCalls.length = 0;
+    historyDataState.resolution = "hourly";
   });
 
   it("renders six chart panels with chip rows", () => {
@@ -103,6 +107,53 @@ describe("HistoryPage chart legends wiring", () => {
         c.props.seriesVisibility[1] === false,
     );
     expect(afterToggle).toBeDefined();
+  });
+
+  it("renders raw 24h Temperature as an Avg-only decorative legend", () => {
+    historyDataState.resolution = "raw";
+
+    renderWithProviders(<HistoryPage />);
+
+    expect(screen.queryByText("Max")).toBeNull();
+    expect(screen.getByText("Avg")).toBeInTheDocument();
+    expect(screen.queryByText("Min")).toBeNull();
+    expect(screen.getAllByTestId("legend-chip")).toHaveLength(8);
+
+    const avgChip = screen
+      .getByText("Avg")
+      .closest("[data-testid='legend-chip']");
+    expect(avgChip?.getAttribute("data-interactive")).toBe("false");
+
+    expect(upChartCalls[0]?.props.seriesVisibility).toEqual([false, true, false]);
+  });
+
+  it("does not let a multi-series legend hide the final visible series", () => {
+    renderWithProviders(<HistoryPage />);
+
+    const speedChip = screen
+      .getByText("Speed")
+      .closest("[data-testid='legend-chip']");
+    const gustChip = screen
+      .getByText("Gust")
+      .closest("[data-testid='legend-chip']");
+
+    expect(speedChip).not.toBeNull();
+    expect(gustChip).not.toBeNull();
+
+    fireEvent.click(speedChip!);
+    expect(speedChip?.getAttribute("data-visible")).toBe("false");
+    expect(gustChip?.getAttribute("data-visible")).toBe("true");
+
+    fireEvent.click(gustChip!);
+    expect(speedChip?.getAttribute("data-visible")).toBe("false");
+    expect(gustChip?.getAttribute("data-visible")).toBe("true");
+    expect(
+      upChartCalls.some((c) =>
+        c.props.seriesVisibility?.length === 2 &&
+        c.props.seriesVisibility[0] === false &&
+        c.props.seriesVisibility[1] === false,
+      ),
+    ).toBe(false);
   });
 
   it("renders the Solar/UV title with Unicode ² (not the literal &sup2;)", () => {

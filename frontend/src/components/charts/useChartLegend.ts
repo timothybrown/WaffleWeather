@@ -38,6 +38,9 @@ export function useChartLegend(
 
   const toggle = useCallback((idx: number) => {
     setVisibility((prev) => {
+      if (idx < 0 || idx >= prev.length) return prev;
+      if (prev[idx] && prev.filter(Boolean).length <= 1) return prev;
+
       const next = prev.slice();
       next[idx] = !next[idx];
       return next;

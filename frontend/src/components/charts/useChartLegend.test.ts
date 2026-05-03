@@ -25,6 +25,27 @@ describe("useChartLegend", () => {
     expect(result.current.visibility).toEqual([true, true, true]);
   });
 
+  it("does not toggle off the final visible series", () => {
+    const { result } = renderHook(() =>
+      useChartLegend([true, false]),
+    );
+
+    act(() => {
+      result.current.toggle(0);
+    });
+    expect(result.current.visibility).toEqual([true, false]);
+
+    act(() => {
+      result.current.toggle(1);
+    });
+    expect(result.current.visibility).toEqual([true, true]);
+
+    act(() => {
+      result.current.toggle(0);
+    });
+    expect(result.current.visibility).toEqual([false, true]);
+  });
+
   it("does NOT re-seed when initial reference changes but resetKey is unchanged", () => {
     const { result, rerender } = renderHook(
       ({ initial }: { initial: boolean[] }) => useChartLegend(initial, "k1"),
