@@ -79,7 +79,7 @@ vi.mock("@/components/history/CalendarHeatmap", () => ({
 
 import HistoryPage from "./page";
 
-function makeRawWindRows(count: number) {
+function makeRawHistoryRows(count: number) {
   // Simulate raw-resolution data: ISO-string time, full schema
   const startMs = new Date("2026-05-03T00:00:00Z").getTime();
   return Array.from({ length: count }, (_, i) => ({
@@ -207,7 +207,7 @@ describe("HistoryPage chart legends wiring", () => {
   it("Wind chart receives bucketed data, agg labels, AND bar options in raw 24h mode", () => {
     historyDataState.resolution = "raw";
     // Provide enough raw samples to span 24h so bucketing can fire
-    historyDataState.dataOverride = makeRawWindRows(5400);
+    historyDataState.dataOverride = makeRawHistoryRows(5400);
 
     renderWithProviders(<HistoryPage />);
 
@@ -239,7 +239,7 @@ describe("HistoryPage chart legends wiring", () => {
 
   it("Solar/UV chart receives bucketed data, agg labels, AND bar options in raw 24h mode", () => {
     historyDataState.resolution = "raw";
-    historyDataState.dataOverride = makeRawWindRows(5400);
+    historyDataState.dataOverride = makeRawHistoryRows(5400);
 
     renderWithProviders(<HistoryPage />);
 
