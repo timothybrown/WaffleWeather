@@ -236,4 +236,36 @@ describe("HistoryPage chart legends wiring", () => {
     const speed = windCall?.props.options?.series?.[1];
     expect(speed?.fill).toBeUndefined();
   });
+
+  it("Solar/UV chart receives bucketed data, agg labels, AND bar options in raw 24h mode", () => {
+    historyDataState.resolution = "raw";
+    historyDataState.dataOverride = makeRawWindRows(5400);
+
+    renderWithProviders(<HistoryPage />);
+
+    // Solar/UV is the 6th chart panel (index 5)
+    const solarCall = upChartCalls[5];
+    expect(solarCall?.props.bucketMeta).toBeDefined();
+    expect(solarCall?.props.bucketMeta!.length).toBeGreaterThan(0);
+    expect(solarCall?.props.aggregationLabels).toEqual(["Avg Solar", "Peak UV"]);
+
+    // Critical: prove the BAR opts were selected, not the area-line opts.
+    // Bucketed Solar opts set series[1].fill to the solid amber color (hex);
+    // line opts use a semi-transparent rgba area-fill.
+    const solar = solarCall?.props.options?.series?.[1];
+    expect(solar?.fill).toBe("#d4a574");
+  });
+
+  it("Solar/UV chart receives raw data, no bucketMeta, AND area-line options in hourly mode", () => {
+    historyDataState.resolution = "hourly";
+    renderWithProviders(<HistoryPage />);
+
+    const solarCall = upChartCalls[5];
+    expect(solarCall?.props.bucketMeta).toBeUndefined();
+    expect(solarCall?.props.aggregationLabels).toBeUndefined();
+
+    // Line opts use rgba area-fill, NOT the solid hex bar color
+    const solar = solarCall?.props.options?.series?.[1];
+    expect(solar?.fill).toMatch(/^rgba\(/);
+  });
 });

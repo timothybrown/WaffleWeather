@@ -19,6 +19,7 @@ import {
   windOptsBucketed,
   rainOpts,
   solarUvOpts,
+  solarUvOptsBucketed,
   temperatureSeriesMeta,
   humiditySeriesMeta,
   pressureSeriesMeta,
@@ -169,6 +170,26 @@ export default function HistoryPage() {
 
   const useWindBars = isRaw && windBucket.bucketMeta != null;
 
+  const solarBucketSpec = useMemo<SeriesSpec<typeof dataUnix[number]>[]>(
+    () => [
+      { field: "solar_avg", agg: "avg" },
+      { field: "uv_max", agg: "max" },
+    ],
+    [],
+  );
+  const solarPanelRef = useRef<HTMLDivElement>(null);
+  const solarSize = useElementSize(solarPanelRef);
+
+  const solarBucket = useAdaptiveBucket({
+    rawData: dataUnix,
+    visibleSpanS,
+    chartWidthPx: solarSize.width,
+    series: solarBucketSpec,
+    enabled: isRaw,
+  });
+
+  const useSolarBars = isRaw && solarBucket.bucketMeta != null;
+
   // Stable initial-visibility arrays. Temp depends on resolution (raw mode
   // hides Max/Min by default — see chartConfigs.ts and the design spec).
   const tempInitial = useMemo(
@@ -200,8 +221,10 @@ export default function HistoryPage() {
       ? toColumnar(windBucket.rows, "time", ["wind_avg", "wind_gust_max"])
       : toColumnar(data, "time", ["wind_avg", "wind_gust_max"]),
     rain: toColumnar(data, "time", ["rain_max"]),
-    solarUv: toColumnar(data, "time", ["solar_avg", "uv_max"]),
-  }), [data, useWindBars, windBucket.rows]);
+    solarUv: useSolarBars
+      ? toColumnar(solarBucket.rows, "time", ["solar_avg", "uv_max"])
+      : toColumnar(data, "time", ["solar_avg", "uv_max"]),
+  }), [data, useWindBars, windBucket.rows, useSolarBars, solarBucket.rows]);
 
   const tickFmt = useCallback(
     (v: number) => formatTime(v, resolution),
@@ -218,7 +241,10 @@ export default function HistoryPage() {
   );
   const rainDecimals = system === "imperial" ? 3 : 1;
   const rnOpts = useMemo(() => rainOpts(colors, tickFmt, rainDecimals), [colors, tickFmt, rainDecimals]);
-  const suvOpts = useMemo(() => solarUvOpts(colors, tickFmt), [colors, tickFmt]);
+  const suvOpts = useMemo(
+    () => (useSolarBars ? solarUvOptsBucketed(colors, tickFmt) : solarUvOpts(colors, tickFmt)),
+    [colors, tickFmt, useSolarBars],
+  );
 
   // Zoom
   const handleZoom = useCallback((min: number, max: number) => {
@@ -402,6 +428,7 @@ export default function HistoryPage() {
 
           <ChartPanel
             title="Solar (W/m²) & UV Index"
+            panelRef={solarPanelRef}
             legend={
               <ChartLegend
                 series={suvMeta}
@@ -416,6 +443,8 @@ export default function HistoryPage() {
               syncKey="history"
               onZoom={handleZoom}
               seriesVisibility={suvLegend.visibility}
+              bucketMeta={useSolarBars ? solarBucket.bucketMeta ?? undefined : undefined}
+              aggregationLabels={useSolarBars ? ["Avg Solar", "Peak UV"] : undefined}
             />
           </ChartPanel>
         </div>
