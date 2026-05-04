@@ -1,11 +1,14 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import { convertTemp, convertSpeed, convertPressure, convertRain } from "@/lib/units";
 import { useUnits } from "@/providers/UnitsProvider";
 import { useHistoryData, type TimeRange } from "@/hooks/useHistoryData";
 import { useResolvedColors } from "@/hooks/useResolvedColors";
+import { useElementSize } from "@/hooks/useElementSize";
+import { useAdaptiveBucket } from "@/hooks/useAdaptiveBucket";
+import type { SeriesSpec } from "@/lib/adaptive-bucket";
 import { toColumnar } from "@/lib/uplot-data";
 import UPlotChart from "@/components/charts/UPlotChart";
 import {
@@ -13,6 +16,7 @@ import {
   humidityOpts,
   pressureOpts,
   windOpts,
+  windOptsBucketed,
   rainOpts,
   solarUvOpts,
   temperatureSeriesMeta,
@@ -67,15 +71,17 @@ function ChartPanel({
   title,
   children,
   legend,
+  panelRef,
 }: {
   title: string;
   children: React.ReactNode;
   legend: React.ReactNode;
+  panelRef?: React.RefObject<HTMLDivElement | null>;
 }) {
   return (
     <div className="weather-card rounded-xl p-4">
       <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-text-muted">{title}</h3>
-      <div className="h-52">{children}</div>
+      <div ref={panelRef} className="h-52">{children}</div>
       {legend}
     </div>
   );
@@ -118,12 +124,50 @@ export default function HistoryPage() {
 
   const isRaw = resolution === "raw";
 
+  const dataUnix = useMemo(
+    () =>
+      data.map((d) => ({
+        ...d,
+        time:
+          typeof d.time === "number"
+            ? d.time
+            : new Date(d.time as string).getTime() / 1000,
+      })),
+    [data],
+  );
+
+  const visibleSpanS = useMemo(() => {
+    if (zoomRange) return zoomRange.max - zoomRange.min;
+    if (dataUnix.length === 0) return 0;
+    return dataUnix[dataUnix.length - 1].time - dataUnix[0].time;
+  }, [zoomRange, dataUnix]);
+
   const tempMeta = useMemo(() => temperatureSeriesMeta(), []);
   const humMeta = useMemo(() => humiditySeriesMeta(), []);
   const presMeta = useMemo(() => pressureSeriesMeta(), []);
   const wndMeta = useMemo(() => windSeriesMeta(), []);
   const rnMeta = useMemo(() => rainSeriesMeta(), []);
   const suvMeta = useMemo(() => solarUvSeriesMeta(), []);
+
+  const windBucketSpec = useMemo<SeriesSpec<typeof dataUnix[number]>[]>(
+    () => [
+      { field: "wind_avg", agg: "avg" },
+      { field: "wind_gust_max", agg: "max" },
+    ],
+    [],
+  );
+  const windPanelRef = useRef<HTMLDivElement>(null);
+  const windSize = useElementSize(windPanelRef);
+
+  const windBucket = useAdaptiveBucket({
+    rawData: dataUnix,
+    visibleSpanS,
+    chartWidthPx: windSize.width,
+    series: windBucketSpec,
+    enabled: isRaw,
+  });
+
+  const useWindBars = isRaw && windBucket.bucketMeta != null;
 
   // Stable initial-visibility arrays. Temp depends on resolution (raw mode
   // hides Max/Min by default — see chartConfigs.ts and the design spec).
@@ -152,10 +196,12 @@ export default function HistoryPage() {
     temp: toColumnar(data, "time", ["temp_max", "temp_avg", "temp_min"]),
     humidity: toColumnar(data, "time", ["humidity_avg"]),
     pressure: toColumnar(data, "time", ["pressure_avg"]),
-    wind: toColumnar(data, "time", ["wind_avg", "wind_gust_max"]),
+    wind: useWindBars
+      ? toColumnar(windBucket.rows, "time", ["wind_avg", "wind_gust_max"])
+      : toColumnar(data, "time", ["wind_avg", "wind_gust_max"]),
     rain: toColumnar(data, "time", ["rain_max"]),
     solarUv: toColumnar(data, "time", ["solar_avg", "uv_max"]),
-  }), [data]);
+  }), [data, useWindBars, windBucket.rows]);
 
   const tickFmt = useCallback(
     (v: number) => formatTime(v, resolution),
@@ -166,7 +212,10 @@ export default function HistoryPage() {
   const tempOpts = useMemo(() => temperatureOpts(colors, tickFmt, isRaw), [colors, tickFmt, isRaw]);
   const humOpts = useMemo(() => humidityOpts(colors, tickFmt), [colors, tickFmt]);
   const presOpts = useMemo(() => pressureOpts(colors, tickFmt), [colors, tickFmt]);
-  const wndOpts = useMemo(() => windOpts(colors, tickFmt), [colors, tickFmt]);
+  const wndOpts = useMemo(
+    () => (useWindBars ? windOptsBucketed(colors, tickFmt) : windOpts(colors, tickFmt)),
+    [colors, tickFmt, useWindBars],
+  );
   const rainDecimals = system === "imperial" ? 3 : 1;
   const rnOpts = useMemo(() => rainOpts(colors, tickFmt, rainDecimals), [colors, tickFmt, rainDecimals]);
   const suvOpts = useMemo(() => solarUvOpts(colors, tickFmt), [colors, tickFmt]);
@@ -318,6 +367,7 @@ export default function HistoryPage() {
 
           <ChartPanel
             title={`Wind (${windUnit})`}
+            panelRef={windPanelRef}
             legend={
               <ChartLegend
                 series={wndMeta}
@@ -332,6 +382,8 @@ export default function HistoryPage() {
               syncKey="history"
               onZoom={handleZoom}
               seriesVisibility={wndLegend.visibility}
+              bucketMeta={useWindBars ? windBucket.bucketMeta ?? undefined : undefined}
+              aggregationLabels={useWindBars ? ["Avg Speed", "Peak Gust"] : undefined}
             />
           </ChartPanel>
 
