@@ -11,7 +11,9 @@ export function toColumnar<T extends Record<string, unknown>>(
 ): uPlot.AlignedData {
   const timestamps = new Float64Array(rows.length);
   for (let i = 0; i < rows.length; i++) {
-    timestamps[i] = new Date(rows[i][timeKey] as string).getTime() / 1000;
+    const v = rows[i][timeKey];
+    timestamps[i] =
+      typeof v === "number" ? v : new Date(v as string).getTime() / 1000;
   }
 
   const series: (number | null)[][] = seriesKeys.map((key) =>
