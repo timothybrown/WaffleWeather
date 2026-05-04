@@ -89,4 +89,31 @@ describe("useElementSize", () => {
     act(() => { vi.advanceTimersByTime(50); });
     expect(result.current.size).toEqual({ width: 200, height: 75 });
   });
+
+  it("cancels pending debounce timer on unmount — no setState after unmount", () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const { unmount } = setup(100);
+
+    // Fire the ResizeObserver callback — schedules the debounce timer
+    act(() => {
+      activeCallback!([{ contentRect: { width: 800, height: 200 } }]);
+    });
+
+    // Advance only halfway through the debounce window, then unmount
+    act(() => { vi.advanceTimersByTime(50); });
+    unmount();
+
+    // Advance well past where the debounce would have fired
+    act(() => { vi.advanceTimersByTime(200); });
+
+    // React logs "Warning: Can't perform a React state update on an unmounted component"
+    // if setState fires after unmount. Assert it never happened.
+    const stateAfterUnmountWarning = errorSpy.mock.calls.some(([msg]) =>
+      typeof msg === "string" && msg.includes("unmounted component")
+    );
+    expect(stateAfterUnmountWarning).toBe(false);
+
+    errorSpy.mockRestore();
+  });
 });
