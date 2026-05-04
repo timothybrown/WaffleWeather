@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
 import { convertTemp, convertSpeed, convertPressure, convertRain } from "@/lib/units";
 import { useUnits } from "@/providers/UnitsProvider";
@@ -77,7 +77,10 @@ function ChartPanel({
   title: string;
   children: React.ReactNode;
   legend: React.ReactNode;
-  panelRef?: React.RefObject<HTMLDivElement | null>;
+  /** Accepts either a ref object or a callback ref. Callback refs let
+   *  consumers observe ref attachment, which `useElementSize` relies on
+   *  to set up its ResizeObserver after conditional parent rendering. */
+  panelRef?: React.Ref<HTMLDivElement>;
 }) {
   return (
     <div className="weather-card rounded-xl p-4">
@@ -157,8 +160,7 @@ export default function HistoryPage() {
     ],
     [],
   );
-  const windPanelRef = useRef<HTMLDivElement>(null);
-  const windSize = useElementSize(windPanelRef);
+  const { ref: windPanelRef, size: windSize } = useElementSize<HTMLDivElement>();
 
   const windBucket = useAdaptiveBucket({
     rawData: dataUnix,
@@ -177,8 +179,7 @@ export default function HistoryPage() {
     ],
     [],
   );
-  const solarPanelRef = useRef<HTMLDivElement>(null);
-  const solarSize = useElementSize(solarPanelRef);
+  const { ref: solarPanelRef, size: solarSize } = useElementSize<HTMLDivElement>();
 
   const solarBucket = useAdaptiveBucket({
     rawData: dataUnix,

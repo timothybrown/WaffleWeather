@@ -51,7 +51,7 @@ vi.mock("@/hooks/useResolvedColors", () => ({
 }));
 
 vi.mock("@/hooks/useElementSize", () => ({
-  useElementSize: () => ({ width: 700, height: 200 }),
+  useElementSize: () => ({ ref: () => {}, size: { width: 700, height: 200 } }),
 }));
 
 vi.mock("@/components/charts/UPlotChart", () => ({

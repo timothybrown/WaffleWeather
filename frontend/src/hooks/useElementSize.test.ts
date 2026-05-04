@@ -1,6 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { renderHook, act } from "@testing-library/react";
-import { useRef } from "react";
 import { useElementSize } from "./useElementSize";
 
 type ROEntry = { contentRect: { width: number; height: number } };
@@ -33,34 +32,65 @@ afterEach(() => {
 });
 
 function setup(debounceMs?: number) {
-  return renderHook(() => {
-    const ref = useRef<HTMLDivElement>(null);
-    // Attach a fake element so ref.current is non-null at effect time
-    const fakeEl = document.createElement("div");
-    if (ref.current === null) {
-      (ref as { current: HTMLDivElement | null }).current = fakeEl;
-    }
-    const size = useElementSize(ref, debounceMs);
-    return { size, ref };
-  });
+  return renderHook(() => useElementSize<HTMLDivElement>(debounceMs));
 }
 
-describe("useElementSize", () => {
-  it("returns zero size before any ResizeObserver callback fires", () => {
+describe("useElementSize (callback ref)", () => {
+  it("returns zero size before the ref is attached", () => {
     const { result } = setup();
     expect(result.current.size).toEqual({ width: 0, height: 0 });
+    expect(observeCalls).toBe(0);
   });
 
-  it("observes the element on mount and disconnects on unmount", () => {
-    const { unmount } = setup();
+  it("does not observe until ref attaches; observes immediately when an element is set", () => {
+    const { result } = setup();
+    expect(observeCalls).toBe(0);
+
+    const fakeEl = document.createElement("div");
+    act(() => { result.current.ref(fakeEl); });
+    expect(observeCalls).toBe(1);
+  });
+
+  it("re-attaches ResizeObserver when the element changes (conditional remount)", () => {
+    // This is the production bug fixed by the callback-ref pattern.
+    // If the parent renders the observed element conditionally (e.g. only
+    // after a loading spinner clears), the ref attaches LATER than mount.
+    const { result } = setup();
+    expect(observeCalls).toBe(0);
+
+    // Initial render: no element
+    act(() => { result.current.ref(null); });
+    expect(observeCalls).toBe(0);
+
+    // Conditional element appears later
+    const el1 = document.createElement("div");
+    act(() => { result.current.ref(el1); });
     expect(observeCalls).toBe(1);
     expect(disconnectCalls).toBe(0);
+
+    // Element gets unmounted, then a fresh one appears
+    act(() => { result.current.ref(null); });
+    expect(disconnectCalls).toBe(1);
+
+    const el2 = document.createElement("div");
+    act(() => { result.current.ref(el2); });
+    expect(observeCalls).toBe(2);
+  });
+
+  it("disconnects observer when hook unmounts", () => {
+    const { result, unmount } = setup();
+    const fakeEl = document.createElement("div");
+    act(() => { result.current.ref(fakeEl); });
+    expect(disconnectCalls).toBe(0);
+
     unmount();
     expect(disconnectCalls).toBe(1);
   });
 
   it("updates size after debounce window elapses", () => {
     const { result } = setup(100);
+    const fakeEl = document.createElement("div");
+    act(() => { result.current.ref(fakeEl); });
 
     act(() => {
       activeCallback!([{ contentRect: { width: 800, height: 200 } }]);
@@ -74,6 +104,8 @@ describe("useElementSize", () => {
 
   it("coalesces rapid resizes into a single update", () => {
     const { result } = setup(100);
+    const fakeEl = document.createElement("div");
+    act(() => { result.current.ref(fakeEl); });
 
     act(() => {
       activeCallback!([{ contentRect: { width: 100, height: 50 } }]);
@@ -93,22 +125,19 @@ describe("useElementSize", () => {
   it("cancels pending debounce timer on unmount — no setState after unmount", () => {
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
-    const { unmount } = setup(100);
+    const { result, unmount } = setup(100);
+    const fakeEl = document.createElement("div");
+    act(() => { result.current.ref(fakeEl); });
 
-    // Fire the ResizeObserver callback — schedules the debounce timer
     act(() => {
       activeCallback!([{ contentRect: { width: 800, height: 200 } }]);
     });
 
-    // Advance only halfway through the debounce window, then unmount
     act(() => { vi.advanceTimersByTime(50); });
     unmount();
 
-    // Advance well past where the debounce would have fired
     act(() => { vi.advanceTimersByTime(200); });
 
-    // React logs "Warning: Can't perform a React state update on an unmounted component"
-    // if setState fires after unmount. Assert it never happened.
     const stateAfterUnmountWarning = errorSpy.mock.calls.some(([msg]) =>
       typeof msg === "string" && msg.includes("unmounted component")
     );
