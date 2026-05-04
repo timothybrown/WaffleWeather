@@ -276,4 +276,167 @@ describe("UPlotChart", () => {
 
     expect(inst.bands).toHaveLength(1);
   });
+
+  // Build a fake uPlot instance the tooltip plugin can drive against.
+  // Only the surface tooltipPlugin reads is provided.
+  //
+  // The plugin skips any series where `!s.show`; uPlot defaults non-x series
+  // to visible at construction time, but `opts.series` as authored has
+  // `show: undefined` (which is falsy). We force `show: true` for non-x
+  // series in the fake so the plugin doesn't skip every row.
+  function makeFakeUPlot(opts: uPlot.Options, data: uPlot.AlignedData) {
+    const over = document.createElement("div");
+    Object.defineProperty(over, "clientWidth", { value: 600, configurable: true });
+    return {
+      over,
+      cursor: { idx: null as number | null, left: 100 },
+      data,
+      series: (opts.series ?? []).map((s, i) =>
+        i === 0 ? s : { ...s, show: s.show ?? true },
+      ),
+    };
+  }
+
+  function getTooltipPlugin(): uPlot.Plugin {
+    const opts = UPlotConstructor.mock.calls[0]?.[0] as uPlot.Options;
+    const plugin = opts.plugins?.[0];
+    if (!plugin) throw new Error("tooltip plugin not registered");
+    return plugin;
+  }
+
+  // uPlot's hook type is `Hook | Hook[]`. In our plugin we always register
+  // arrays, so narrow with a cast for callsites.
+  type HookFn = (u: uPlot) => void;
+  function firstHook(h: HookFn | HookFn[] | undefined): HookFn {
+    if (!h) throw new Error("hook missing");
+    const arr = Array.isArray(h) ? h : [h];
+    const fn = arr[0];
+    if (!fn) throw new Error("hook empty");
+    return fn;
+  }
+
+  it("renders interval header (tStart–tEnd) and aggregation labels when bucketMeta is provided", () => {
+    const data: uPlot.AlignedData = [
+      [1700000040, 1700000100, 1700000160], // tStart values for 3 buckets
+      [3.2, 4.1, null],                       // speed (avg)
+      [6.1, 7.0, null],                       // gust (max)
+    ];
+    const bucketMeta = [
+      { tStart: 1700000040, tEnd: 1700000100 },
+      { tStart: 1700000100, tEnd: 1700000160 },
+      { tStart: 1700000160, tEnd: 1700000220 },
+    ];
+    const aggregationLabels = ["Avg Speed", "Peak Gust"];
+
+    const opts: Omit<uPlot.Options, "width" | "height"> = {
+      series: [
+        {},
+        { label: "Speed", stroke: "#6aae7a" },
+        { label: "Gust", stroke: "#dba060" },
+      ],
+    } as uPlot.Options;
+
+    render(
+      <UPlotChart
+        options={opts}
+        data={data}
+        bucketMeta={bucketMeta}
+        aggregationLabels={aggregationLabels}
+      />,
+    );
+
+    const plugin = getTooltipPlugin();
+    const fake = makeFakeUPlot(
+      UPlotConstructor.mock.calls[0]![0] as uPlot.Options,
+      data,
+    );
+    firstHook(plugin.hooks.init as HookFn[] | undefined)(fake as unknown as uPlot);
+
+    // Hover bucket index 1
+    fake.cursor.idx = 1;
+    firstHook(plugin.hooks.setCursor as HookFn[] | undefined)(fake as unknown as uPlot);
+
+    const tooltip = fake.over.querySelector(".uplot-tooltip") as HTMLElement;
+    expect(tooltip).not.toBeNull();
+    expect(tooltip.style.display).toBe("block");
+
+    const timeEl = tooltip.querySelector(".uplot-tooltip-time");
+    // Interval header has an en-dash between two HH:MM tokens
+    expect(timeEl?.textContent).toMatch(/\d{2}:\d{2}–\d{2}:\d{2}/);
+
+    const labels = Array.from(tooltip.querySelectorAll(".uplot-tooltip-label"))
+      .map((el) => el.textContent);
+    expect(labels).toContain("Avg Speed:");
+    expect(labels).toContain("Peak Gust:");
+
+    const values = Array.from(tooltip.querySelectorAll(".uplot-tooltip-value"))
+      .map((el) => el.textContent);
+    expect(values).toContain("4.1");
+    expect(values).toContain("7");
+  });
+
+  it("renders single-instant tooltip header when bucketMeta is omitted (raw mode)", () => {
+    const data: uPlot.AlignedData = [
+      [1700000000, 1700000016, 1700000032],
+      [3.2, 4.1, 5.0],
+    ];
+
+    const opts: Omit<uPlot.Options, "width" | "height"> = {
+      series: [
+        {},
+        { label: "Speed", stroke: "#6aae7a" },
+      ],
+    } as uPlot.Options;
+
+    render(<UPlotChart options={opts} data={data} />);
+
+    const plugin = getTooltipPlugin();
+    const fake = makeFakeUPlot(
+      UPlotConstructor.mock.calls[0]![0] as uPlot.Options,
+      data,
+    );
+    firstHook(plugin.hooks.init as HookFn[] | undefined)(fake as unknown as uPlot);
+
+    fake.cursor.idx = 1;
+    firstHook(plugin.hooks.setCursor as HookFn[] | undefined)(fake as unknown as uPlot);
+
+    const tooltip = fake.over.querySelector(".uplot-tooltip") as HTMLElement;
+    const timeEl = tooltip.querySelector(".uplot-tooltip-time");
+    // Single-instant header: NO en/em-dash separator between two HH:MM tokens
+    expect(timeEl?.textContent).not.toMatch(/\d{2}:\d{2}–\d{2}:\d{2}/);
+
+    const labelEls = tooltip.querySelectorAll(".uplot-tooltip-label");
+    expect(labelEls[0]?.textContent).toBe("Speed:");
+  });
+
+  it("falls back to series.label when aggregationLabels is omitted but bucketMeta is present", () => {
+    // Edge case: bucketMeta without explicit agg labels (defensive — caller
+    // bug, but should still render gracefully).
+    const data: uPlot.AlignedData = [
+      [1700000040, 1700000100],
+      [3.2, 4.1],
+    ];
+    const bucketMeta = [
+      { tStart: 1700000040, tEnd: 1700000100 },
+      { tStart: 1700000100, tEnd: 1700000160 },
+    ];
+    const opts: Omit<uPlot.Options, "width" | "height"> = {
+      series: [{}, { label: "Speed", stroke: "#6aae7a" }],
+    } as uPlot.Options;
+
+    render(<UPlotChart options={opts} data={data} bucketMeta={bucketMeta} />);
+
+    const plugin = getTooltipPlugin();
+    const fake = makeFakeUPlot(
+      UPlotConstructor.mock.calls[0]![0] as uPlot.Options,
+      data,
+    );
+    firstHook(plugin.hooks.init as HookFn[] | undefined)(fake as unknown as uPlot);
+    fake.cursor.idx = 0;
+    firstHook(plugin.hooks.setCursor as HookFn[] | undefined)(fake as unknown as uPlot);
+
+    const tooltip = fake.over.querySelector(".uplot-tooltip") as HTMLElement;
+    const labelEl = tooltip.querySelector(".uplot-tooltip-label");
+    expect(labelEl?.textContent).toBe("Speed:");
+  });
 });

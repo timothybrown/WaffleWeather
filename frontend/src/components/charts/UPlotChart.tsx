@@ -3,6 +3,7 @@
 import { useEffect, useRef, useCallback } from "react";
 import uPlot from "uplot";
 import "uplot/dist/uPlot.min.css";
+import type { BucketMeta } from "@/lib/adaptive-bucket";
 
 interface UPlotChartProps {
   options: Omit<uPlot.Options, "width" | "height">;
@@ -13,6 +14,13 @@ interface UPlotChartProps {
   /** Visibility per non-x series. Length = options.series.length - 1.
    *  Index 0 here corresponds to options.series[1], etc. */
   seriesVisibility?: boolean[];
+  /** Optional per-row bucket boundaries. When present, tooltip header shows
+   *  the interval [tStart, tEnd) instead of a single instant. */
+  bucketMeta?: BucketMeta[];
+  /** Optional per-non-x-series labels overriding `options.series[i].label`
+   *  in the tooltip. Length matches `seriesVisibility`. Used to surface
+   *  aggregation semantics (e.g. "Avg Speed", "Peak Gust"). */
+  aggregationLabels?: string[];
 }
 
 function fmtVal(v: number): string {
@@ -20,7 +28,11 @@ function fmtVal(v: number): string {
   return v.toFixed(1);
 }
 
-function tooltipPlugin(seriesValueFns: Set<number>): uPlot.Plugin {
+function tooltipPlugin(
+  seriesValueFns: Set<number>,
+  bucketMetaRef: React.RefObject<BucketMeta[] | undefined>,
+  aggLabelsRef: React.RefObject<string[] | undefined>,
+): uPlot.Plugin {
   let tooltip: HTMLDivElement;
 
   function init(u: uPlot) {
@@ -38,14 +50,33 @@ function tooltipPlugin(seriesValueFns: Set<number>): uPlot.Plugin {
     }
 
     const ts = u.data[0][idx];
-    const date = new Date(ts * 1000);
-    const timeStr = date.toLocaleString([], {
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: false,
-    });
+    const meta = bucketMetaRef.current?.[idx];
+    let timeStr: string;
+    if (meta) {
+      const dStart = new Date(meta.tStart * 1000);
+      const dEnd = new Date(meta.tEnd * 1000);
+      const datePart = dStart.toLocaleString([], {
+        month: "short",
+        day: "numeric",
+      });
+      const timeFmt: Intl.DateTimeFormatOptions = {
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false,
+      };
+      const startTime = dStart.toLocaleTimeString([], timeFmt);
+      const endTime = dEnd.toLocaleTimeString([], timeFmt);
+      timeStr = `${datePart}, ${startTime}–${endTime}`;
+    } else {
+      const date = new Date(ts * 1000);
+      timeStr = date.toLocaleString([], {
+        month: "short",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false,
+      });
+    }
 
     type Row = { color: string; label: string; display: string };
     const rowData: Row[] = [];
@@ -57,9 +88,10 @@ function tooltipPlugin(seriesValueFns: Set<number>): uPlot.Plugin {
       const color =
         typeof s.stroke === "function" ? s.stroke(u, i) : s.stroke;
       const display = seriesValueFns.has(i) && typeof s.value === "function" ? s.value(u, val, i, idx) : fmtVal(val);
+      const labelOverride = aggLabelsRef.current?.[i - 1];
       rowData.push({
         color: String(color ?? ""),
-        label: String(s.label ?? ""),
+        label: String(labelOverride ?? s.label ?? ""),
         display: String(display),
       });
     }
@@ -155,6 +187,8 @@ export default function UPlotChart({
   onZoom,
   className,
   seriesVisibility,
+  bucketMeta,
+  aggregationLabels,
 }: UPlotChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<uPlot | null>(null);
@@ -180,6 +214,19 @@ export default function UPlotChart({
     visibilityRef.current = seriesVisibility;
   }, [seriesVisibility]);
 
+  // Hold latest bucketMeta / aggregationLabels in refs so the tooltip plugin
+  // (created once per chart instance) reads fresh values on every cursor
+  // movement without forcing chart recreation when these props change.
+  const bucketMetaRef = useRef<BucketMeta[] | undefined>(bucketMeta);
+  useEffect(() => {
+    bucketMetaRef.current = bucketMeta;
+  }, [bucketMeta]);
+
+  const aggLabelsRef = useRef<string[] | undefined>(aggregationLabels);
+  useEffect(() => {
+    aggLabelsRef.current = aggregationLabels;
+  }, [aggregationLabels]);
+
   const createChart = useCallback(() => {
     const el = containerRef.current;
     if (!el) return;
@@ -200,6 +247,8 @@ export default function UPlotChart({
             .map((s, i) => (s.value != null ? i : -1))
             .filter((i) => i >= 0),
         ),
+        bucketMetaRef,
+        aggLabelsRef,
       )],
       cursor: {
         ...options.cursor,
