@@ -151,6 +151,47 @@ export function windOpts(
   } as uPlot.Options;
 }
 
+/**
+ * Bucketed Wind opts: Speed as bars, Gust as a thin stepped line.
+ *
+ * - Bars use `align: 1` so they occupy `[tStart, tEnd)` from each row's time.
+ * - Gust line uses `paths.stepped({ align: 1 })` for the same half-open
+ *   semantic — values hold from x to the next x. This pairs with the
+ *   bucketer outputting `time = tStart`.
+ * - Gust is rendered with dashed stroke at 0.7 opacity so two filled/colored
+ *   series don't visually fight when both are visible.
+ *
+ * `barWidthPx` is the chart container width in pixels at render time. Bars
+ * use `size: [barFactor, maxWidth]` where `barFactor` is the fraction of the
+ * available slot to fill (1.0 = full width, no gap; we use 0.95 for 1-px gap).
+ */
+export function windOptsBucketed(
+  colors: ResolvedColors,
+  tickFmt: TickFormatter,
+): Omit<uPlot.Options, "width" | "height"> {
+  const bars = uPlot.paths.bars!({ size: [0.95, 100], align: 1 });
+  const stepped = uPlot.paths.stepped!({ align: 1 });
+  return {
+    ...baseOpts(colors, tickFmt),
+    series: [
+      {},
+      {
+        label: "Speed",
+        stroke: "#6aae7a",
+        fill: "#6aae7a",
+        paths: bars,
+      },
+      {
+        label: "Gust",
+        stroke: "rgba(219, 160, 96, 0.7)",
+        width: 1.5,
+        dash: [4, 2],
+        paths: stepped,
+      },
+    ],
+  } as uPlot.Options;
+}
+
 export function rainOpts(
   colors: ResolvedColors,
   tickFmt: TickFormatter,
@@ -207,6 +248,50 @@ export function solarUvOpts(
         stroke: "#d47272",
         fill: "rgba(212, 114, 114, 0.15)",
         paths: spline,
+        scale: "uv",
+      },
+    ],
+  } as uPlot.Options;
+}
+
+/**
+ * Bucketed Solar/UV opts: Solar as amber bars (no fill underline), UV stays
+ * as a stepped line on the right axis. Both use `align: 1` to match the
+ * bucketer's `time = tStart` convention.
+ */
+export function solarUvOptsBucketed(
+  colors: ResolvedColors,
+  tickFmt: TickFormatter,
+): Omit<uPlot.Options, "width" | "height"> {
+  const axes = commonAxes(colors, tickFmt);
+  axes.push({
+    stroke: colors.textFaint,
+    grid: { show: false },
+    ticks: { stroke: colors.border, width: 1 },
+    font: "11px sans-serif",
+    scale: "uv",
+    side: 1,
+  });
+  const bars = uPlot.paths.bars!({ size: [0.95, 100], align: 1 });
+  const stepped = uPlot.paths.stepped!({ align: 1 });
+  return {
+    ...baseOpts(colors, tickFmt),
+    axes,
+    scales: { uv: { auto: true } },
+    series: [
+      {},
+      {
+        label: "Solar",
+        stroke: "#d4a574",
+        fill: "#d4a574",
+        paths: bars,
+        scale: "y",
+      },
+      {
+        label: "UV",
+        stroke: "#d47272",
+        width: 1.5,
+        paths: stepped,
         scale: "uv",
       },
     ],
