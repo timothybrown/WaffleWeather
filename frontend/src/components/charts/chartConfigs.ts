@@ -161,9 +161,9 @@ export function windOpts(
  * - Gust is rendered with dashed stroke at 0.7 opacity so two filled/colored
  *   series don't visually fight when both are visible.
  *
- * `barWidthPx` is the chart container width in pixels at render time. Bars
- * use `size: [barFactor, maxWidth]` where `barFactor` is the fraction of the
- * available slot to fill (1.0 = full width, no gap; we use 0.95 for 1-px gap).
+ * Bars use `size: [barFactor, maxWidth]` where `barFactor` is the fraction
+ * of the available slot to fill (0.95 = ~5% gap) and `maxWidth` is the
+ * pixel cap (100px, matching `rainOpts`).
  */
 export function windOptsBucketed(
   colors: ResolvedColors,
