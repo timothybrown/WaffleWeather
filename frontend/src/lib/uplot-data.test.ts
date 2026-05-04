@@ -40,4 +40,14 @@ describe("toColumnar", () => {
     expect(result[0].length).toBe(0);
     expect(result[1].length).toBe(0);
   });
+
+  it("accepts numeric (unix-seconds) time values without conversion", () => {
+    const rows = [
+      { time: 1700000000, value: 1 },
+      { time: 1700000060, value: 2 },
+    ];
+    const result = toColumnar(rows, "time", ["value"]);
+    expect(Array.from(result[0])).toEqual([1700000000, 1700000060]);
+    expect(result[1]).toEqual([1, 2]);
+  });
 });
