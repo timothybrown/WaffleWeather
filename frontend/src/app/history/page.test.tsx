@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { fireEvent, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { renderWithProviders } from "@/test/wrappers";
 import type { BucketMeta } from "@/lib/adaptive-bucket";
 import { zonedMidnightToUtc } from "@/lib/stationTime";
@@ -420,6 +421,42 @@ describe("HistoryPage URL-driven state", () => {
     expect(screen.getByRole("button", { name: "Year" })).toBeInTheDocument();
   });
 
+  it("opens the pager popover with the entry view matching the URL range (month)", async () => {
+    vi.useRealTimers();
+    const user = userEvent.setup();
+    navState.searchParams = new URLSearchParams("range=month&date=2026-04-15");
+
+    renderWithProviders(<HistoryPage />);
+
+    await user.click(screen.getByTestId("history-pager-trigger"));
+
+    expect(screen.getByTestId("datepicker-month-view")).toBeInTheDocument();
+  });
+
+  it("opens the pager popover with the entry view matching the URL range (year)", async () => {
+    vi.useRealTimers();
+    const user = userEvent.setup();
+    navState.searchParams = new URLSearchParams("range=year&date=2024-01-01");
+
+    renderWithProviders(<HistoryPage />);
+
+    await user.click(screen.getByTestId("history-pager-trigger"));
+
+    expect(screen.getByTestId("datepicker-year-view")).toBeInTheDocument();
+  });
+
+  it("opens the pager popover with day-view when range=day", async () => {
+    vi.useRealTimers();
+    const user = userEvent.setup();
+    navState.searchParams = new URLSearchParams("range=day&date=2026-04-15");
+
+    renderWithProviders(<HistoryPage />);
+
+    await user.click(screen.getByTestId("history-pager-trigger"));
+
+    expect(screen.getByTestId("datepicker-day-view")).toBeInTheDocument();
+  });
+
   it("shows the period label for picked week mode", () => {
     navState.searchParams = new URLSearchParams("range=week&date=2026-04-15");
 
@@ -516,8 +553,8 @@ describe("HistoryPage URL-driven state", () => {
 
     fireEvent.click(screen.getByTestId("history-pager-prev"));
     expect(replaceStateSpy).toHaveBeenCalledTimes(1);
-    expect(replaceStateSpy.mock.calls[0]?.[2]).toBe("/history?range=week&date=2026-04-08");
-    expect(currentPathAndSearch()).toBe("/history?range=week&date=2026-04-08");
+    expect(replaceStateSpy.mock.calls[0]?.[2]).toBe("/history?range=week&date=2026-04-05");
+    expect(currentPathAndSearch()).toBe("/history?range=week&date=2026-04-05");
   });
 
   it("future date in URL canonicalizes to station-today via replaceState after render", () => {
@@ -590,7 +627,7 @@ describe("HistoryPage URL-driven state", () => {
     renderWithProviders(<HistoryPage />);
 
     fireEvent.click(screen.getByTestId("history-pager-trigger"));
-    fireEvent.click(screen.getByRole("button", { name: "Today" }));
+    fireEvent.click(screen.getByRole("button", { name: "27" }));
 
     expect(pushStateSpy).toHaveBeenCalledTimes(1);
     expect(pushStateSpy.mock.calls[0]?.[2]).toBe("/history?date=2026-04-27");

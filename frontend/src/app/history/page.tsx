@@ -619,6 +619,7 @@ function HistoryPageInner() {
               ))}
             </div>
             <HistoryPager
+              range={range}
               mode={mode}
               label={periodLabel}
               canGoNext={canGoNext}
