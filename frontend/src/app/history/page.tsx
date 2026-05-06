@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import type uPlot from "uplot";
 import { useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { convertTemp, convertSpeed, convertPressure, convertRain } from "@/lib/units";
@@ -15,6 +16,7 @@ import {
   prevAnchor,
   type Range,
 } from "@/lib/historyPeriod";
+import { getZonedParts, zonedMidnightToUtc } from "@/lib/stationTime";
 import { useResolvedColors } from "@/hooks/useResolvedColors";
 import { useElementSize } from "@/hooks/useElementSize";
 import { useAdaptiveBucket } from "@/hooks/useAdaptiveBucket";
@@ -47,18 +49,13 @@ import HistoryPager from "@/components/history/HistoryPager";
 type ViewMode = "charts" | "calendar";
 type Mode = "live" | "picked";
 type ZoomRange = { key: string; min: number; max: number };
+type HistoryChartOptions = Omit<uPlot.Options, "width" | "height">;
+type CalendarDate = { year: number; month: number; day: number };
 
 const VALID_RANGES: readonly Range[] = ["day", "week", "month", "year"];
 const VALID_VIEWS: readonly ViewMode[] = ["charts", "calendar"];
 
-const LIVE_RANGE_LABELS: Record<Range, string> = {
-  day: "24 Hours",
-  week: "7 Days",
-  month: "30 Days",
-  year: "12 Months",
-};
-
-const PICKED_RANGE_LABELS: Record<Range, string> = {
+const RANGE_LABELS: Record<Range, string> = {
   day: "Day",
   week: "Week",
   month: "Month",
@@ -107,22 +104,135 @@ function applyHistoryUrl(params: URLSearchParams, method: "push" | "replace") {
   }
 }
 
-function formatTime(unix: number, resolution: string): string {
+function formatTime(unix: number, resolution: string, timezone: string): string {
   const d = new Date(unix * 1000);
   if (resolution === "raw") {
-    return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false });
+    return d.toLocaleTimeString([], {
+      timeZone: timezone,
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    });
   }
   if (resolution === "hourly") {
-    // 7d view: show weekday at midnight, 24h time otherwise
-    if (d.getHours() === 0 && d.getMinutes() === 0) {
-      return d.toLocaleDateString([], { weekday: "short" });
+    const parts = getZonedParts(timezone, d);
+    if (parts.hour === 0 && parts.minute === 0) {
+      return d.toLocaleDateString([], { timeZone: timezone, weekday: "short" });
     }
-    return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false });
+    return d.toLocaleTimeString([], {
+      timeZone: timezone,
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    });
   }
   if (resolution === "daily") {
-    return d.toLocaleDateString([], { month: "short", day: "numeric" });
+    return d.toLocaleDateString([], { timeZone: timezone, month: "short", day: "numeric" });
   }
-  return d.toLocaleDateString([], { month: "short", year: "2-digit" });
+  return d.toLocaleDateString([], { timeZone: timezone, month: "short", year: "2-digit" });
+}
+
+function isLeapYear(year: number): boolean {
+  return year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+}
+
+function daysInMonth(year: number, month: number): number {
+  if (month === 2) {
+    return isLeapYear(year) ? 29 : 28;
+  }
+
+  return [4, 6, 9, 11].includes(month) ? 30 : 31;
+}
+
+function addCalendarDays(date: CalendarDate, amount: number): CalendarDate {
+  let year = date.year;
+  let month = date.month;
+  let day = date.day;
+
+  for (let remaining = amount; remaining > 0; remaining -= 1) {
+    day += 1;
+    if (day > daysInMonth(year, month)) {
+      day = 1;
+      month += 1;
+      if (month > 12) {
+        month = 1;
+        year += 1;
+      }
+    }
+  }
+
+  for (let remaining = amount; remaining < 0; remaining += 1) {
+    day -= 1;
+    if (day < 1) {
+      month -= 1;
+      if (month < 1) {
+        month = 12;
+        year -= 1;
+      }
+      day = daysInMonth(year, month);
+    }
+  }
+
+  return { year, month, day };
+}
+
+function stationMidnightSplits(timezone: string, scaleMin: number, scaleMax: number): number[] {
+  if (!Number.isFinite(scaleMin) || !Number.isFinite(scaleMax) || scaleMin > scaleMax) {
+    return [];
+  }
+
+  const startParts = getZonedParts(timezone, new Date(scaleMin * 1000));
+  let date: CalendarDate = {
+    year: startParts.year,
+    month: startParts.month,
+    day: startParts.day,
+  };
+  const splits: number[] = [];
+
+  for (let guard = 0; guard < 370; guard += 1) {
+    const split =
+      zonedMidnightToUtc(timezone, date.year, date.month, date.day).getTime() / 1000;
+    if (split >= scaleMin && split <= scaleMax) {
+      splits.push(split);
+    }
+    if (split > scaleMax) {
+      break;
+    }
+    date = addCalendarDays(date, 1);
+  }
+
+  return splits;
+}
+
+function withWeeklyDayXAxis(
+  opts: HistoryChartOptions,
+  enabled: boolean,
+  timezone: string,
+): HistoryChartOptions {
+  if (!enabled) return opts;
+
+  const splits: uPlot.Axis.Splits = (_u, _axisIdx, scaleMin, scaleMax) =>
+    stationMidnightSplits(timezone, scaleMin, scaleMax);
+  const values: uPlot.Axis.Values = (_u, axisSplits) =>
+    axisSplits.map((split) =>
+      new Date(split * 1000).toLocaleDateString([], {
+        timeZone: timezone,
+        weekday: "short",
+      }),
+    );
+
+  return {
+    ...opts,
+    axes: opts.axes?.map((axis, index) =>
+      index === 0
+        ? {
+          ...axis,
+          splits,
+          values,
+        }
+        : axis,
+    ),
+  };
 }
 
 function ChartPanel({
@@ -382,23 +492,47 @@ function HistoryPageInner() {
   }), [data, useWindBars, windBucket.rows, useSolarBars, solarBucket.rows]);
 
   const tickFmt = useCallback(
-    (v: number) => formatTime(v, resolution),
-    [resolution],
+    (v: number) => formatTime(v, resolution, timezone),
+    [resolution, timezone],
+  );
+  const useWeeklyDayXAxis = resolution === "hourly" && range === "week" && !activeZoomRange;
+  const applyWeeklyDayXAxis = useCallback(
+    (opts: HistoryChartOptions) =>
+      withWeeklyDayXAxis(opts, useWeeklyDayXAxis, timezone),
+    [timezone, useWeeklyDayXAxis],
   );
 
   // Chart options — rebuilt when resolution, units, or theme change
-  const tempOpts = useMemo(() => temperatureOpts(colors, tickFmt, isRaw), [colors, tickFmt, isRaw]);
-  const humOpts = useMemo(() => humidityOpts(colors, tickFmt), [colors, tickFmt]);
-  const presOpts = useMemo(() => pressureOpts(colors, tickFmt), [colors, tickFmt]);
+  const tempOpts = useMemo(
+    () => applyWeeklyDayXAxis(temperatureOpts(colors, tickFmt, isRaw)),
+    [applyWeeklyDayXAxis, colors, tickFmt, isRaw],
+  );
+  const humOpts = useMemo(
+    () => applyWeeklyDayXAxis(humidityOpts(colors, tickFmt)),
+    [applyWeeklyDayXAxis, colors, tickFmt],
+  );
+  const presOpts = useMemo(
+    () => applyWeeklyDayXAxis(pressureOpts(colors, tickFmt)),
+    [applyWeeklyDayXAxis, colors, tickFmt],
+  );
   const wndOpts = useMemo(
-    () => (useWindBars ? windOptsBucketed(colors, tickFmt) : windOpts(colors, tickFmt)),
-    [colors, tickFmt, useWindBars],
+    () =>
+      applyWeeklyDayXAxis(
+        useWindBars ? windOptsBucketed(colors, tickFmt) : windOpts(colors, tickFmt),
+      ),
+    [applyWeeklyDayXAxis, colors, tickFmt, useWindBars],
   );
   const rainDecimals = system === "imperial" ? 3 : 1;
-  const rnOpts = useMemo(() => rainOpts(colors, tickFmt, rainDecimals), [colors, tickFmt, rainDecimals]);
+  const rnOpts = useMemo(
+    () => applyWeeklyDayXAxis(rainOpts(colors, tickFmt, rainDecimals)),
+    [applyWeeklyDayXAxis, colors, tickFmt, rainDecimals],
+  );
   const suvOpts = useMemo(
-    () => (useSolarBars ? solarUvOptsBucketed(colors, tickFmt) : solarUvOpts(colors, tickFmt)),
-    [colors, tickFmt, useSolarBars],
+    () =>
+      applyWeeklyDayXAxis(
+        useSolarBars ? solarUvOptsBucketed(colors, tickFmt) : solarUvOpts(colors, tickFmt),
+      ),
+    [applyWeeklyDayXAxis, colors, tickFmt, useSolarBars],
   );
 
   // Zoom
@@ -434,7 +568,7 @@ function HistoryPageInner() {
   const pressureUnit = system === "metric" ? "hPa" : "inHg";
   const windUnit = system === "metric" ? "km/h" : "mph";
   const rainUnit = system === "metric" ? "mm" : "in";
-  const rangeLabels = mode === "picked" ? PICKED_RANGE_LABELS : LIVE_RANGE_LABELS;
+  const rangeLabels = RANGE_LABELS;
 
   return (
     <div className="p-4 sm:p-6">

@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { fireEvent, screen } from "@testing-library/react";
 import { renderWithProviders } from "@/test/wrappers";
 import type { BucketMeta } from "@/lib/adaptive-bucket";
+import { zonedMidnightToUtc } from "@/lib/stationTime";
 
 interface CapturedSeries {
   label?: string;
@@ -9,12 +10,29 @@ interface CapturedSeries {
   stroke?: unknown;
   width?: number;
 }
+interface CapturedAxis {
+  splits?: (
+    u: unknown,
+    axisIdx: number,
+    scaleMin: number,
+    scaleMax: number,
+    foundIncr: number,
+    foundSpace: number,
+  ) => number[];
+  values?: (
+    u: unknown,
+    splits: number[],
+    axisIdx: number,
+    foundSpace: number,
+    foundIncr: number,
+  ) => string[];
+}
 const upChartCalls: {
   props: {
     seriesVisibility?: boolean[];
     bucketMeta?: BucketMeta[];
     aggregationLabels?: string[];
-    options?: { series?: CapturedSeries[] };
+    options?: { axes?: CapturedAxis[]; series?: CapturedSeries[] };
   };
 }[] = [];
 const historyDataState = vi.hoisted(() => ({
@@ -114,7 +132,7 @@ vi.mock("@/components/charts/UPlotChart", () => ({
     seriesVisibility?: boolean[];
     bucketMeta?: BucketMeta[];
     aggregationLabels?: string[];
-    options?: { series?: CapturedSeries[] };
+    options?: { axes?: CapturedAxis[]; series?: CapturedSeries[] };
   }) => {
     upChartCalls.push({ props });
     return (
@@ -382,13 +400,13 @@ describe("HistoryPage URL-driven state", () => {
     });
   });
 
-  it("renders 24h/7d/30d/12mo range labels in live mode", () => {
+  it("renders normalized Day/Week/Month/Year range labels in live mode", () => {
     renderWithProviders(<HistoryPage />);
 
-    expect(screen.getByRole("button", { name: "24 Hours" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "7 Days" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "30 Days" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "12 Months" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Day" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Week" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Month" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Year" })).toBeInTheDocument();
   });
 
   it("renders Day/Week/Month/Year range labels in picked mode", () => {
@@ -417,10 +435,51 @@ describe("HistoryPage URL-driven state", () => {
     });
   });
 
+  it("uses station-midnight weekday x-axis splits for picked week mode", () => {
+    navState.searchParams = new URLSearchParams("range=week&date=2026-05-05");
+    stationTimezoneState.timezone = "America/New_York";
+
+    renderWithProviders(<HistoryPage />);
+
+    const xAxis = upChartCalls[0]?.props.options?.axes?.[0];
+    const scaleMin = Date.UTC(2026, 4, 3, 4, 0, 0) / 1000;
+    const scaleMax = Date.UTC(2026, 4, 6, 4, 0, 0) / 1000;
+
+    expect(xAxis?.splits).toBeDefined();
+
+    const splits = xAxis!.splits!(
+      {},
+      0,
+      scaleMin,
+      scaleMax,
+      0,
+      0,
+    );
+    expect(splits).toEqual([
+      Date.UTC(2026, 4, 3, 4, 0, 0) / 1000,
+      Date.UTC(2026, 4, 4, 4, 0, 0) / 1000,
+      Date.UTC(2026, 4, 5, 4, 0, 0) / 1000,
+      Date.UTC(2026, 4, 6, 4, 0, 0) / 1000,
+    ]);
+    expect(xAxis!.values!({}, splits, 0, 0, 0)).toEqual(["Sun", "Mon", "Tue", "Wed"]);
+  });
+
+  it("labels skipped-midnight station day starts as weekdays in picked week mode", () => {
+    navState.searchParams = new URLSearchParams("range=week&date=2026-09-06");
+    stationTimezoneState.timezone = "America/Santiago";
+
+    renderWithProviders(<HistoryPage />);
+
+    const xAxis = upChartCalls[0]?.props.options?.axes?.[0];
+    const split = zonedMidnightToUtc("America/Santiago", 2026, 9, 6).getTime() / 1000;
+
+    expect(xAxis?.values!({}, [split], 0, 0, 0)).toEqual(["Sun"]);
+  });
+
   it("clicking a range button updates URL via pushState", () => {
     renderWithProviders(<HistoryPage />);
 
-    fireEvent.click(screen.getByRole("button", { name: "7 Days" }));
+    fireEvent.click(screen.getByRole("button", { name: "Week" }));
 
     expect(pushStateSpy).toHaveBeenCalledTimes(1);
     expect(pushStateSpy.mock.calls[0]?.[2]).toBe("/history?range=week");
