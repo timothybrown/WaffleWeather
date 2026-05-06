@@ -35,8 +35,6 @@ const historyDataInputs = vi.hoisted(
 const refetchSpy = vi.hoisted(() => vi.fn());
 const navState = vi.hoisted(() => ({
   searchParams: new URLSearchParams(),
-  pushSpy: vi.fn(),
-  replaceSpy: vi.fn(),
 }));
 const stationTimezoneState = vi.hoisted(() => ({
   timezone: "UTC",
@@ -45,10 +43,6 @@ const stationTimezoneState = vi.hoisted(() => ({
 
 vi.mock("next/navigation", () => ({
   useSearchParams: () => navState.searchParams,
-  useRouter: () => ({
-    push: navState.pushSpy,
-    replace: navState.replaceSpy,
-  }),
 }));
 
 vi.mock("@/hooks/useHistoryData", () => ({
@@ -140,8 +134,15 @@ vi.mock("@/components/history/CalendarHeatmap", () => ({
 
 import HistoryPage from "./page";
 
+let pushStateSpy: ReturnType<typeof vi.spyOn>;
+let replaceStateSpy: ReturnType<typeof vi.spyOn>;
+
 function latestHistoryDataInput() {
   return historyDataInputs[historyDataInputs.length - 1];
+}
+
+function currentPathAndSearch() {
+  return `${window.location.pathname}${window.location.search}`;
 }
 
 function makeRawHistoryRows(count: number) {
@@ -169,8 +170,6 @@ describe("HistoryPage chart legends wiring", () => {
     historyDataState.isError = false;
     historyDataState.error = null;
     navState.searchParams = new URLSearchParams();
-    navState.pushSpy.mockReset();
-    navState.replaceSpy.mockReset();
     stationTimezoneState.timezone = "UTC";
     stationTimezoneState.isSettled = true;
     refetchSpy.mockReset();
@@ -355,8 +354,9 @@ describe("HistoryPage URL-driven state", () => {
     historyDataState.isError = false;
     historyDataState.error = null;
     navState.searchParams = new URLSearchParams();
-    navState.pushSpy.mockReset();
-    navState.replaceSpy.mockReset();
+    window.history.replaceState(null, "", "/history");
+    pushStateSpy = vi.spyOn(window.history, "pushState");
+    replaceStateSpy = vi.spyOn(window.history, "replaceState");
     stationTimezoneState.timezone = "UTC";
     stationTimezoneState.isSettled = true;
     refetchSpy.mockReset();
@@ -365,6 +365,8 @@ describe("HistoryPage URL-driven state", () => {
   });
 
   afterEach(() => {
+    pushStateSpy.mockRestore();
+    replaceStateSpy.mockRestore();
     vi.useRealTimers();
   });
 
@@ -415,36 +417,51 @@ describe("HistoryPage URL-driven state", () => {
     });
   });
 
-  it("clicking a range button updates URL via router.push", () => {
+  it("clicking a range button updates URL via pushState", () => {
     renderWithProviders(<HistoryPage />);
 
     fireEvent.click(screen.getByRole("button", { name: "7 Days" }));
 
-    expect(navState.pushSpy).toHaveBeenCalledTimes(1);
-    expect(navState.pushSpy.mock.calls[0]?.[0]).toBe("/history?range=week");
+    expect(pushStateSpy).toHaveBeenCalledTimes(1);
+    expect(pushStateSpy.mock.calls[0]?.[2]).toBe("/history?range=week");
+    expect(currentPathAndSearch()).toBe("/history?range=week");
   });
 
-  it("Live button removes date param via router.push", () => {
+  it("clicking a range button from a direct picked URL updates URL via pushState", () => {
+    navState.searchParams = new URLSearchParams("range=week&date=2026-04-15");
+
+    renderWithProviders(<HistoryPage />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Month" }));
+
+    expect(pushStateSpy).toHaveBeenCalledTimes(1);
+    expect(pushStateSpy.mock.calls[0]?.[2]).toBe("/history?range=month&date=2026-04-15");
+    expect(currentPathAndSearch()).toBe("/history?range=month&date=2026-04-15");
+  });
+
+  it("Live button removes date param via pushState", () => {
     navState.searchParams = new URLSearchParams("range=week&date=2026-04-15");
 
     renderWithProviders(<HistoryPage />);
 
     fireEvent.click(screen.getByTestId("history-pager-live"));
-    expect(navState.pushSpy).toHaveBeenCalledTimes(1);
-    expect(navState.pushSpy.mock.calls[0]?.[0]).toBe("/history?range=week");
+    expect(pushStateSpy).toHaveBeenCalledTimes(1);
+    expect(pushStateSpy.mock.calls[0]?.[2]).toBe("/history?range=week");
+    expect(currentPathAndSearch()).toBe("/history?range=week");
   });
 
-  it("prev chevron updates URL via router.replace without history flooding", () => {
+  it("prev chevron updates URL via replaceState without history flooding", () => {
     navState.searchParams = new URLSearchParams("range=week&date=2026-04-15");
 
     renderWithProviders(<HistoryPage />);
 
     fireEvent.click(screen.getByTestId("history-pager-prev"));
-    expect(navState.replaceSpy).toHaveBeenCalledTimes(1);
-    expect(navState.replaceSpy.mock.calls[0]?.[0]).toBe("/history?range=week&date=2026-04-08");
+    expect(replaceStateSpy).toHaveBeenCalledTimes(1);
+    expect(replaceStateSpy.mock.calls[0]?.[2]).toBe("/history?range=week&date=2026-04-08");
+    expect(currentPathAndSearch()).toBe("/history?range=week&date=2026-04-08");
   });
 
-  it("future date in URL canonicalizes to station-today via router.replace after render", () => {
+  it("future date in URL canonicalizes to station-today via replaceState after render", () => {
     navState.searchParams = new URLSearchParams("range=day&date=2099-01-01");
 
     renderWithProviders(<HistoryPage />);
@@ -456,8 +473,9 @@ describe("HistoryPage URL-driven state", () => {
       anchor: "2026-04-27",
       timezone: "UTC",
     });
-    expect(navState.replaceSpy).toHaveBeenCalledTimes(1);
-    expect(navState.replaceSpy.mock.calls[0]?.[0]).toBe("/history?range=day&date=2026-04-27");
+    expect(replaceStateSpy).toHaveBeenCalledTimes(1);
+    expect(replaceStateSpy.mock.calls[0]?.[2]).toBe("/history?range=day&date=2026-04-27");
+    expect(currentPathAndSearch()).toBe("/history?range=day&date=2026-04-27");
   });
 
   it("waits for settled station timezone before replacing a future date URL", () => {
@@ -474,7 +492,7 @@ describe("HistoryPage URL-driven state", () => {
       anchor: "2026-04-27",
       timezone: "UTC",
     });
-    expect(navState.replaceSpy).not.toHaveBeenCalled();
+    expect(replaceStateSpy).not.toHaveBeenCalled();
 
     stationTimezoneState.timezone = "Pacific/Kiritimati";
     stationTimezoneState.isSettled = true;
@@ -488,8 +506,9 @@ describe("HistoryPage URL-driven state", () => {
       anchor: "2026-04-28",
       timezone: "Pacific/Kiritimati",
     });
-    expect(navState.replaceSpy).toHaveBeenCalledTimes(1);
-    expect(navState.replaceSpy.mock.calls[0]?.[0]).toBe("/history?range=day&date=2026-04-28");
+    expect(replaceStateSpy).toHaveBeenCalledTimes(1);
+    expect(replaceStateSpy.mock.calls[0]?.[2]).toBe("/history?range=day&date=2026-04-28");
+    expect(currentPathAndSearch()).toBe("/history?range=day&date=2026-04-28");
   });
 
   it("garbage range and date fall back to live day mode without URL replacement", () => {
@@ -499,7 +518,7 @@ describe("HistoryPage URL-driven state", () => {
 
     expect(screen.queryByTestId("history-pager-live")).toBeNull();
     expect(screen.getByTestId("history-pager-trigger")).toHaveTextContent("Last 24 Hours");
-    expect(navState.replaceSpy).not.toHaveBeenCalled();
+    expect(replaceStateSpy).not.toHaveBeenCalled();
     expect(latestHistoryDataInput()).toEqual({
       range: "day",
       mode: "live",
@@ -514,8 +533,25 @@ describe("HistoryPage URL-driven state", () => {
     fireEvent.click(screen.getByTestId("history-pager-trigger"));
     fireEvent.click(screen.getByRole("button", { name: "Today" }));
 
-    expect(navState.pushSpy).toHaveBeenCalledTimes(1);
-    expect(navState.pushSpy.mock.calls[0]?.[0]).toBe("/history?date=2026-04-27");
+    expect(pushStateSpy).toHaveBeenCalledTimes(1);
+    expect(pushStateSpy.mock.calls[0]?.[2]).toBe("/history?date=2026-04-27");
+    expect(currentPathAndSearch()).toBe("/history?date=2026-04-27");
+  });
+
+  it("calendar button from a direct picked URL preserves chart params in pushState", () => {
+    navState.searchParams = new URLSearchParams("range=week&date=2026-04-15");
+
+    renderWithProviders(<HistoryPage />);
+
+    fireEvent.click(screen.getByRole("button", { name: "calendar" }));
+
+    expect(pushStateSpy).toHaveBeenCalledTimes(1);
+    expect(pushStateSpy.mock.calls[0]?.[2]).toBe(
+      "/history?range=week&date=2026-04-15&view=calendar",
+    );
+    expect(currentPathAndSearch()).toBe(
+      "/history?range=week&date=2026-04-15&view=calendar",
+    );
   });
 
   it("view=calendar renders heatmap and preserves chart params when returning to charts", () => {
@@ -528,8 +564,9 @@ describe("HistoryPage URL-driven state", () => {
     expect(screen.queryByTestId("history-pager-trigger")).toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: "charts" }));
-    expect(navState.pushSpy).toHaveBeenCalledTimes(1);
-    expect(navState.pushSpy.mock.calls[0]?.[0]).toBe("/history?range=week&date=2026-04-15");
+    expect(pushStateSpy).toHaveBeenCalledTimes(1);
+    expect(pushStateSpy.mock.calls[0]?.[2]).toBe("/history?range=week&date=2026-04-15");
+    expect(currentPathAndSearch()).toBe("/history?range=week&date=2026-04-15");
   });
 });
 
@@ -543,8 +580,6 @@ describe("HistoryPage error state", () => {
     historyDataState.isError = true;
     historyDataState.error = new Error("network failure");
     navState.searchParams = new URLSearchParams();
-    navState.pushSpy.mockReset();
-    navState.replaceSpy.mockReset();
     stationTimezoneState.timezone = "UTC";
     stationTimezoneState.isSettled = true;
     refetchSpy.mockReset();

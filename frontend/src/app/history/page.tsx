@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { convertTemp, convertSpeed, convertPressure, convertRain } from "@/lib/units";
 import { useUnits } from "@/providers/UnitsProvider";
@@ -93,6 +93,20 @@ function buildHref(params: URLSearchParams): string {
   return query ? `/history?${query}` : "/history";
 }
 
+function applyHistoryUrl(params: URLSearchParams, method: "push" | "replace") {
+  if (typeof window === "undefined") return;
+
+  const href = buildHref(params);
+  const currentHref = `${window.location.pathname}${window.location.search}`;
+  if (href === currentHref) return;
+
+  if (method === "replace") {
+    window.history.replaceState(null, "", href);
+  } else {
+    window.history.pushState(null, "", href);
+  }
+}
+
 function formatTime(unix: number, resolution: string): string {
   const d = new Date(unix * 1000);
   if (resolution === "raw") {
@@ -135,7 +149,6 @@ function ChartPanel({
 }
 
 function HistoryPageInner() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const searchParamString = searchParams.toString();
   const { timezone, isSettled: isTimezoneSettled } = useStationTimezoneStatus();
@@ -166,8 +179,8 @@ function HistoryPageInner() {
 
     const next = new URLSearchParams(searchParamString);
     next.set("date", canonicalDate);
-    router.replace(buildHref(next));
-  }, [canonicalDate, isTimezoneSettled, router, searchParamString, validDate]);
+    applyHistoryUrl(next, "replace");
+  }, [canonicalDate, isTimezoneSettled, searchParamString, validDate]);
 
   const period = useMemo(
     () => (anchor ? periodForAnchor(anchor, range, timezone) : null),
@@ -193,9 +206,9 @@ function HistoryPageInner() {
   const setRange = useCallback((nextRange: Range) => {
     const next = new URLSearchParams(searchParamString);
     next.set("range", nextRange);
-    router.push(buildHref(next));
+    applyHistoryUrl(next, "push");
     setZoomRange(null);
-  }, [router, searchParamString]);
+  }, [searchParamString]);
 
   const setView = useCallback((nextView: ViewMode) => {
     const next = new URLSearchParams(searchParamString);
@@ -204,30 +217,30 @@ function HistoryPageInner() {
     } else {
       next.set("view", nextView);
     }
-    router.push(buildHref(next));
+    applyHistoryUrl(next, "push");
     setZoomRange(null);
-  }, [router, searchParamString]);
+  }, [searchParamString]);
 
   const setDate = useCallback((date: string) => {
     const next = new URLSearchParams(searchParamString);
     next.set("date", date);
-    router.push(buildHref(next));
+    applyHistoryUrl(next, "push");
     setZoomRange(null);
-  }, [router, searchParamString]);
+  }, [searchParamString]);
 
   const moveAnchor = useCallback((date: string) => {
     const next = new URLSearchParams(searchParamString);
     next.set("date", date);
-    router.replace(buildHref(next));
+    applyHistoryUrl(next, "replace");
     setZoomRange(null);
-  }, [router, searchParamString]);
+  }, [searchParamString]);
 
   const clearDate = useCallback(() => {
     const next = new URLSearchParams(searchParamString);
     next.delete("date");
-    router.push(buildHref(next));
+    applyHistoryUrl(next, "push");
     setZoomRange(null);
-  }, [router, searchParamString]);
+  }, [searchParamString]);
 
   const handlePagerPrev = useCallback(() => {
     if (!anchor) return;
