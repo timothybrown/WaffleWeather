@@ -129,6 +129,24 @@ describe("HistoryPager", () => {
     expect(screen.getByTestId("history-pager-live")).toHaveTextContent("Live");
   });
 
+  it("allows picked controls to wrap instead of overflowing narrow viewports", () => {
+    renderPager({
+      mode: "picked",
+      label: "Dec 27, 2026–Jan 2, 2027",
+    });
+
+    expect(screen.getByTestId("history-pager")).toHaveClass(
+      "max-w-full",
+      "flex-wrap",
+    );
+    expect(screen.getByTestId("history-pager-trigger")).toHaveClass(
+      "max-w-full",
+    );
+    expect(
+      screen.getByTestId("history-pager-trigger").querySelector("span"),
+    ).toHaveClass("min-w-0", "truncate");
+  });
+
   it("opens the popover from the picked period label", async () => {
     const user = userEvent.setup();
     renderPager({ mode: "picked", label: "May 12, 2026" });

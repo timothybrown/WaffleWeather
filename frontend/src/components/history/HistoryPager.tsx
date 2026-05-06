@@ -228,12 +228,12 @@ export default function HistoryPager({
       aria-expanded={popoverOpen}
       onClick={togglePopover}
       className={cn(
-        "inline-flex h-9 items-center justify-center gap-2 rounded-md border border-border bg-surface px-3 text-sm font-medium text-text-muted transition-colors hover:bg-surface-hover hover:text-text",
+        "inline-flex h-9 max-w-full items-center justify-center gap-2 rounded-md border border-border bg-surface px-3 text-sm font-medium text-text-muted transition-colors hover:bg-surface-hover hover:text-text",
         mode === "picked" && "min-w-36",
       )}
     >
       <RiCalendar2Line className="h-4 w-4" aria-hidden="true" />
-      <span>{label}</span>
+      <span className="min-w-0 truncate">{label}</span>
     </button>
   );
 
@@ -251,7 +251,7 @@ export default function HistoryPager({
       };
 
   const triggerWithPopover = (
-    <div className="inline-flex">
+    <div className="inline-flex max-w-full min-w-0">
       {trigger}
 
       {popoverOpen ? (
@@ -274,7 +274,11 @@ export default function HistoryPager({
   );
 
   return (
-    <div ref={pagerRootRef} className="inline-flex items-center gap-2">
+    <div
+      ref={pagerRootRef}
+      data-testid="history-pager"
+      className="flex max-w-full flex-wrap items-center gap-2"
+    >
       {mode === "picked" ? (
         <>
           <button
@@ -282,7 +286,7 @@ export default function HistoryPager({
             data-testid="history-pager-prev"
             aria-label="Previous period"
             onClick={handlePrev}
-            className="flex h-9 w-9 items-center justify-center rounded-md border border-border bg-surface text-text-muted transition-colors hover:bg-surface-hover hover:text-text"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-border bg-surface text-text-muted transition-colors hover:bg-surface-hover hover:text-text"
           >
             <RiArrowLeftSLine className="h-4 w-4" aria-hidden="true" />
           </button>
@@ -295,7 +299,7 @@ export default function HistoryPager({
             aria-label="Next period"
             onClick={handleNext}
             disabled={!canGoNext}
-            className="flex h-9 w-9 items-center justify-center rounded-md border border-border bg-surface text-text-muted transition-colors hover:bg-surface-hover hover:text-text disabled:pointer-events-none disabled:opacity-40"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-border bg-surface text-text-muted transition-colors hover:bg-surface-hover hover:text-text disabled:pointer-events-none disabled:opacity-40"
           >
             <RiArrowRightSLine className="h-4 w-4" aria-hidden="true" />
           </button>
@@ -304,7 +308,7 @@ export default function HistoryPager({
             type="button"
             data-testid="history-pager-live"
             onClick={handleReturnToLive}
-            className="h-9 rounded-md border border-border bg-surface px-3 text-sm font-medium text-text-muted transition-colors hover:bg-surface-hover hover:text-text"
+            className="h-9 shrink-0 rounded-md border border-border bg-surface px-3 text-sm font-medium text-text-muted transition-colors hover:bg-surface-hover hover:text-text"
           >
             Live
           </button>
