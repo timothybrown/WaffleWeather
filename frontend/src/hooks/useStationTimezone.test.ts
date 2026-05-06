@@ -5,7 +5,12 @@ import { useListStations } from "@/generated/stations/stations";
 import type { Station } from "@/generated/models";
 import { wrapper } from "@/test/wrappers";
 
-import { getZonedParts, useStationTimezone, zonedMidnightToUtc } from "./useStationTimezone";
+import {
+  getZonedParts,
+  useStationTimezone,
+  useStationTimezoneStatus,
+  zonedMidnightToUtc,
+} from "./useStationTimezone";
 
 vi.mock("@/generated/stations/stations", () => ({
   useListStations: vi.fn(),
@@ -14,9 +19,14 @@ vi.mock("@/generated/stations/stations", () => ({
 const useListStationsMock = vi.mocked(useListStations);
 const browserTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
-function mockStations(stations?: Station[]) {
+function mockStations(
+  stations?: Station[],
+  options: { isFetched?: boolean; isError?: boolean } = {},
+) {
   useListStationsMock.mockReturnValue({
     data: stations ? { data: stations, status: 200, headers: new Headers() } : undefined,
+    isFetched: options.isFetched ?? stations !== undefined,
+    isError: options.isError ?? false,
   } as ReturnType<typeof useListStations>);
 }
 
@@ -59,6 +69,79 @@ describe("useStationTimezone", () => {
     const { result } = renderHook(() => useStationTimezone(), { wrapper });
 
     expect(result.current).toBe(browserTimezone);
+  });
+});
+
+describe("useStationTimezoneStatus", () => {
+  afterEach(() => {
+    vi.resetAllMocks();
+  });
+
+  it("uses browser timezone and reports unsettled before station data loads", () => {
+    mockStations();
+
+    const { result } = renderHook(() => useStationTimezoneStatus(), { wrapper });
+
+    expect(result.current).toEqual({
+      timezone: browserTimezone,
+      isSettled: false,
+    });
+  });
+
+  it("returns station timezone and reports settled when station data is present", () => {
+    mockStations([
+      {
+        id: "station-1",
+        name: "Backyard",
+        timezone: "America/Los_Angeles",
+      },
+    ]);
+
+    const { result } = renderHook(() => useStationTimezoneStatus(), { wrapper });
+
+    expect(result.current).toEqual({
+      timezone: "America/Los_Angeles",
+      isSettled: true,
+    });
+  });
+
+  it("falls back to browser timezone and reports settled when no stations are returned", () => {
+    mockStations([]);
+
+    const { result } = renderHook(() => useStationTimezoneStatus(), { wrapper });
+
+    expect(result.current).toEqual({
+      timezone: browserTimezone,
+      isSettled: true,
+    });
+  });
+
+  it("falls back to browser timezone and reports settled when station timezone is null", () => {
+    mockStations([
+      {
+        id: "station-1",
+        name: "Backyard",
+        timezone: null,
+      },
+    ]);
+
+    const { result } = renderHook(() => useStationTimezoneStatus(), { wrapper });
+
+    expect(result.current).toEqual({
+      timezone: browserTimezone,
+      isSettled: true,
+    });
+  });
+
+  it("falls back to browser timezone and reports settled when station query errors", () => {
+    mockStations(undefined, { isError: true });
+
+    const { result } = renderHook(() => useStationTimezoneStatus(), { wrapper });
+
+    expect(result.current).toEqual({
+      timezone: browserTimezone,
+      isSettled: true,
+    });
   });
 });
 

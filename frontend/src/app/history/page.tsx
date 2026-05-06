@@ -1,10 +1,20 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { convertTemp, convertSpeed, convertPressure, convertRain } from "@/lib/units";
 import { useUnits } from "@/providers/UnitsProvider";
-import { useHistoryData, type TimeRange } from "@/hooks/useHistoryData";
+import { useHistoryData } from "@/hooks/useHistoryData";
+import { useStationTimezoneStatus, getStationTodayString } from "@/hooks/useStationTimezone";
+import {
+  canonicalizeFutureAnchor,
+  isValidYyyyMmDd,
+  nextAnchor,
+  periodForAnchor,
+  prevAnchor,
+  type Range,
+} from "@/lib/historyPeriod";
 import { useResolvedColors } from "@/hooks/useResolvedColors";
 import { useElementSize } from "@/hooks/useElementSize";
 import { useAdaptiveBucket } from "@/hooks/useAdaptiveBucket";
@@ -32,15 +42,35 @@ import {
 import ChartLegend from "@/components/charts/ChartLegend";
 import { useChartLegend } from "@/components/charts/useChartLegend";
 import CalendarHeatmap from "@/components/history/CalendarHeatmap";
+import HistoryPager from "@/components/history/HistoryPager";
 
 type ViewMode = "charts" | "calendar";
+type Mode = "live" | "picked";
+type ZoomRange = { key: string; min: number; max: number };
 
-const RANGES: { value: TimeRange; label: string }[] = [
-  { value: "24h", label: "24 Hours" },
-  { value: "7d", label: "7 Days" },
-  { value: "30d", label: "30 Days" },
-  { value: "1y", label: "1 Year" },
-];
+const VALID_RANGES: readonly Range[] = ["day", "week", "month", "year"];
+const VALID_VIEWS: readonly ViewMode[] = ["charts", "calendar"];
+
+const LIVE_RANGE_LABELS: Record<Range, string> = {
+  day: "24 Hours",
+  week: "7 Days",
+  month: "30 Days",
+  year: "12 Months",
+};
+
+const PICKED_RANGE_LABELS: Record<Range, string> = {
+  day: "Day",
+  week: "Week",
+  month: "Month",
+  year: "Year",
+};
+
+const LIVE_PERIOD_LABELS: Record<Range, string> = {
+  day: "Last 24 Hours",
+  week: "Last 7 Days",
+  month: "Last 30 Days",
+  year: "Last 12 Months",
+};
 
 const COLOR_VARS = [
   "--color-border",
@@ -49,6 +79,19 @@ const COLOR_VARS = [
   "--color-primary",
   "--color-warning",
 ];
+
+function isRange(value: string | null): value is Range {
+  return VALID_RANGES.includes(value as Range);
+}
+
+function isViewMode(value: string | null): value is ViewMode {
+  return VALID_VIEWS.includes(value as ViewMode);
+}
+
+function buildHref(params: URLSearchParams): string {
+  const query = params.toString();
+  return query ? `/history?${query}` : "/history";
+}
 
 function formatTime(unix: number, resolution: string): string {
   const d = new Date(unix * 1000);
@@ -91,12 +134,110 @@ function ChartPanel({
   );
 }
 
-export default function HistoryPage() {
-  const [view, setView] = useState<ViewMode>("charts");
-  const [range, setRange] = useState<TimeRange>("24h");
-  const [zoomRange, setZoomRange] = useState<{ min: number; max: number } | null>(null);
-  const { data: rawData, isLoading, resolution } = useHistoryData(range);
+function HistoryPageInner() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const searchParamString = searchParams.toString();
+  const { timezone, isSettled: isTimezoneSettled } = useStationTimezoneStatus();
+  const todayStr = getStationTodayString(timezone);
+  const [zoomRange, setZoomRange] = useState<ZoomRange | null>(null);
+
+  const rawRange = searchParams.get("range");
+  const range: Range = isRange(rawRange) ? rawRange : "day";
+
+  const rawView = searchParams.get("view");
+  const view: ViewMode = isViewMode(rawView) ? rawView : "charts";
+
+  const rawDate = searchParams.get("date");
+  const validDate = rawDate && isValidYyyyMmDd(rawDate) ? rawDate : null;
+  const canonicalDate = useMemo(
+    () => (validDate ? canonicalizeFutureAnchor(validDate, timezone) : null),
+    [validDate, timezone],
+  );
+  const anchor = canonicalDate ?? undefined;
+  const mode: Mode = anchor ? "picked" : "live";
+  const zoomKey = `${view}:${range}:${anchor ?? "live"}`;
+  const activeZoomRange = zoomRange?.key === zoomKey ? zoomRange : null;
+
+  useEffect(() => {
+    if (!isTimezoneSettled || !validDate || !canonicalDate || validDate === canonicalDate) {
+      return;
+    }
+
+    const next = new URLSearchParams(searchParamString);
+    next.set("date", canonicalDate);
+    router.replace(buildHref(next));
+  }, [canonicalDate, isTimezoneSettled, router, searchParamString, validDate]);
+
+  const period = useMemo(
+    () => (anchor ? periodForAnchor(anchor, range, timezone) : null),
+    [anchor, range, timezone],
+  );
+  const periodLabel = period?.label ?? LIVE_PERIOD_LABELS[range];
+  const canGoNext = period ? !period.isCurrent : false;
+
+  const dataInput = useMemo(
+    () => ({ range, mode, anchor, timezone }),
+    [range, mode, anchor, timezone],
+  );
+  const {
+    data: rawData,
+    isLoading,
+    isError,
+    error,
+    resolution,
+    refetch,
+  } = useHistoryData(dataInput);
   const { system } = useUnits();
+
+  const setRange = useCallback((nextRange: Range) => {
+    const next = new URLSearchParams(searchParamString);
+    next.set("range", nextRange);
+    router.push(buildHref(next));
+    setZoomRange(null);
+  }, [router, searchParamString]);
+
+  const setView = useCallback((nextView: ViewMode) => {
+    const next = new URLSearchParams(searchParamString);
+    if (nextView === "charts") {
+      next.delete("view");
+    } else {
+      next.set("view", nextView);
+    }
+    router.push(buildHref(next));
+    setZoomRange(null);
+  }, [router, searchParamString]);
+
+  const setDate = useCallback((date: string) => {
+    const next = new URLSearchParams(searchParamString);
+    next.set("date", date);
+    router.push(buildHref(next));
+    setZoomRange(null);
+  }, [router, searchParamString]);
+
+  const moveAnchor = useCallback((date: string) => {
+    const next = new URLSearchParams(searchParamString);
+    next.set("date", date);
+    router.replace(buildHref(next));
+    setZoomRange(null);
+  }, [router, searchParamString]);
+
+  const clearDate = useCallback(() => {
+    const next = new URLSearchParams(searchParamString);
+    next.delete("date");
+    router.push(buildHref(next));
+    setZoomRange(null);
+  }, [router, searchParamString]);
+
+  const handlePagerPrev = useCallback(() => {
+    if (!anchor) return;
+    moveAnchor(prevAnchor(anchor, range));
+  }, [anchor, moveAnchor, range]);
+
+  const handlePagerNext = useCallback(() => {
+    if (!anchor || !canGoNext) return;
+    moveAnchor(nextAnchor(anchor, range));
+  }, [anchor, canGoNext, moveAnchor, range]);
 
   const rawColors = useResolvedColors(COLOR_VARS);
   const colors: ResolvedColors = useMemo(
@@ -141,10 +282,10 @@ export default function HistoryPage() {
   );
 
   const visibleSpanS = useMemo(() => {
-    if (zoomRange) return zoomRange.max - zoomRange.min;
+    if (activeZoomRange) return activeZoomRange.max - activeZoomRange.min;
     if (dataUnix.length === 0) return 0;
     return dataUnix[dataUnix.length - 1].time - dataUnix[0].time;
-  }, [zoomRange, dataUnix]);
+  }, [activeZoomRange, dataUnix]);
 
   const tempMeta = useMemo(() => temperatureSeriesMeta(), []);
   const humMeta = useMemo(() => humiditySeriesMeta(), []);
@@ -249,8 +390,8 @@ export default function HistoryPage() {
 
   // Zoom
   const handleZoom = useCallback((min: number, max: number) => {
-    setZoomRange({ min, max });
-  }, []);
+    setZoomRange({ key: zoomKey, min, max });
+  }, [zoomKey]);
   const handleResetZoom = useCallback(() => setZoomRange(null), []);
 
   // Apply zoom to each chart's options — memoized per chart so parent rerenders
@@ -258,16 +399,16 @@ export default function HistoryPage() {
   // UPlotChart to destroy/recreate. Only rebuilds when base opts or zoomRange change.
   const applyZoom = useCallback(
     (opts: Omit<uPlot.Options, "width" | "height">) => {
-      if (!zoomRange) return opts;
+      if (!activeZoomRange) return opts;
       return {
         ...opts,
         scales: {
           ...opts.scales,
-          x: { min: zoomRange.min, max: zoomRange.max },
+          x: { min: activeZoomRange.min, max: activeZoomRange.max },
         },
       };
     },
-    [zoomRange],
+    [activeZoomRange],
   );
   const tempZoomedOpts = useMemo(() => applyZoom(tempOpts), [applyZoom, tempOpts]);
   const humZoomedOpts = useMemo(() => applyZoom(humOpts), [applyZoom, humOpts]);
@@ -280,6 +421,7 @@ export default function HistoryPage() {
   const pressureUnit = system === "metric" ? "hPa" : "inHg";
   const windUnit = system === "metric" ? "km/h" : "mph";
   const rainUnit = system === "metric" ? "mm" : "in";
+  const rangeLabels = mode === "picked" ? PICKED_RANGE_LABELS : LIVE_RANGE_LABELS;
 
   return (
     <div className="p-4 sm:p-6">
@@ -304,8 +446,8 @@ export default function HistoryPage() {
           </div>
         </div>
         {view === "charts" && (
-          <div className="flex items-center gap-2">
-            {zoomRange && (
+          <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:gap-2">
+            {activeZoomRange && (
               <button
                 onClick={handleResetZoom}
                 className="rounded-md border border-border bg-surface-alt px-3 py-1.5 text-xs font-medium text-text-muted transition-colors hover:text-text"
@@ -314,21 +456,32 @@ export default function HistoryPage() {
               </button>
             )}
             <div className="flex gap-1 rounded-lg border border-border bg-surface-alt p-1">
-              {RANGES.map((r) => (
+              {VALID_RANGES.map((r) => (
                 <button
-                  key={r.value}
-                  onClick={() => { setRange(r.value); setZoomRange(null); }}
+                  key={r}
+                  onClick={() => setRange(r)}
                   className={cn(
                     "flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-all sm:flex-none",
-                    range === r.value
+                    range === r
                       ? "bg-primary text-white shadow-sm"
                       : "text-text-muted hover:text-text",
                   )}
                 >
-                  {r.label}
+                  {rangeLabels[r]}
                 </button>
               ))}
             </div>
+            <HistoryPager
+              mode={mode}
+              label={periodLabel}
+              canGoNext={canGoNext}
+              maxDate={todayStr}
+              selectedDate={anchor}
+              onPrev={handlePagerPrev}
+              onNext={handlePagerNext}
+              onPickDate={setDate}
+              onReturnToLive={clearDate}
+            />
           </div>
         )}
       </div>
@@ -341,9 +494,28 @@ export default function HistoryPage() {
         <div className="flex h-96 items-center justify-center text-text-muted">
           Loading...
         </div>
+      ) : isError ? (
+        <div className="flex h-96 flex-col items-center justify-center gap-3 px-6 text-center">
+          <h2 className="font-display text-xl font-semibold text-text">
+            Couldn&apos;t load history
+          </h2>
+          <p className="max-w-sm text-sm text-text-muted">
+            {error instanceof Error
+              ? error.message
+              : "The server returned an error."}
+          </p>
+          <button
+            onClick={() => {
+              void refetch();
+            }}
+            className="mt-1 rounded-lg border border-border bg-surface-alt px-4 py-2 text-sm font-medium text-text transition-colors hover:bg-surface-hover"
+          >
+            Try again
+          </button>
+        </div>
       ) : data.length === 0 ? (
         <div className="flex h-96 items-center justify-center text-text-muted">
-          No data for this time range
+          No data for {periodLabel}
         </div>
       ) : (
         <div className="card-stagger grid grid-cols-1 gap-4 lg:grid-cols-2">
@@ -451,5 +623,13 @@ export default function HistoryPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function HistoryPage() {
+  return (
+    <Suspense fallback={<div className="p-6 text-text-muted">Loading...</div>}>
+      <HistoryPageInner />
+    </Suspense>
   );
 }

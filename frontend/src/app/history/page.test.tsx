@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { fireEvent, screen } from "@testing-library/react";
 import { renderWithProviders } from "@/test/wrappers";
 import type { BucketMeta } from "@/lib/adaptive-bucket";
@@ -18,26 +18,87 @@ const upChartCalls: {
   };
 }[] = [];
 const historyDataState = vi.hoisted(() => ({
-  resolution: "hourly" as "raw" | "hourly",
+  resolution: "hourly" as "raw" | "hourly" | "daily" | "monthly",
   dataOverride: null as null | Array<Record<string, unknown>>,
+  isLoading: false,
+  isError: false,
+  error: null as unknown,
+}));
+const historyDataInputs = vi.hoisted(
+  () => [] as Array<{
+    range: string;
+    mode: string;
+    anchor?: string;
+    timezone: string;
+  }>,
+);
+const refetchSpy = vi.hoisted(() => vi.fn());
+const navState = vi.hoisted(() => ({
+  searchParams: new URLSearchParams(),
+  pushSpy: vi.fn(),
+  replaceSpy: vi.fn(),
+}));
+const stationTimezoneState = vi.hoisted(() => ({
+  timezone: "UTC",
+  isSettled: true,
+}));
+
+vi.mock("next/navigation", () => ({
+  useSearchParams: () => navState.searchParams,
+  useRouter: () => ({
+    push: navState.pushSpy,
+    replace: navState.replaceSpy,
+  }),
 }));
 
 vi.mock("@/hooks/useHistoryData", () => ({
-  useHistoryData: () => ({
-    data: historyDataState.dataOverride ?? [
-      {
-        time: 1700000000,
-        temp_avg: 70, temp_min: 60, temp_max: 80,
-        humidity_avg: 50,
-        pressure_avg: 1013,
-        wind_avg: 5, wind_gust_max: 10,
-        rain_max: 0,
-        solar_avg: 100, uv_max: 3,
-      },
-    ],
-    isLoading: false,
-    resolution: historyDataState.resolution,
-  }),
+  useHistoryData: (input: {
+    range: string;
+    mode: string;
+    anchor?: string;
+    timezone: string;
+  }) => {
+    historyDataInputs.push(input);
+    return {
+      data: historyDataState.dataOverride ?? [
+        {
+          time: 1700000000,
+          temp_avg: 70, temp_min: 60, temp_max: 80,
+          humidity_avg: 50,
+          pressure_avg: 1013,
+          wind_avg: 5, wind_gust_max: 10,
+          rain_max: 0,
+          solar_avg: 100, uv_max: 3,
+        },
+      ],
+      isLoading: historyDataState.isLoading,
+      isError: historyDataState.isError,
+      error: historyDataState.error,
+      resolution: historyDataState.resolution,
+      refetch: refetchSpy,
+    };
+  },
+}));
+
+vi.mock("@/hooks/useStationTimezone", () => ({
+  useStationTimezone: () => stationTimezoneState.timezone,
+  useStationTimezoneStatus: () => stationTimezoneState,
+  getStationTodayString: (timezone: string) =>
+    timezone === "Pacific/Kiritimati" ? "2026-04-28" : "2026-04-27",
+  getStationTodayParts: (timezone: string) =>
+    timezone === "Pacific/Kiritimati"
+      ? {
+          year: 2026,
+          month: 4,
+          day: 28,
+          startIso: "2026-04-27T10:00:00.000Z",
+        }
+      : {
+          year: 2026,
+          month: 4,
+          day: 27,
+          startIso: "2026-04-27T00:00:00.000Z",
+        },
 }));
 
 vi.mock("@/hooks/useResolvedColors", () => ({
@@ -74,10 +135,14 @@ vi.mock("@/components/charts/UPlotChart", () => ({
 }));
 
 vi.mock("@/components/history/CalendarHeatmap", () => ({
-  default: () => null,
+  default: () => <div data-testid="calendar-heatmap" />,
 }));
 
 import HistoryPage from "./page";
+
+function latestHistoryDataInput() {
+  return historyDataInputs[historyDataInputs.length - 1];
+}
 
 function makeRawHistoryRows(count: number) {
   // Simulate raw-resolution data: ISO-string time, full schema
@@ -97,8 +162,18 @@ function makeRawHistoryRows(count: number) {
 describe("HistoryPage chart legends wiring", () => {
   beforeEach(() => {
     upChartCalls.length = 0;
+    historyDataInputs.length = 0;
     historyDataState.resolution = "hourly";
     historyDataState.dataOverride = null;
+    historyDataState.isLoading = false;
+    historyDataState.isError = false;
+    historyDataState.error = null;
+    navState.searchParams = new URLSearchParams();
+    navState.pushSpy.mockReset();
+    navState.replaceSpy.mockReset();
+    stationTimezoneState.timezone = "UTC";
+    stationTimezoneState.isSettled = true;
+    refetchSpy.mockReset();
   });
 
   it("renders six chart panels with chip rows", () => {
@@ -267,5 +342,225 @@ describe("HistoryPage chart legends wiring", () => {
     // Line opts use rgba area-fill, NOT the solid hex bar color
     const solar = solarCall?.props.options?.series?.[1];
     expect(solar?.fill).toMatch(/^rgba\(/);
+  });
+});
+
+describe("HistoryPage URL-driven state", () => {
+  beforeEach(() => {
+    upChartCalls.length = 0;
+    historyDataInputs.length = 0;
+    historyDataState.resolution = "hourly";
+    historyDataState.dataOverride = null;
+    historyDataState.isLoading = false;
+    historyDataState.isError = false;
+    historyDataState.error = null;
+    navState.searchParams = new URLSearchParams();
+    navState.pushSpy.mockReset();
+    navState.replaceSpy.mockReset();
+    stationTimezoneState.timezone = "UTC";
+    stationTimezoneState.isSettled = true;
+    refetchSpy.mockReset();
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-04-27T12:00:00Z"));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("defaults to live mode with range=day when URL has no params", () => {
+    renderWithProviders(<HistoryPage />);
+
+    expect(screen.getByTestId("history-pager-trigger")).toHaveTextContent("Last 24 Hours");
+    expect(latestHistoryDataInput()).toEqual({
+      range: "day",
+      mode: "live",
+      anchor: undefined,
+      timezone: "UTC",
+    });
+  });
+
+  it("renders 24h/7d/30d/12mo range labels in live mode", () => {
+    renderWithProviders(<HistoryPage />);
+
+    expect(screen.getByRole("button", { name: "24 Hours" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "7 Days" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "30 Days" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "12 Months" })).toBeInTheDocument();
+  });
+
+  it("renders Day/Week/Month/Year range labels in picked mode", () => {
+    navState.searchParams = new URLSearchParams("range=week&date=2026-04-15");
+
+    renderWithProviders(<HistoryPage />);
+
+    expect(screen.getByRole("button", { name: "Day" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Week" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Month" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Year" })).toBeInTheDocument();
+  });
+
+  it("shows the period label for picked week mode", () => {
+    navState.searchParams = new URLSearchParams("range=week&date=2026-04-15");
+
+    renderWithProviders(<HistoryPage />);
+
+    expect(screen.getByTestId("history-pager-trigger")).toHaveTextContent("Apr 12–18, 2026");
+    expect(screen.getByTestId("history-pager-live")).toBeInTheDocument();
+    expect(latestHistoryDataInput()).toEqual({
+      range: "week",
+      mode: "picked",
+      anchor: "2026-04-15",
+      timezone: "UTC",
+    });
+  });
+
+  it("clicking a range button updates URL via router.push", () => {
+    renderWithProviders(<HistoryPage />);
+
+    fireEvent.click(screen.getByRole("button", { name: "7 Days" }));
+
+    expect(navState.pushSpy).toHaveBeenCalledTimes(1);
+    expect(navState.pushSpy.mock.calls[0]?.[0]).toBe("/history?range=week");
+  });
+
+  it("Live button removes date param via router.push", () => {
+    navState.searchParams = new URLSearchParams("range=week&date=2026-04-15");
+
+    renderWithProviders(<HistoryPage />);
+
+    fireEvent.click(screen.getByTestId("history-pager-live"));
+    expect(navState.pushSpy).toHaveBeenCalledTimes(1);
+    expect(navState.pushSpy.mock.calls[0]?.[0]).toBe("/history?range=week");
+  });
+
+  it("prev chevron updates URL via router.replace without history flooding", () => {
+    navState.searchParams = new URLSearchParams("range=week&date=2026-04-15");
+
+    renderWithProviders(<HistoryPage />);
+
+    fireEvent.click(screen.getByTestId("history-pager-prev"));
+    expect(navState.replaceSpy).toHaveBeenCalledTimes(1);
+    expect(navState.replaceSpy.mock.calls[0]?.[0]).toBe("/history?range=week&date=2026-04-08");
+  });
+
+  it("future date in URL canonicalizes to station-today via router.replace after render", () => {
+    navState.searchParams = new URLSearchParams("range=day&date=2099-01-01");
+
+    renderWithProviders(<HistoryPage />);
+
+    expect(screen.getByTestId("history-pager-trigger")).toHaveTextContent("Apr 27, 2026");
+    expect(latestHistoryDataInput()).toEqual({
+      range: "day",
+      mode: "picked",
+      anchor: "2026-04-27",
+      timezone: "UTC",
+    });
+    expect(navState.replaceSpy).toHaveBeenCalledTimes(1);
+    expect(navState.replaceSpy.mock.calls[0]?.[0]).toBe("/history?range=day&date=2026-04-27");
+  });
+
+  it("waits for settled station timezone before replacing a future date URL", () => {
+    navState.searchParams = new URLSearchParams("range=day&date=2099-01-01");
+    stationTimezoneState.timezone = "UTC";
+    stationTimezoneState.isSettled = false;
+
+    const { rerender } = renderWithProviders(<HistoryPage />);
+
+    expect(screen.getByTestId("history-pager-trigger")).toHaveTextContent("Apr 27, 2026");
+    expect(latestHistoryDataInput()).toEqual({
+      range: "day",
+      mode: "picked",
+      anchor: "2026-04-27",
+      timezone: "UTC",
+    });
+    expect(navState.replaceSpy).not.toHaveBeenCalled();
+
+    stationTimezoneState.timezone = "Pacific/Kiritimati";
+    stationTimezoneState.isSettled = true;
+
+    rerender(<HistoryPage />);
+
+    expect(screen.getByTestId("history-pager-trigger")).toHaveTextContent("Apr 28, 2026");
+    expect(latestHistoryDataInput()).toEqual({
+      range: "day",
+      mode: "picked",
+      anchor: "2026-04-28",
+      timezone: "Pacific/Kiritimati",
+    });
+    expect(navState.replaceSpy).toHaveBeenCalledTimes(1);
+    expect(navState.replaceSpy.mock.calls[0]?.[0]).toBe("/history?range=day&date=2026-04-28");
+  });
+
+  it("garbage range and date fall back to live day mode without URL replacement", () => {
+    navState.searchParams = new URLSearchParams("range=banana&date=garbage");
+
+    renderWithProviders(<HistoryPage />);
+
+    expect(screen.queryByTestId("history-pager-live")).toBeNull();
+    expect(screen.getByTestId("history-pager-trigger")).toHaveTextContent("Last 24 Hours");
+    expect(navState.replaceSpy).not.toHaveBeenCalled();
+    expect(latestHistoryDataInput()).toEqual({
+      range: "day",
+      mode: "live",
+      anchor: undefined,
+      timezone: "UTC",
+    });
+  });
+
+  it("live pager date picking pushes a date URL and enters picked mode", () => {
+    renderWithProviders(<HistoryPage />);
+
+    fireEvent.click(screen.getByTestId("history-pager-trigger"));
+    fireEvent.click(screen.getByRole("button", { name: "Today" }));
+
+    expect(navState.pushSpy).toHaveBeenCalledTimes(1);
+    expect(navState.pushSpy.mock.calls[0]?.[0]).toBe("/history?date=2026-04-27");
+  });
+
+  it("view=calendar renders heatmap and preserves chart params when returning to charts", () => {
+    navState.searchParams = new URLSearchParams("view=calendar&range=week&date=2026-04-15");
+
+    renderWithProviders(<HistoryPage />);
+
+    expect(screen.getByTestId("calendar-heatmap")).toBeInTheDocument();
+    expect(screen.queryByTestId("uplot-chart")).toBeNull();
+    expect(screen.queryByTestId("history-pager-trigger")).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "charts" }));
+    expect(navState.pushSpy).toHaveBeenCalledTimes(1);
+    expect(navState.pushSpy.mock.calls[0]?.[0]).toBe("/history?range=week&date=2026-04-15");
+  });
+});
+
+describe("HistoryPage error state", () => {
+  beforeEach(() => {
+    upChartCalls.length = 0;
+    historyDataInputs.length = 0;
+    historyDataState.resolution = "hourly";
+    historyDataState.dataOverride = null;
+    historyDataState.isLoading = false;
+    historyDataState.isError = true;
+    historyDataState.error = new Error("network failure");
+    navState.searchParams = new URLSearchParams();
+    navState.pushSpy.mockReset();
+    navState.replaceSpy.mockReset();
+    stationTimezoneState.timezone = "UTC";
+    stationTimezoneState.isSettled = true;
+    refetchSpy.mockReset();
+  });
+
+  it("renders 'Couldn't load history' with a 'Try again' button", () => {
+    renderWithProviders(<HistoryPage />);
+
+    expect(screen.getByText(/couldn't load history/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /try again/i })).toBeInTheDocument();
+  });
+
+  it("clicking Try again calls the returned refetch", () => {
+    renderWithProviders(<HistoryPage />);
+
+    fireEvent.click(screen.getByRole("button", { name: /try again/i }));
+    expect(refetchSpy).toHaveBeenCalledTimes(1);
   });
 });
