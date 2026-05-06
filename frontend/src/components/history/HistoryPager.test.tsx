@@ -118,13 +118,13 @@ describe("HistoryPager", () => {
     expect(screen.getByTestId("history-popover")).toBeInTheDocument();
   });
 
-  it("renders chevrons, the period label, and Live button in picked mode", () => {
+  it("renders chevrons, the calendar period label, and Live button in picked mode", () => {
     renderPager({ mode: "picked", label: "May 12, 2026" });
 
     expect(screen.getByTestId("history-pager-prev")).toBeInTheDocument();
-    expect(screen.getByTestId("history-pager-trigger")).toHaveTextContent(
-      "May 12, 2026",
-    );
+    const trigger = screen.getByTestId("history-pager-trigger");
+    expect(trigger).toHaveTextContent("May 12, 2026");
+    expect(trigger.querySelector("svg")).toBeInTheDocument();
     expect(screen.getByTestId("history-pager-next")).toBeInTheDocument();
     expect(screen.getByTestId("history-pager-live")).toHaveTextContent("Live");
   });
