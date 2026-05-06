@@ -79,6 +79,18 @@ describe("DayView Day mode", () => {
     expect(cell).toHaveAttribute("data-selected", "true");
   });
 
+  it("uses the canonical short-month selected day aria-label", () => {
+    renderDayView({
+      range: "day",
+      visibleMonth: 3,
+      selectedAnchor: "2026-04-10",
+    });
+
+    expect(
+      screen.getByRole("button", { name: "Selected, Apr 10, 2026" }),
+    ).toHaveAttribute("data-selected", "true");
+  });
+
   it("does not highlight any cell when selectedAnchor is in a different month", () => {
     renderDayView({ range: "day", selectedAnchor: "2026-04-10" });
 
@@ -128,7 +140,7 @@ describe("DayView Week mode", () => {
     const row = document.querySelector('[data-testid="datepicker-week-row"][data-selected="true"]');
     expect(row).not.toBeNull();
     expect(row).toHaveAttribute("role", "group");
-    expect(row?.getAttribute("aria-label")).toMatch(/^Selected week,/);
+    expect(row).toHaveAttribute("aria-label", "Selected week, May 10–16, 2026");
   });
 
   it("emits { kind: 'week', weekStart } with the row's Sunday on cell click", () => {

@@ -1,25 +1,20 @@
 "use client";
 
 import { useState } from "react";
+import {
+  addCalendarDays,
+  dayLabel,
+  dayOfWeek,
+  daysInMonth,
+  formatYyyyMmDd,
+  parseYyyyMmDd,
+  startOfContainingWeek,
+  weekLabel,
+} from "@/lib/calendarDate";
 import { cn } from "@/lib/utils";
 import type { Range } from "@/lib/historyPeriod";
 
 const WEEKDAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
-
-const MONTH_LABELS_LONG = [
-  "January",
-  "February",
-  "March",
-  "April",
-  "May",
-  "June",
-  "July",
-  "August",
-  "September",
-  "October",
-  "November",
-  "December",
-] as const;
 
 interface DayCell {
   day: number;
@@ -46,70 +41,32 @@ export interface DayViewProps {
   ) => void;
 }
 
-function formatYyyyMmDd(date: Date): string {
-  return [
-    String(date.getUTCFullYear()).padStart(4, "0"),
-    String(date.getUTCMonth() + 1).padStart(2, "0"),
-    String(date.getUTCDate()).padStart(2, "0"),
-  ].join("-");
-}
-
-function dateFromParts(year: number, monthIndex: number, day: number): Date {
-  return new Date(Date.UTC(year, monthIndex, day));
-}
-
-function dateFromYyyyMmDd(value: string): Date | null {
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
-  if (!match) return null;
-
-  return dateFromParts(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
-}
-
-function addDays(date: Date, amount: number): Date {
-  return dateFromParts(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate() + amount);
-}
-
 function startOfWeek(value: string | null): string | null {
   if (!value) return null;
-  const date = dateFromYyyyMmDd(value);
+  const date = parseYyyyMmDd(value);
   if (!date) return null;
 
-  return formatYyyyMmDd(addDays(date, -date.getUTCDay()));
-}
-
-function daysInMonth(year: number, monthIndex: number): number {
-  return dateFromParts(year, monthIndex + 1, 0).getUTCDate();
+  return formatYyyyMmDd(startOfContainingWeek(date));
 }
 
 function formatWeekLabel(weekStart: string): string {
-  const start = dateFromYyyyMmDd(weekStart);
+  const start = parseYyyyMmDd(weekStart);
   if (!start) return weekStart;
 
-  const end = addDays(start, 6);
-  const startMonth = MONTH_LABELS_LONG[start.getUTCMonth()];
-  const endMonth = MONTH_LABELS_LONG[end.getUTCMonth()];
-
-  if (start.getUTCFullYear() === end.getUTCFullYear() && start.getUTCMonth() === end.getUTCMonth()) {
-    return `${startMonth} ${start.getUTCDate()}-${end.getUTCDate()}, ${start.getUTCFullYear()}`;
-  }
-
-  if (start.getUTCFullYear() === end.getUTCFullYear()) {
-    return `${startMonth} ${start.getUTCDate()} - ${endMonth} ${end.getUTCDate()}, ${start.getUTCFullYear()}`;
-  }
-
-  return `${startMonth} ${start.getUTCDate()}, ${start.getUTCFullYear()} - ${endMonth} ${end.getUTCDate()}, ${end.getUTCFullYear()}`;
+  return weekLabel(start, addCalendarDays(start, 6));
 }
 
 function buildRows(visibleYear: number, visibleMonth: number): WeekRow[] {
-  const firstDay = dateFromParts(visibleYear, visibleMonth, 1);
-  const leadingBlanks = firstDay.getUTCDay();
-  const visibleDays = daysInMonth(visibleYear, visibleMonth);
+  const month = visibleMonth + 1;
+  const firstDay = { year: visibleYear, month, day: 1 };
+  const leadingBlanks = dayOfWeek(firstDay);
+  const visibleDays = daysInMonth(visibleYear, month);
   const slotCount = Math.ceil((leadingBlanks + visibleDays) / 7) * 7;
-  const firstWeekStart = addDays(firstDay, -leadingBlanks);
+  const firstWeekStart = addCalendarDays(firstDay, -leadingBlanks);
   const rows: WeekRow[] = [];
 
   for (let slotIndex = 0; slotIndex < slotCount; slotIndex += 7) {
-    const weekStartDate = addDays(firstWeekStart, slotIndex);
+    const weekStartDate = addCalendarDays(firstWeekStart, slotIndex);
     const weekStart = formatYyyyMmDd(weekStartDate);
     const cells: Array<DayCell | null> = [];
 
@@ -121,7 +78,7 @@ function buildRows(visibleYear: number, visibleMonth: number): WeekRow[] {
       } else {
         cells.push({
           day,
-          dateStr: formatYyyyMmDd(dateFromParts(visibleYear, visibleMonth, day)),
+          dateStr: formatYyyyMmDd({ year: visibleYear, month, day }),
           weekStart,
         });
       }
@@ -203,7 +160,11 @@ export default function DayView({
                     aria-current={isCurrent ? "date" : undefined}
                     aria-label={
                       isSelectedDay
-                        ? `Selected, ${MONTH_LABELS_LONG[visibleMonth]} ${cell.day}, ${visibleYear}`
+                        ? `Selected, ${dayLabel({
+                            year: visibleYear,
+                            month: visibleMonth + 1,
+                            day: cell.day,
+                          })}`
                         : undefined
                     }
                     data-selected={isSelectedDay ? "true" : undefined}

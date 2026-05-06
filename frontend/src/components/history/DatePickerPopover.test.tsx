@@ -30,7 +30,7 @@ describe("DatePickerPopover entry views", () => {
     expect(screen.getByTestId("datepicker-day-view")).toBeInTheDocument();
     expect(screen.getByText("April 2026")).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: /^Selected, April 10, 2026$/ }),
+      screen.getByRole("button", { name: /^Selected, Apr 10, 2026$/ }),
     ).toHaveAttribute("data-selected", "true");
   });
 

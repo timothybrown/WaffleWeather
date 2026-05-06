@@ -144,6 +144,8 @@ describe("HistoryPager", () => {
     );
     expect(screen.getByTestId("history-pager-trigger")).toHaveClass(
       "max-w-full",
+      "w-44",
+      "sm:w-52",
     );
     expect(
       screen.getByTestId("history-pager-trigger").querySelector("span"),

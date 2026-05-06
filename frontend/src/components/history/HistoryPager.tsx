@@ -231,8 +231,7 @@ export default function HistoryPager({
       aria-expanded={popoverOpen}
       onClick={togglePopover}
       className={cn(
-        "inline-flex h-9 max-w-full items-center justify-center gap-2 rounded-md border border-border bg-surface px-3 text-sm font-medium text-text-muted transition-colors hover:bg-surface-hover hover:text-text",
-        mode === "picked" && "min-w-36",
+        "inline-flex h-9 w-44 max-w-full items-center justify-center gap-2 rounded-md border border-border bg-surface px-3 text-sm font-medium text-text-muted transition-colors hover:bg-surface-hover hover:text-text sm:w-52",
       )}
     >
       <RiCalendar2Line className="h-4 w-4" aria-hidden="true" />

@@ -410,6 +410,18 @@ describe("HistoryPage URL-driven state", () => {
     expect(screen.getByRole("button", { name: "Year" })).toBeInTheDocument();
   });
 
+  it("renders the date picker before the range selector so range buttons stay anchored", () => {
+    renderWithProviders(<HistoryPage />);
+
+    const trigger = screen.getByTestId("history-pager-trigger");
+    const dayRangeButton = screen.getByRole("button", { name: "Day" });
+
+    expect(
+      trigger.compareDocumentPosition(dayRangeButton) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
   it("renders Day/Week/Month/Year range labels in picked mode", () => {
     navState.searchParams = new URLSearchParams("range=week&date=2026-04-15");
 

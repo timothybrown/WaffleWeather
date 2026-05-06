@@ -602,6 +602,18 @@ function HistoryPageInner() {
                 Reset Zoom
               </button>
             )}
+            <HistoryPager
+              range={range}
+              mode={mode}
+              label={periodLabel}
+              canGoNext={canGoNext}
+              maxDate={todayStr}
+              selectedDate={anchor}
+              onPrev={handlePagerPrev}
+              onNext={handlePagerNext}
+              onPickDate={setDate}
+              onReturnToLive={clearDate}
+            />
             <div className="flex gap-1 rounded-lg border border-border bg-surface-alt p-1">
               {VALID_RANGES.map((r) => (
                 <button
@@ -618,18 +630,6 @@ function HistoryPageInner() {
                 </button>
               ))}
             </div>
-            <HistoryPager
-              range={range}
-              mode={mode}
-              label={periodLabel}
-              canGoNext={canGoNext}
-              maxDate={todayStr}
-              selectedDate={anchor}
-              onPrev={handlePagerPrev}
-              onNext={handlePagerNext}
-              onPickDate={setDate}
-              onReturnToLive={clearDate}
-            />
           </div>
         )}
       </div>
