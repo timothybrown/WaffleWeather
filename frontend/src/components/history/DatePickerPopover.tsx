@@ -1,8 +1,17 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
-import { RiArrowLeftSLine, RiArrowRightSLine } from "@remixicon/react";
-import { cn } from "@/lib/utils";
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type RefObject,
+} from "react";
+import type { Range } from "@/lib/historyPeriod";
+import DayView from "./datepicker/DayView";
+import MonthView from "./datepicker/MonthView";
+import PopoverHeader, { type ViewLevel } from "./datepicker/PopoverHeader";
+import YearView from "./datepicker/YearView";
 
 interface DateParts {
   year: number;
@@ -11,6 +20,7 @@ interface DateParts {
 }
 
 export interface DatePickerPopoverProps {
+  range: Range;
   selectedDate?: string;
   maxDate: string;
   onSelect: (yyyymmdd: string) => void;
@@ -18,22 +28,10 @@ export interface DatePickerPopoverProps {
   triggerRef?: RefObject<HTMLButtonElement | null>;
 }
 
-const MONTH_NAMES = [
-  "January",
-  "February",
-  "March",
-  "April",
-  "May",
-  "June",
-  "July",
-  "August",
-  "September",
-  "October",
-  "November",
-  "December",
-];
+const PAGE_ANCHOR_YEAR = 2020;
 
-const WEEKDAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+type PendingFocusKind = "drill-up" | "first-tile";
+type PendingFocus = { kind: PendingFocusKind; requestId: number } | null;
 
 function parseYmd(value: string): DateParts {
   const [year, month, day] = value.split("-").map(Number);
@@ -44,37 +42,38 @@ function parseYmd(value: string): DateParts {
   };
 }
 
-function toDateKey(year: number, monthIndex: number, day: number): number {
-  return year * 10000 + (monthIndex + 1) * 100 + day;
-}
-
 function formatYmd(year: number, monthIndex: number, day: number): string {
-  const month = String(monthIndex + 1).padStart(2, "0");
-  const dayOfMonth = String(day).padStart(2, "0");
-  return `${year}-${month}-${dayOfMonth}`;
-}
-
-function formatAccessibleDate(year: number, monthIndex: number, day: number): string {
-  return `${MONTH_NAMES[monthIndex]} ${day}, ${year}`;
+  return [
+    String(year).padStart(4, "0"),
+    String(monthIndex + 1).padStart(2, "0"),
+    String(day).padStart(2, "0"),
+  ].join("-");
 }
 
 function addMonths(year: number, monthIndex: number, offset: number) {
-  const date = new Date(year, monthIndex + offset, 1);
+  const absoluteMonth = year * 12 + monthIndex + offset;
+  const nextYear = Math.floor(absoluteMonth / 12);
   return {
-    year: date.getFullYear(),
-    monthIndex: date.getMonth(),
+    year: nextYear,
+    monthIndex: absoluteMonth - nextYear * 12,
   };
 }
 
-function getInitialMonth(selectedDate: string | undefined, maxDate: string) {
-  const parts = parseYmd(selectedDate ?? maxDate);
-  return {
-    year: parts.year,
-    monthIndex: parts.monthIndex,
-  };
+function entryViewFor(range: Range): ViewLevel {
+  if (range === "month") return "month";
+  if (range === "year") return "year";
+  return "day";
+}
+
+function pageStartYearForYear(year: number): number {
+  return (
+    PAGE_ANCHOR_YEAR +
+    Math.floor((year - PAGE_ANCHOR_YEAR) / 12) * 12
+  );
 }
 
 export default function DatePickerPopover({
+  range = "day",
   selectedDate,
   maxDate,
   onSelect,
@@ -82,46 +81,52 @@ export default function DatePickerPopover({
   triggerRef,
 }: DatePickerPopoverProps) {
   const popoverRef = useRef<HTMLDivElement>(null);
-  const [visibleMonth, setVisibleMonth] = useState(() =>
-    getInitialMonth(selectedDate, maxDate),
-  );
+  const nextFocusRequestIdRef = useRef(0);
+  const handledFocusRequestIdRef = useRef(0);
+  const initialParts = parseYmd(selectedDate ?? maxDate);
+  const selectedAnchor = selectedDate ?? null;
 
-  const maxParts = useMemo(() => parseYmd(maxDate), [maxDate]);
-  const selectedParts = useMemo(
-    () => (selectedDate ? parseYmd(selectedDate) : null),
-    [selectedDate],
+  const [viewLevel, setViewLevel] = useState<ViewLevel>(() =>
+    entryViewFor(range),
   );
-  const maxDateKey = toDateKey(
-    maxParts.year,
-    maxParts.monthIndex,
-    maxParts.day,
+  const [visibleYear, setVisibleYear] = useState(() => initialParts.year);
+  const [visibleMonth, setVisibleMonth] = useState(
+    () => initialParts.monthIndex,
   );
-  const selectedDateKey = selectedParts
-    ? toDateKey(
-      selectedParts.year,
-      selectedParts.monthIndex,
-      selectedParts.day,
-    )
-    : null;
+  const [pageStartYear, setPageStartYear] = useState(() =>
+    pageStartYearForYear(initialParts.year),
+  );
+  const [pendingFocus, setPendingFocus] = useState<PendingFocus>(null);
 
-  const daysInMonth = new Date(
-    visibleMonth.year,
-    visibleMonth.monthIndex + 1,
-    0,
-  ).getDate();
-  const leadingBlanks = new Date(
-    visibleMonth.year,
-    visibleMonth.monthIndex,
-    1,
-  ).getDay();
+  const requestFocus = (kind: PendingFocusKind) => {
+    nextFocusRequestIdRef.current += 1;
+    setPendingFocus({
+      kind,
+      requestId: nextFocusRequestIdRef.current,
+    });
+  };
 
-  const nextMonth = addMonths(
-    visibleMonth.year,
-    visibleMonth.monthIndex,
-    1,
-  );
-  const isNextDisabled =
-    toDateKey(nextMonth.year, nextMonth.monthIndex, 1) > maxDateKey;
+  useLayoutEffect(() => {
+    if (!pendingFocus) return;
+    if (handledFocusRequestIdRef.current === pendingFocus.requestId) return;
+
+    const root = popoverRef.current;
+    if (!root) return;
+
+    const target =
+      pendingFocus.kind === "drill-up"
+        ? root.querySelector<HTMLButtonElement>(
+            'button[aria-label^="Choose "]',
+          )
+        : root
+            .querySelector<HTMLElement>(
+              `[data-testid="datepicker-${viewLevel}-view"]`,
+            )
+            ?.querySelector<HTMLButtonElement>("button:not([disabled])");
+
+    target?.focus();
+    handledFocusRequestIdRef.current = pendingFocus.requestId;
+  }, [pendingFocus, viewLevel]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -153,25 +158,90 @@ export default function DatePickerPopover({
     };
   }, [onClose, triggerRef]);
 
-  const handleSelect = (day: number, disabled: boolean) => {
-    if (disabled) return;
-
-    onSelect(formatYmd(visibleMonth.year, visibleMonth.monthIndex, day));
+  const commit = (anchor: string) => {
+    onSelect(anchor);
     onClose();
   };
 
-  const handleToday = () => {
-    onSelect(maxDate);
-    onClose();
+  const handlePrev = () => {
+    if (viewLevel === "day") {
+      const previous = addMonths(visibleYear, visibleMonth, -1);
+      setVisibleYear(previous.year);
+      setVisibleMonth(previous.monthIndex);
+      return;
+    }
+
+    if (viewLevel === "month") {
+      setVisibleYear((year) => year - 1);
+      return;
+    }
+
+    setPageStartYear((year) => year - 12);
   };
 
-  const goToPreviousMonth = () => {
-    setVisibleMonth((month) => addMonths(month.year, month.monthIndex, -1));
+  const handleNext = () => {
+    if (viewLevel === "day") {
+      const next = addMonths(visibleYear, visibleMonth, 1);
+      setVisibleYear(next.year);
+      setVisibleMonth(next.monthIndex);
+      return;
+    }
+
+    if (viewLevel === "month") {
+      setVisibleYear((year) => year + 1);
+      return;
+    }
+
+    setPageStartYear((year) => year + 12);
   };
 
-  const goToNextMonth = () => {
-    if (isNextDisabled) return;
-    setVisibleMonth(nextMonth);
+  const handleDrillUp = () => {
+    if (viewLevel === "day") {
+      setViewLevel("month");
+      requestFocus("drill-up");
+      return;
+    }
+
+    if (viewLevel === "month") {
+      setPageStartYear(pageStartYearForYear(visibleYear));
+      setViewLevel("year");
+      requestFocus("first-tile");
+    }
+  };
+
+  const handleDayTileClick = (
+    event:
+      | { kind: "day"; date: string }
+      | { kind: "week"; weekStart: string },
+  ) => {
+    commit(event.kind === "day" ? event.date : event.weekStart);
+  };
+
+  const handleMonthTileClick = (event: {
+    year: number;
+    monthIndex: number;
+  }) => {
+    if (range === "month") {
+      commit(formatYmd(event.year, event.monthIndex, 1));
+      return;
+    }
+
+    setVisibleYear(event.year);
+    setVisibleMonth(event.monthIndex);
+    setViewLevel("day");
+    requestFocus("first-tile");
+  };
+
+  const handleYearTileClick = (event: { year: number }) => {
+    if (range === "year") {
+      commit(formatYmd(event.year, 0, 1));
+      return;
+    }
+
+    setVisibleYear(event.year);
+    setPageStartYear(pageStartYearForYear(event.year));
+    setViewLevel("month");
+    requestFocus("first-tile");
   };
 
   return (
@@ -182,96 +252,45 @@ export default function DatePickerPopover({
       data-testid="history-popover"
       className="w-[min(18rem,calc(100vw-1.5rem))] rounded-xl border border-border bg-surface-alt p-3 text-sm shadow-lg"
     >
-      <div className="mb-3 flex items-center justify-between gap-2">
-        <button
-          type="button"
-          aria-label="Previous month"
-          onClick={goToPreviousMonth}
-          className="flex h-8 w-8 items-center justify-center rounded-md border border-border bg-surface text-text-muted transition-colors hover:text-text"
-        >
-          <RiArrowLeftSLine className="h-4 w-4" aria-hidden="true" />
-        </button>
+      <PopoverHeader
+        viewLevel={viewLevel}
+        visibleYear={visibleYear}
+        visibleMonth={visibleMonth}
+        pageStartYear={pageStartYear}
+        maxDate={maxDate}
+        onPrev={handlePrev}
+        onNext={handleNext}
+        onDrillUp={handleDrillUp}
+      />
 
-        <div className="font-medium text-text">
-          {MONTH_NAMES[visibleMonth.monthIndex]} {visibleMonth.year}
-        </div>
+      {viewLevel === "day" && (range === "day" || range === "week") ? (
+        <DayView
+          visibleYear={visibleYear}
+          visibleMonth={visibleMonth}
+          range={range}
+          selectedAnchor={selectedAnchor}
+          maxDate={maxDate}
+          onTileClick={handleDayTileClick}
+        />
+      ) : null}
 
-        <button
-          type="button"
-          aria-label="Next month"
-          onClick={goToNextMonth}
-          disabled={isNextDisabled}
-          className="flex h-8 w-8 items-center justify-center rounded-md border border-border bg-surface text-text-muted transition-colors hover:text-text disabled:pointer-events-none disabled:opacity-40"
-        >
-          <RiArrowRightSLine className="h-4 w-4" aria-hidden="true" />
-        </button>
-      </div>
+      {viewLevel === "month" ? (
+        <MonthView
+          visibleYear={visibleYear}
+          selectedAnchor={selectedAnchor}
+          maxDate={maxDate}
+          onTileClick={handleMonthTileClick}
+        />
+      ) : null}
 
-      <div className="mb-1 grid grid-cols-7 gap-1 text-center text-[10px] font-medium uppercase text-text-faint">
-        {WEEKDAY_LABELS.map((label) => (
-          <div key={label}>{label}</div>
-        ))}
-      </div>
-
-      <div className="grid grid-cols-7 gap-1">
-        {Array.from({ length: leadingBlanks }, (_, index) => (
-          <div key={`blank-${index}`} aria-hidden="true" className="h-8" />
-        ))}
-
-        {Array.from({ length: daysInMonth }, (_, index) => {
-          const day = index + 1;
-          const dateKey = toDateKey(
-            visibleMonth.year,
-            visibleMonth.monthIndex,
-            day,
-          );
-          const isDisabled = dateKey > maxDateKey;
-          const isSelected = selectedDateKey === dateKey;
-          const isMaxDate = dateKey === maxDateKey;
-
-          return (
-            <button
-              key={day}
-              type="button"
-              disabled={isDisabled}
-              aria-current={isMaxDate ? "date" : undefined}
-              aria-label={
-                isSelected
-                  ? `Selected, ${formatAccessibleDate(
-                    visibleMonth.year,
-                    visibleMonth.monthIndex,
-                    day,
-                  )}`
-                  : undefined
-              }
-              aria-disabled={isDisabled ? "true" : "false"}
-              data-selected={isSelected ? "true" : undefined}
-              onClick={() => handleSelect(day, isDisabled)}
-              className={cn(
-                "flex h-8 w-8 items-center justify-center rounded-md font-mono text-xs tabular-nums transition-colors",
-                isSelected
-                  ? "bg-primary text-white shadow-sm"
-                  : "text-text-muted hover:bg-surface-hover hover:text-text",
-                isMaxDate && !isSelected && "ring-1 ring-primary/30",
-                isDisabled &&
-                  "cursor-not-allowed text-text-faint opacity-40 hover:bg-transparent hover:text-text-faint",
-              )}
-            >
-              {day}
-            </button>
-          );
-        })}
-      </div>
-
-      <div className="mt-3 flex justify-end border-t border-border pt-3">
-        <button
-          type="button"
-          onClick={handleToday}
-          className="rounded-md border border-border bg-surface px-3 py-1.5 text-xs font-medium text-text-muted transition-colors hover:text-text"
-        >
-          Today
-        </button>
-      </div>
+      {viewLevel === "year" ? (
+        <YearView
+          pageStartYear={pageStartYear}
+          selectedAnchor={selectedAnchor}
+          maxDate={maxDate}
+          onTileClick={handleYearTileClick}
+        />
+      ) : null}
     </div>
   );
 }
