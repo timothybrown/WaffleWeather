@@ -47,7 +47,11 @@ A custom SVG polar chart breaking down wind patterns by direction and speed acro
 
 ### History
 
-Time-series charts for temperature, humidity, pressure, wind, rain, and solar/UV with automatic resolution scaling — raw data for 24 hours, hourly aggregates for a week, daily for a month, monthly for a year. Synchronized crosshairs across all charts and drag-to-zoom. Hover over any chart to see precise values in the floating tooltip.
+Time-series charts for temperature, humidity, pressure, wind, rain, and solar/UV with automatic resolution scaling — raw data for 24 hours, hourly aggregates for a week, daily for a month, monthly for a year. Synchronized crosshairs across all charts and drag-to-zoom. Hover over any chart to see precise values in the floating tooltip. Click chart legend chips to toggle individual series.
+
+Range buttons switch between Day, Week, Month, and Year views. The pager next to them scrubs through history: chevrons step the period backward or forward, while the calendar trigger opens a date picker that matches the current range — a month grid for Day picks, a row-highlighting calendar for Week picks, a 12-month grid for Month picks, and a 12-year paged grid for Year picks. Drill up from the day grid to a year list in two clicks. The selected period lives in the URL (`?range=&date=`) so any view is a shareable link.
+
+The 24-hour Wind and Solar charts use adaptive bucketing — bucket size is chosen for pixel density and the chart renders as honest summary bars instead of plotting every raw sample. Drag-to-zoom past the raw cadence threshold falls back to raw lines.
 
 ![History Charts](screenshots/history-tooltip.png)
 
