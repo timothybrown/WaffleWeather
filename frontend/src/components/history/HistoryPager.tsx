@@ -13,6 +13,7 @@ import {
   RiArrowRightSLine,
   RiCalendar2Line,
 } from "@remixicon/react";
+import type { Range } from "@/lib/historyPeriod";
 import { cn } from "@/lib/utils";
 import DatePickerPopover from "./DatePickerPopover";
 
@@ -21,6 +22,7 @@ const POPOVER_VIEWPORT_MARGIN_PX = 12;
 const POPOVER_VERTICAL_GAP_PX = 8;
 
 export interface HistoryPagerProps {
+  range: Range;
   mode: "live" | "picked";
   label: string;
   canGoNext: boolean;
@@ -33,6 +35,7 @@ export interface HistoryPagerProps {
 }
 
 export default function HistoryPager({
+  range,
   mode,
   label,
   canGoNext,
@@ -262,6 +265,7 @@ export default function HistoryPager({
           style={popoverWrapperStyle}
         >
           <DatePickerPopover
+            range={range}
             selectedDate={selectedDate}
             maxDate={maxDate}
             onSelect={onPickDate}

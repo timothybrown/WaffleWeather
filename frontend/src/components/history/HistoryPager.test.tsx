@@ -14,6 +14,7 @@ function renderPager(
 
   render(
     <HistoryPager
+      range="day"
       mode="live"
       label="May 15, 2026"
       canGoNext
@@ -35,6 +36,7 @@ function ModeChangingPager() {
 
   return (
     <HistoryPager
+      range="day"
       mode={mode}
       label={mode === "live" ? "May 15, 2026" : "May 10, 2026"}
       canGoNext
@@ -56,6 +58,7 @@ function ReturnToLivePager({ onReturnToLive }: { onReturnToLive: () => void }) {
 
   return (
     <HistoryPager
+      range="day"
       mode={mode}
       label={mode === "live" ? "May 15, 2026" : "May 10, 2026"}
       canGoNext
@@ -426,7 +429,7 @@ describe("HistoryPager", () => {
 
     await user.tab();
 
-    expect(screen.getByRole("button", { name: "Previous month" })).toHaveFocus();
+    expect(screen.getByRole("button", { name: "Previous" })).toHaveFocus();
     expect(screen.getByTestId("history-pager-next")).not.toHaveFocus();
     expect(screen.getByTestId("history-pager-live")).not.toHaveFocus();
   });
@@ -466,7 +469,7 @@ describe("HistoryPager", () => {
     expect(disabledFutureDay).toBeDisabled();
     expect(disabledFutureDay).toHaveAttribute("aria-disabled", "true");
 
-    await user.click(screen.getByRole("button", { name: "Today" }));
+    await user.click(screen.getByRole("button", { name: "10" }));
 
     expect(onPickDate).toHaveBeenCalledWith("2026-05-10");
   });
@@ -597,6 +600,7 @@ describe("HistoryPager", () => {
     render(
       <div>
         <HistoryPager
+          range="day"
           mode="picked"
           label="May 12, 2026"
           canGoNext
@@ -673,5 +677,103 @@ describe("HistoryPager", () => {
     await user.click(trigger);
 
     expect(trigger).toHaveAttribute("aria-expanded", "true");
+  });
+});
+
+describe("HistoryPager passes range to popover", () => {
+  it("opening with range='month' renders month-view", async () => {
+    const user = userEvent.setup();
+    render(
+      <HistoryPager
+        range="month"
+        mode="picked"
+        label="April 2026"
+        canGoNext
+        maxDate="2026-05-15"
+        selectedDate="2026-04-15"
+        onPrev={vi.fn()}
+        onNext={vi.fn()}
+        onPickDate={vi.fn()}
+        onReturnToLive={vi.fn()}
+      />,
+    );
+
+    await user.click(screen.getByTestId("history-pager-trigger"));
+
+    expect(screen.getByTestId("datepicker-month-view")).toBeInTheDocument();
+  });
+
+  it("opening with range='year' renders year-view", async () => {
+    const user = userEvent.setup();
+    render(
+      <HistoryPager
+        range="year"
+        mode="picked"
+        label="2026"
+        canGoNext
+        maxDate="2026-05-15"
+        selectedDate="2026-01-01"
+        onPrev={vi.fn()}
+        onNext={vi.fn()}
+        onPickDate={vi.fn()}
+        onReturnToLive={vi.fn()}
+      />,
+    );
+
+    await user.click(screen.getByTestId("history-pager-trigger"));
+
+    expect(screen.getByTestId("datepicker-year-view")).toBeInTheDocument();
+  });
+
+  it("opening with range='day' renders day-view", async () => {
+    const user = userEvent.setup();
+    render(
+      <HistoryPager
+        range="day"
+        mode="live"
+        label="May 15, 2026"
+        canGoNext
+        maxDate="2026-05-15"
+        onPrev={vi.fn()}
+        onNext={vi.fn()}
+        onPickDate={vi.fn()}
+        onReturnToLive={vi.fn()}
+      />,
+    );
+
+    await user.click(screen.getByTestId("history-pager-trigger"));
+
+    expect(screen.getByTestId("datepicker-day-view")).toBeInTheDocument();
+  });
+
+  it("resets viewLevel to entry view on each popover open (drill state does not persist)", async () => {
+    const user = userEvent.setup();
+    render(
+      <HistoryPager
+        range="day"
+        mode="picked"
+        label="April 15, 2026"
+        canGoNext
+        maxDate="2026-05-15"
+        selectedDate="2026-04-15"
+        onPrev={vi.fn()}
+        onNext={vi.fn()}
+        onPickDate={vi.fn()}
+        onReturnToLive={vi.fn()}
+      />,
+    );
+
+    await user.click(screen.getByTestId("history-pager-trigger"));
+    expect(screen.getByTestId("datepicker-day-view")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Choose month" }));
+    await user.click(screen.getByRole("button", { name: "Choose year" }));
+    expect(screen.getByTestId("datepicker-year-view")).toBeInTheDocument();
+
+    await user.click(screen.getByTestId("history-pager-trigger"));
+    expect(screen.queryByTestId("datepicker-year-view")).toBeNull();
+
+    await user.click(screen.getByTestId("history-pager-trigger"));
+    expect(screen.getByTestId("datepicker-day-view")).toBeInTheDocument();
+    expect(screen.queryByTestId("datepicker-year-view")).toBeNull();
   });
 });
