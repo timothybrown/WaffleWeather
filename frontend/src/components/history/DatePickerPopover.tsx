@@ -180,7 +180,7 @@ export default function DatePickerPopover({
       role="dialog"
       aria-label="Pick a date"
       data-testid="history-popover"
-      className="w-72 rounded-xl border border-border bg-surface-alt p-3 text-sm shadow-lg"
+      className="w-[min(18rem,calc(100vw-1.5rem))] rounded-xl border border-border bg-surface-alt p-3 text-sm shadow-lg"
     >
       <div className="mb-3 flex items-center justify-between gap-2">
         <button

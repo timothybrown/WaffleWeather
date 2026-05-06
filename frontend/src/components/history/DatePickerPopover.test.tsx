@@ -210,4 +210,12 @@ describe("DatePickerPopover", () => {
     expect(dialog).toHaveAttribute("role", "dialog");
     expect(dialog).toHaveAttribute("aria-label", "Pick a date");
   });
+
+  it("uses a viewport-clamped width for narrow screens", () => {
+    renderPopover();
+
+    expect(screen.getByTestId("history-popover").className).toContain(
+      "w-[min(18rem,calc(100vw-1.5rem))]",
+    );
+  });
 });

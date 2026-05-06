@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import HistoryPager from "./HistoryPager";
 
@@ -88,6 +88,11 @@ async function waitForDeferredFocusRestore() {
 }
 
 describe("HistoryPager", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
   it("renders the live label trigger with a calendar icon", () => {
     renderPager();
 
@@ -131,6 +136,267 @@ describe("HistoryPager", () => {
     await user.click(screen.getByTestId("history-pager-trigger"));
 
     expect(screen.getByTestId("history-popover")).toBeInTheDocument();
+  });
+
+  it("clamps the popover position when the picked trigger is near the viewport edge", async () => {
+    const user = userEvent.setup();
+    vi.stubGlobal("innerWidth", 500);
+    renderPager({ mode: "picked", label: "May 12, 2026" });
+
+    const trigger = screen.getByTestId("history-pager-trigger");
+    vi.spyOn(trigger, "getBoundingClientRect").mockReturnValue({
+      x: 430,
+      y: 20,
+      width: 70,
+      height: 36,
+      top: 20,
+      right: 500,
+      bottom: 56,
+      left: 430,
+      toJSON: () => ({}),
+    } as DOMRect);
+
+    await user.click(trigger);
+
+    const positioningWrapper = screen.getByTestId(
+      "history-pager-popover-positioner",
+    );
+    expect(positioningWrapper.className).toContain("fixed");
+
+    await waitFor(() => {
+      expect(positioningWrapper).toHaveStyle({
+        left: "200px",
+        top: "64px",
+      });
+    });
+    const positionedRightEdge =
+      Number.parseFloat(positioningWrapper.style.left) + 288;
+    expect(positionedRightEdge).toBeLessThanOrEqual(window.innerWidth - 12);
+  });
+
+  it("flips the popover above the trigger when the trigger is near the viewport bottom", async () => {
+    const user = userEvent.setup();
+    vi.stubGlobal("innerWidth", 500);
+    vi.stubGlobal("innerHeight", 300);
+    renderPager({ mode: "picked", label: "May 12, 2026" });
+
+    const trigger = screen.getByTestId("history-pager-trigger");
+    vi.spyOn(trigger, "getBoundingClientRect").mockReturnValue({
+      x: 120,
+      y: 250,
+      width: 120,
+      height: 36,
+      top: 250,
+      right: 240,
+      bottom: 286,
+      left: 120,
+      toJSON: () => ({}),
+    } as DOMRect);
+
+    vi.spyOn(
+      HTMLElement.prototype,
+      "getBoundingClientRect",
+    ).mockImplementation(function (this: HTMLElement) {
+      if (this.dataset.testid === "history-pager-popover-positioner") {
+        return {
+          x: 120,
+          y: 24,
+          width: 288,
+          height: 220,
+          top: 24,
+          right: 408,
+          bottom: 244,
+          left: 120,
+          toJSON: () => ({}),
+        } as DOMRect;
+      }
+
+      return {
+        x: 0,
+        y: 0,
+        width: 0,
+        height: 0,
+        top: 0,
+        right: 0,
+        bottom: 0,
+        left: 0,
+        toJSON: () => ({}),
+      } as DOMRect;
+    });
+
+    await user.click(trigger);
+
+    const positioningWrapper = screen.getByTestId(
+      "history-pager-popover-positioner",
+    );
+
+    await waitFor(() => {
+      expect(positioningWrapper).toHaveStyle({
+        top: "22px",
+      });
+    });
+    const positionedBottomEdge =
+      Number.parseFloat(positioningWrapper.style.top) + 220;
+    expect(positionedBottomEdge).toBeLessThanOrEqual(window.innerHeight - 12);
+  });
+
+  it("constrains the popover height so the footer remains reachable in very short viewports", async () => {
+    const user = userEvent.setup();
+    vi.stubGlobal("innerWidth", 500);
+    vi.stubGlobal("innerHeight", 180);
+    renderPager({ mode: "picked", label: "May 12, 2026" });
+
+    const trigger = screen.getByTestId("history-pager-trigger");
+    vi.spyOn(trigger, "getBoundingClientRect").mockReturnValue({
+      x: 120,
+      y: 30,
+      width: 120,
+      height: 36,
+      top: 30,
+      right: 240,
+      bottom: 66,
+      left: 120,
+      toJSON: () => ({}),
+    } as DOMRect);
+
+    vi.spyOn(
+      HTMLElement.prototype,
+      "getBoundingClientRect",
+    ).mockImplementation(function (this: HTMLElement) {
+      if (this.dataset.testid === "history-pager-popover-positioner") {
+        return {
+          x: 120,
+          y: 12,
+          width: 288,
+          height: 260,
+          top: 12,
+          right: 408,
+          bottom: 272,
+          left: 120,
+          toJSON: () => ({}),
+        } as DOMRect;
+      }
+
+      return {
+        x: 0,
+        y: 0,
+        width: 0,
+        height: 0,
+        top: 0,
+        right: 0,
+        bottom: 0,
+        left: 0,
+        toJSON: () => ({}),
+      } as DOMRect;
+    });
+
+    await user.click(trigger);
+
+    const positioningWrapper = screen.getByTestId(
+      "history-pager-popover-positioner",
+    );
+
+    await waitFor(() => {
+      expect(positioningWrapper).toHaveStyle({
+        top: "12px",
+        maxHeight: "156px",
+        overflowY: "auto",
+      });
+    });
+
+    const maxHeight = Number.parseFloat(positioningWrapper.style.maxHeight);
+    const positionedBottomEdge =
+      Number.parseFloat(positioningWrapper.style.top) + maxHeight;
+    expect(maxHeight).toBeLessThanOrEqual(window.innerHeight - 24);
+    expect(positionedBottomEdge).toBeLessThanOrEqual(window.innerHeight - 12);
+  });
+
+  it("repositions when popover content height changes", async () => {
+    const user = userEvent.setup();
+    let resizeObserverCallback: ResizeObserverCallback | undefined;
+    const observe = vi.fn();
+    const disconnect = vi.fn();
+    class TestResizeObserver {
+      constructor(callback: ResizeObserverCallback) {
+        resizeObserverCallback = callback;
+      }
+
+      observe = observe;
+      disconnect = disconnect;
+    }
+    vi.stubGlobal("ResizeObserver", TestResizeObserver);
+    vi.stubGlobal("innerWidth", 500);
+    vi.stubGlobal("innerHeight", 360);
+    renderPager({ mode: "picked", label: "May 12, 2026" });
+
+    const trigger = screen.getByTestId("history-pager-trigger");
+    vi.spyOn(trigger, "getBoundingClientRect").mockReturnValue({
+      x: 120,
+      y: 260,
+      width: 120,
+      height: 36,
+      top: 260,
+      right: 240,
+      bottom: 296,
+      left: 120,
+      toJSON: () => ({}),
+    } as DOMRect);
+
+    let popoverHeight = 120;
+    vi.spyOn(
+      HTMLElement.prototype,
+      "getBoundingClientRect",
+    ).mockImplementation(function (this: HTMLElement) {
+      if (this.dataset.testid === "history-pager-popover-positioner") {
+        return {
+          x: 120,
+          y: 132,
+          width: 288,
+          height: popoverHeight,
+          top: 132,
+          right: 408,
+          bottom: 132 + popoverHeight,
+          left: 120,
+          toJSON: () => ({}),
+        } as DOMRect;
+      }
+
+      return {
+        x: 0,
+        y: 0,
+        width: 0,
+        height: 0,
+        top: 0,
+        right: 0,
+        bottom: 0,
+        left: 0,
+        toJSON: () => ({}),
+      } as DOMRect;
+    });
+
+    await user.click(trigger);
+
+    const positioningWrapper = screen.getByTestId(
+      "history-pager-popover-positioner",
+    );
+
+    await waitFor(() => {
+      expect(positioningWrapper).toHaveStyle({
+        top: "132px",
+      });
+    });
+    expect(resizeObserverCallback).toBeTypeOf("function");
+
+    popoverHeight = 220;
+    act(() => {
+      resizeObserverCallback?.([], {} as ResizeObserver);
+    });
+
+    await waitFor(() => {
+      expect(positioningWrapper).toHaveStyle({
+        top: "32px",
+      });
+    });
   });
 
   it("tabs from the opened picked trigger into the popover before Next and Live", async () => {
