@@ -158,6 +158,10 @@ function dayOfWeek(date: CalendarDate): number {
   ) % 7;
 }
 
+function startOfContainingWeek(date: CalendarDate): CalendarDate {
+  return addCalendarDays(date, -dayOfWeek(date));
+}
+
 function toStationMidnightUtc(timezone: string, date: CalendarDate): Date {
   return zonedMidnightToUtc(timezone, date.year, date.month, date.day);
 }
@@ -256,7 +260,7 @@ export function prevAnchor(anchor: string, range: Range): string {
     case "day":
       return formatYyyyMmDd(addCalendarDays(anchorDate, -1));
     case "week":
-      return formatYyyyMmDd(addCalendarDays(anchorDate, -7));
+      return formatYyyyMmDd(addCalendarDays(startOfContainingWeek(anchorDate), -7));
     case "month":
       return formatYyyyMmDd(addCalendarMonthsFirst(anchorDate, -1));
     case "year":
@@ -271,7 +275,7 @@ export function nextAnchor(anchor: string, range: Range): string {
     case "day":
       return formatYyyyMmDd(addCalendarDays(anchorDate, 1));
     case "week":
-      return formatYyyyMmDd(addCalendarDays(anchorDate, 7));
+      return formatYyyyMmDd(addCalendarDays(startOfContainingWeek(anchorDate), 7));
     case "month":
       return formatYyyyMmDd(addCalendarMonthsFirst(anchorDate, 1));
     case "year":

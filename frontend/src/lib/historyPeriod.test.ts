@@ -186,9 +186,9 @@ describe("anchor mutation", () => {
     expect(nextAnchor("2026-04-30", "day")).toBe("2026-05-01");
   });
 
-  it("shifts week anchors by seven calendar days preserving day-of-week", () => {
-    expect(prevAnchor("2026-01-03", "week")).toBe("2025-12-27");
-    expect(nextAnchor("2026-12-26", "week")).toBe("2027-01-02");
+  it("shifts Sunday week anchors by seven calendar days", () => {
+    expect(prevAnchor("2026-01-04", "week")).toBe("2025-12-28");
+    expect(nextAnchor("2026-12-27", "week")).toBe("2027-01-03");
   });
 
   it("shifts month anchors to the first day of the target month without day drift", () => {
@@ -239,5 +239,52 @@ describe("canonicalizeFutureAnchor", () => {
 
     expect(canonicalizeFutureAnchor("2026-04-16", EASTERN, now)).toBe("2026-04-15");
     expect(canonicalizeFutureAnchor("2026-04-15", EASTERN, now)).toBe("2026-04-15");
+  });
+});
+
+describe("week prevAnchor/nextAnchor canonicalize to Sunday", () => {
+  it("nextAnchor from a Sunday anchor returns the next Sunday", () => {
+    // 2026-04-12 is a Sunday
+    expect(nextAnchor("2026-04-12", "week")).toBe("2026-04-19");
+  });
+
+  it("prevAnchor from a Sunday anchor returns the previous Sunday", () => {
+    expect(prevAnchor("2026-04-12", "week")).toBe("2026-04-05");
+  });
+
+  it("nextAnchor from a non-Sunday anchor canonicalizes to next Sunday", () => {
+    // 2026-04-15 is a Wednesday; containing-week Sunday is 2026-04-12;
+    // next Sunday is 2026-04-19
+    expect(nextAnchor("2026-04-15", "week")).toBe("2026-04-19");
+  });
+
+  it("prevAnchor from a non-Sunday anchor canonicalizes to previous Sunday", () => {
+    // 2026-04-15 is a Wednesday; containing-week Sunday is 2026-04-12;
+    // previous Sunday is 2026-04-05
+    expect(prevAnchor("2026-04-15", "week")).toBe("2026-04-05");
+  });
+
+  it("nextAnchor from a Saturday anchor canonicalizes correctly", () => {
+    // 2026-04-18 is a Saturday; containing-week Sunday is 2026-04-12;
+    // next Sunday is 2026-04-19
+    expect(nextAnchor("2026-04-18", "week")).toBe("2026-04-19");
+  });
+});
+
+describe("month/year prevAnchor/nextAnchor unchanged (regression guard)", () => {
+  it("month prev returns first-of-previous-month", () => {
+    expect(prevAnchor("2026-04-15", "month")).toBe("2026-03-01");
+  });
+
+  it("month next returns first-of-next-month", () => {
+    expect(nextAnchor("2026-04-15", "month")).toBe("2026-05-01");
+  });
+
+  it("year prev returns YYYY-01-01 of previous year", () => {
+    expect(prevAnchor("2026-04-15", "year")).toBe("2025-01-01");
+  });
+
+  it("year next returns YYYY-01-01 of next year", () => {
+    expect(nextAnchor("2026-04-15", "year")).toBe("2027-01-01");
   });
 });
