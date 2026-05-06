@@ -525,6 +525,64 @@ describe("HistoryPage URL-driven state", () => {
     expect(xAxis?.values!({}, [split], 0, 0, 0)).toEqual(["Sun"]);
   });
 
+  it("uses station-month-start x-axis splits for year mode", () => {
+    navState.searchParams = new URLSearchParams("range=year&date=2026-01-01");
+    stationTimezoneState.timezone = "America/New_York";
+    historyDataState.resolution = "monthly";
+
+    renderWithProviders(<HistoryPage />);
+
+    const xAxis = upChartCalls[0]?.props.options?.axes?.[0];
+    expect(xAxis?.splits).toBeDefined();
+
+    const scaleMin = zonedMidnightToUtc("America/New_York", 2026, 1, 1).getTime() / 1000;
+    const scaleMax = zonedMidnightToUtc("America/New_York", 2027, 1, 1).getTime() / 1000;
+
+    const splits = xAxis!.splits!({}, 0, scaleMin, scaleMax, 0, 0);
+
+    expect(splits).toEqual([
+      zonedMidnightToUtc("America/New_York", 2026, 1, 1).getTime() / 1000,
+      zonedMidnightToUtc("America/New_York", 2026, 2, 1).getTime() / 1000,
+      zonedMidnightToUtc("America/New_York", 2026, 3, 1).getTime() / 1000,
+      zonedMidnightToUtc("America/New_York", 2026, 4, 1).getTime() / 1000,
+      zonedMidnightToUtc("America/New_York", 2026, 5, 1).getTime() / 1000,
+      zonedMidnightToUtc("America/New_York", 2026, 6, 1).getTime() / 1000,
+      zonedMidnightToUtc("America/New_York", 2026, 7, 1).getTime() / 1000,
+      zonedMidnightToUtc("America/New_York", 2026, 8, 1).getTime() / 1000,
+      zonedMidnightToUtc("America/New_York", 2026, 9, 1).getTime() / 1000,
+      zonedMidnightToUtc("America/New_York", 2026, 10, 1).getTime() / 1000,
+      zonedMidnightToUtc("America/New_York", 2026, 11, 1).getTime() / 1000,
+      zonedMidnightToUtc("America/New_York", 2026, 12, 1).getTime() / 1000,
+      zonedMidnightToUtc("America/New_York", 2027, 1, 1).getTime() / 1000,
+    ]);
+
+    expect(xAxis!.values!({}, splits.slice(0, 3), 0, 0, 0)).toEqual([
+      "Jan 2026",
+      "Feb 2026",
+      "Mar 2026",
+    ]);
+  });
+
+  it("emits a single tick when the year-mode visible window spans only one month-start", () => {
+    navState.searchParams = new URLSearchParams("range=year&date=2026-01-01");
+    stationTimezoneState.timezone = "America/New_York";
+    historyDataState.resolution = "monthly";
+
+    renderWithProviders(<HistoryPage />);
+
+    const xAxis = upChartCalls[0]?.props.options?.axes?.[0];
+    // Apr 27 - May 5: only May 1 falls in range
+    const scaleMin = zonedMidnightToUtc("America/New_York", 2026, 4, 27).getTime() / 1000;
+    const scaleMax = zonedMidnightToUtc("America/New_York", 2026, 5, 5).getTime() / 1000;
+
+    const splits = xAxis!.splits!({}, 0, scaleMin, scaleMax, 0, 0);
+
+    expect(splits).toEqual([
+      zonedMidnightToUtc("America/New_York", 2026, 5, 1).getTime() / 1000,
+    ]);
+    expect(xAxis!.values!({}, splits, 0, 0, 0)).toEqual(["May 2026"]);
+  });
+
   it("clicking a range button updates URL via pushState", () => {
     renderWithProviders(<HistoryPage />);
 

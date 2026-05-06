@@ -129,7 +129,7 @@ function formatTime(unix: number, resolution: string, timezone: string): string 
   if (resolution === "daily") {
     return d.toLocaleDateString([], { timeZone: timezone, month: "short", day: "numeric" });
   }
-  return d.toLocaleDateString([], { timeZone: timezone, month: "short", year: "2-digit" });
+  return d.toLocaleDateString([], { timeZone: timezone, month: "short", year: "numeric" });
 }
 
 function isLeapYear(year: number): boolean {
@@ -218,6 +218,72 @@ function withWeeklyDayXAxis(
       new Date(split * 1000).toLocaleDateString([], {
         timeZone: timezone,
         weekday: "short",
+      }),
+    );
+
+  return {
+    ...opts,
+    axes: opts.axes?.map((axis, index) =>
+      index === 0
+        ? {
+          ...axis,
+          splits,
+          values,
+        }
+        : axis,
+    ),
+  };
+}
+
+function stationMonthStartSplits(
+  timezone: string,
+  scaleMin: number,
+  scaleMax: number,
+): number[] {
+  if (!Number.isFinite(scaleMin) || !Number.isFinite(scaleMax) || scaleMin > scaleMax) {
+    return [];
+  }
+
+  const startParts = getZonedParts(timezone, new Date(scaleMin * 1000));
+  let date: CalendarDate = {
+    year: startParts.year,
+    month: startParts.month,
+    day: 1,
+  };
+  const splits: number[] = [];
+
+  for (let guard = 0; guard < 60; guard += 1) {
+    const split =
+      zonedMidnightToUtc(timezone, date.year, date.month, date.day).getTime() / 1000;
+    if (split >= scaleMin && split <= scaleMax) {
+      splits.push(split);
+    }
+    if (split > scaleMax) {
+      break;
+    }
+    const nextMonth = date.month === 12 ? 1 : date.month + 1;
+    const nextYear = date.month === 12 ? date.year + 1 : date.year;
+    date = { year: nextYear, month: nextMonth, day: 1 };
+  }
+
+  return splits;
+}
+
+function withMonthlyXAxis(
+  opts: HistoryChartOptions,
+  enabled: boolean,
+  timezone: string,
+): HistoryChartOptions {
+  if (!enabled) return opts;
+
+  const splits: uPlot.Axis.Splits = (_u, _axisIdx, scaleMin, scaleMax) =>
+    stationMonthStartSplits(timezone, scaleMin, scaleMax);
+  const values: uPlot.Axis.Values = (_u, axisSplits) =>
+    axisSplits.map((split) =>
+      new Date(split * 1000).toLocaleDateString([], {
+        timeZone: timezone,
+        month: "short",
+        year: "numeric",
       }),
     );
 
@@ -496,43 +562,48 @@ function HistoryPageInner() {
     [resolution, timezone],
   );
   const useWeeklyDayXAxis = resolution === "hourly" && range === "week" && !activeZoomRange;
-  const applyWeeklyDayXAxis = useCallback(
+  const useMonthlyXAxis = resolution === "monthly" && !activeZoomRange;
+  const applyHistoryXAxis = useCallback(
     (opts: HistoryChartOptions) =>
-      withWeeklyDayXAxis(opts, useWeeklyDayXAxis, timezone),
-    [timezone, useWeeklyDayXAxis],
+      withMonthlyXAxis(
+        withWeeklyDayXAxis(opts, useWeeklyDayXAxis, timezone),
+        useMonthlyXAxis,
+        timezone,
+      ),
+    [timezone, useWeeklyDayXAxis, useMonthlyXAxis],
   );
 
   // Chart options — rebuilt when resolution, units, or theme change
   const tempOpts = useMemo(
-    () => applyWeeklyDayXAxis(temperatureOpts(colors, tickFmt, isRaw)),
-    [applyWeeklyDayXAxis, colors, tickFmt, isRaw],
+    () => applyHistoryXAxis(temperatureOpts(colors, tickFmt, isRaw)),
+    [applyHistoryXAxis, colors, tickFmt, isRaw],
   );
   const humOpts = useMemo(
-    () => applyWeeklyDayXAxis(humidityOpts(colors, tickFmt)),
-    [applyWeeklyDayXAxis, colors, tickFmt],
+    () => applyHistoryXAxis(humidityOpts(colors, tickFmt)),
+    [applyHistoryXAxis, colors, tickFmt],
   );
   const presOpts = useMemo(
-    () => applyWeeklyDayXAxis(pressureOpts(colors, tickFmt)),
-    [applyWeeklyDayXAxis, colors, tickFmt],
+    () => applyHistoryXAxis(pressureOpts(colors, tickFmt)),
+    [applyHistoryXAxis, colors, tickFmt],
   );
   const wndOpts = useMemo(
     () =>
-      applyWeeklyDayXAxis(
+      applyHistoryXAxis(
         useWindBars ? windOptsBucketed(colors, tickFmt) : windOpts(colors, tickFmt),
       ),
-    [applyWeeklyDayXAxis, colors, tickFmt, useWindBars],
+    [applyHistoryXAxis, colors, tickFmt, useWindBars],
   );
   const rainDecimals = system === "imperial" ? 3 : 1;
   const rnOpts = useMemo(
-    () => applyWeeklyDayXAxis(rainOpts(colors, tickFmt, rainDecimals)),
-    [applyWeeklyDayXAxis, colors, tickFmt, rainDecimals],
+    () => applyHistoryXAxis(rainOpts(colors, tickFmt, rainDecimals)),
+    [applyHistoryXAxis, colors, tickFmt, rainDecimals],
   );
   const suvOpts = useMemo(
     () =>
-      applyWeeklyDayXAxis(
+      applyHistoryXAxis(
         useSolarBars ? solarUvOptsBucketed(colors, tickFmt) : solarUvOpts(colors, tickFmt),
       ),
-    [applyWeeklyDayXAxis, colors, tickFmt, useSolarBars],
+    [applyHistoryXAxis, colors, tickFmt, useSolarBars],
   );
 
   // Zoom
