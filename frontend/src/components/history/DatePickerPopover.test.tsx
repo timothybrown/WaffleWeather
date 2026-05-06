@@ -75,6 +75,90 @@ describe("DatePickerPopover entry views", () => {
   });
 });
 
+describe("DatePickerPopover mounted prop changes", () => {
+  it("resets to the entry view when range changes while mounted", async () => {
+    const user = userEvent.setup();
+
+    function MutableRangePopover() {
+      const [range, setRange] =
+        React.useState<React.ComponentProps<typeof DatePickerPopover>["range"]>(
+          "day",
+        );
+
+      return (
+        <>
+          <button type="button" onClick={() => setRange("month")}>
+            Switch to month
+          </button>
+          <button type="button" onClick={() => setRange("year")}>
+            Switch to year
+          </button>
+          <DatePickerPopover
+            range={range}
+            selectedDate="2026-04-15"
+            maxDate="2026-05-15"
+            onSelect={vi.fn()}
+            onClose={vi.fn()}
+          />
+        </>
+      );
+    }
+
+    render(<MutableRangePopover />);
+
+    expect(screen.getByTestId("datepicker-day-view")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Switch to month" }));
+
+    expect(screen.getByTestId("datepicker-month-view")).toBeInTheDocument();
+    expect(screen.queryByTestId("datepicker-day-view")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Switch to year" }));
+
+    expect(screen.getByTestId("datepicker-year-view")).toBeInTheDocument();
+    expect(screen.queryByTestId("datepicker-month-view")).not.toBeInTheDocument();
+  });
+
+  it("resets visible coordinates when the selected anchor changes while mounted", async () => {
+    const user = userEvent.setup();
+
+    function MutableAnchorPopover() {
+      const [selectedDate, setSelectedDate] = React.useState("2026-04-15");
+
+      return (
+        <>
+          <button
+            type="button"
+            onClick={() => setSelectedDate("2025-03-20")}
+          >
+            Switch anchor
+          </button>
+          <DatePickerPopover
+            range="month"
+            selectedDate={selectedDate}
+            maxDate="2026-05-15"
+            onSelect={vi.fn()}
+            onClose={vi.fn()}
+          />
+        </>
+      );
+    }
+
+    render(<MutableAnchorPopover />);
+
+    expect(
+      screen.getByRole("button", { name: /^Selected, April 2026$/ }),
+    ).toHaveAttribute("data-selected", "true");
+
+    await user.click(screen.getByRole("button", { name: "Switch anchor" }));
+
+    expect(screen.getByText("2025")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /^Selected, March 2025$/ }),
+    ).toHaveAttribute("data-selected", "true");
+  });
+});
+
 describe("DatePickerPopover year page math", () => {
   it("maps 2026 to the 2020 through 2031 page", () => {
     renderPopover({ range: "year", selectedDate: "2026-01-01" });

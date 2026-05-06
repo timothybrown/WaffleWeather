@@ -33,6 +33,15 @@ const PAGE_ANCHOR_YEAR = 2020;
 type PendingFocusKind = "drill-up" | "first-tile";
 type PendingFocus = { kind: PendingFocusKind; requestId: number } | null;
 
+interface DatePickerPopoverStackProps {
+  range: Range;
+  selectedDate?: string;
+  maxDate: string;
+  onSelect: (yyyymmdd: string) => void;
+  onClose: () => void;
+  popoverRef: RefObject<HTMLDivElement | null>;
+}
+
 function parseYmd(value: string): DateParts {
   const [year, month, day] = value.split("-").map(Number);
   return {
@@ -73,7 +82,7 @@ function pageStartYearForYear(year: number): number {
 }
 
 export default function DatePickerPopover({
-  range = "day",
+  range,
   selectedDate,
   maxDate,
   onSelect,
@@ -81,6 +90,67 @@ export default function DatePickerPopover({
   triggerRef,
 }: DatePickerPopoverProps) {
   const popoverRef = useRef<HTMLDivElement>(null);
+  const stateResetKey = `${range}:${selectedDate ?? maxDate}`;
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        onClose();
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
+
+  useEffect(() => {
+    const handleOutsideStart = (event: MouseEvent | TouchEvent) => {
+      const target = event.target;
+      if (!(target instanceof Node)) return;
+
+      if (popoverRef.current?.contains(target)) return;
+      if (triggerRef?.current?.contains(target)) return;
+
+      onClose();
+    };
+
+    document.addEventListener("mousedown", handleOutsideStart);
+    document.addEventListener("touchstart", handleOutsideStart);
+    return () => {
+      document.removeEventListener("mousedown", handleOutsideStart);
+      document.removeEventListener("touchstart", handleOutsideStart);
+    };
+  }, [onClose, triggerRef]);
+
+  return (
+    <div
+      ref={popoverRef}
+      role="dialog"
+      aria-label="Pick a date"
+      data-testid="history-popover"
+      className="w-[min(18rem,calc(100vw-1.5rem))] rounded-xl border border-border bg-surface-alt p-3 text-sm shadow-lg"
+    >
+      <DatePickerPopoverStack
+        key={stateResetKey}
+        range={range}
+        selectedDate={selectedDate}
+        maxDate={maxDate}
+        onSelect={onSelect}
+        onClose={onClose}
+        popoverRef={popoverRef}
+      />
+    </div>
+  );
+}
+
+function DatePickerPopoverStack({
+  range,
+  selectedDate,
+  maxDate,
+  onSelect,
+  onClose,
+  popoverRef,
+}: DatePickerPopoverStackProps) {
   const nextFocusRequestIdRef = useRef(0);
   const handledFocusRequestIdRef = useRef(0);
   const initialParts = parseYmd(selectedDate ?? maxDate);
@@ -126,37 +196,7 @@ export default function DatePickerPopover({
 
     target?.focus();
     handledFocusRequestIdRef.current = pendingFocus.requestId;
-  }, [pendingFocus, viewLevel]);
-
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        onClose();
-      }
-    };
-
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [onClose]);
-
-  useEffect(() => {
-    const handleOutsideStart = (event: MouseEvent | TouchEvent) => {
-      const target = event.target;
-      if (!(target instanceof Node)) return;
-
-      if (popoverRef.current?.contains(target)) return;
-      if (triggerRef?.current?.contains(target)) return;
-
-      onClose();
-    };
-
-    document.addEventListener("mousedown", handleOutsideStart);
-    document.addEventListener("touchstart", handleOutsideStart);
-    return () => {
-      document.removeEventListener("mousedown", handleOutsideStart);
-      document.removeEventListener("touchstart", handleOutsideStart);
-    };
-  }, [onClose, triggerRef]);
+  }, [pendingFocus, popoverRef, viewLevel]);
 
   const commit = (anchor: string) => {
     onSelect(anchor);
@@ -245,13 +285,7 @@ export default function DatePickerPopover({
   };
 
   return (
-    <div
-      ref={popoverRef}
-      role="dialog"
-      aria-label="Pick a date"
-      data-testid="history-popover"
-      className="w-[min(18rem,calc(100vw-1.5rem))] rounded-xl border border-border bg-surface-alt p-3 text-sm shadow-lg"
-    >
+    <>
       <PopoverHeader
         viewLevel={viewLevel}
         visibleYear={visibleYear}
@@ -291,6 +325,6 @@ export default function DatePickerPopover({
           onTileClick={handleYearTileClick}
         />
       ) : null}
-    </div>
+    </>
   );
 }
