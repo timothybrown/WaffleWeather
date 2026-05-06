@@ -6,7 +6,6 @@ import {
   useContext,
   useEffect,
   useSyncExternalStore,
-  useState,
   type ReactNode,
 } from "react";
 
@@ -24,6 +23,58 @@ const THEME_COLORS: Record<Resolved, string> = {
   light: "#faf7f2",
   dark: "#1a1714",
 };
+const preferenceListeners = new Set<() => void>();
+let fallbackPreference: Preference | null = null;
+
+function isPreference(value: string | null): value is Preference {
+  return value === "light" || value === "dark" || value === "auto";
+}
+
+function getPreferenceSnapshot(): Preference {
+  if (typeof window === "undefined") return "auto";
+  if (fallbackPreference) return fallbackPreference;
+
+  try {
+    const stored = window.localStorage.getItem(STORAGE_KEY);
+    return isPreference(stored) ? stored : "auto";
+  } catch {
+    return "auto";
+  }
+}
+
+function getPreferenceServerSnapshot(): Preference {
+  return "auto";
+}
+
+function storePreference(preference: Preference) {
+  if (typeof window === "undefined") return;
+
+  try {
+    window.localStorage.setItem(STORAGE_KEY, preference);
+    fallbackPreference = null;
+  } catch {
+    fallbackPreference = preference;
+    // Storage can be unavailable in restricted browser contexts.
+  }
+  for (const listener of [...preferenceListeners]) listener();
+}
+
+function subscribePreference(cb: () => void) {
+  if (typeof window === "undefined") return () => {};
+
+  preferenceListeners.add(cb);
+  const handleStorage = (event: StorageEvent) => {
+    if (event.key === STORAGE_KEY || event.key === null) {
+      fallbackPreference = null;
+      cb();
+    }
+  };
+  window.addEventListener("storage", handleStorage);
+  return () => {
+    preferenceListeners.delete(cb);
+    window.removeEventListener("storage", handleStorage);
+  };
+}
 
 function subscribeSystemDark(cb: () => void) {
   const mql = window.matchMedia("(prefers-color-scheme: dark)");
@@ -46,15 +97,12 @@ export function useTheme() {
 }
 
 export default function ThemeProvider({ children }: { children: ReactNode }) {
-  const [preference, setPreferenceState] = useState<Preference>("auto");
+  const preference = useSyncExternalStore(
+    subscribePreference,
+    getPreferenceSnapshot,
+    getPreferenceServerSnapshot,
+  );
   const systemDark = useSyncExternalStore(subscribeSystemDark, getSystemDark, () => false);
-
-  useEffect(() => {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored === "light" || stored === "dark" || stored === "auto") {
-      setPreferenceState(stored);
-    }
-  }, []);
 
   const resolved: Resolved =
     preference === "auto" ? (systemDark ? "dark" : "light") : preference;
@@ -71,8 +119,7 @@ export default function ThemeProvider({ children }: { children: ReactNode }) {
   }, [resolved]);
 
   const setPreference = useCallback((p: Preference) => {
-    setPreferenceState(p);
-    localStorage.setItem(STORAGE_KEY, p);
+    storePreference(p);
   }, []);
 
   return (

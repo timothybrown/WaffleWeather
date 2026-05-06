@@ -2,6 +2,8 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 import { screen, act } from "@testing-library/react";
 import { render } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { hydrateRoot } from "react-dom/client";
+import { renderToString } from "react-dom/server";
 import ThemeProvider, { useTheme } from "./ThemeProvider";
 
 function TestConsumer() {
@@ -120,6 +122,127 @@ describe("ThemeProvider", () => {
     );
     expect(screen.getByTestId("preference").textContent).toBe("light");
     expect(screen.getByTestId("resolved").textContent).toBe("light");
+  });
+
+  it("hydrates from the server default before applying stored preference", async () => {
+    localStorage.setItem("ww-theme", "dark");
+    const windowDescriptor = Object.getOwnPropertyDescriptor(globalThis, "window");
+    Object.defineProperty(globalThis, "window", {
+      configurable: true,
+      value: undefined,
+    });
+
+    let serverHtml = "";
+    try {
+      serverHtml = renderToString(
+        <ThemeProvider>
+          <TestConsumer />
+        </ThemeProvider>,
+      );
+    } finally {
+      if (windowDescriptor) {
+        Object.defineProperty(globalThis, "window", windowDescriptor);
+      }
+    }
+
+    expect(serverHtml).toContain("auto");
+    expect(serverHtml).toContain("light");
+
+    const container = document.createElement("div");
+    container.innerHTML = serverHtml;
+    document.body.appendChild(container);
+    const onRecoverableError = vi.fn();
+
+    let root: ReturnType<typeof hydrateRoot> | undefined;
+    await act(async () => {
+      root = hydrateRoot(
+        container,
+        <ThemeProvider>
+          <TestConsumer />
+        </ThemeProvider>,
+        { onRecoverableError },
+      );
+    });
+
+    const preferenceText = container.querySelector(
+      '[data-testid="preference"]',
+    )?.textContent;
+    const resolvedText = container.querySelector(
+      '[data-testid="resolved"]',
+    )?.textContent;
+
+    await act(async () => {
+      root?.unmount();
+    });
+    container.remove();
+
+    expect(onRecoverableError).not.toHaveBeenCalled();
+    expect(preferenceText).toBe("dark");
+    expect(resolvedText).toBe("dark");
+  });
+
+  it("falls back to auto when localStorage reads fail", () => {
+    const originalLocalStorage = window.localStorage;
+    const blockedStorage = {
+      ...originalLocalStorage,
+      getItem: vi.fn(() => {
+        throw new Error("storage unavailable");
+      }),
+    } as Storage;
+    Object.defineProperty(window, "localStorage", {
+      configurable: true,
+      value: blockedStorage,
+    });
+
+    try {
+      render(
+        <ThemeProvider>
+          <TestConsumer />
+        </ThemeProvider>,
+      );
+      expect(screen.getByTestId("preference").textContent).toBe("auto");
+    } finally {
+      Object.defineProperty(window, "localStorage", {
+        configurable: true,
+        value: originalLocalStorage,
+      });
+    }
+  });
+
+  it("updates the UI when localStorage writes fail", async () => {
+    const user = userEvent.setup();
+    const originalLocalStorage = window.localStorage;
+    const blockedStorage = {
+      ...originalLocalStorage,
+      getItem: vi.fn(() => {
+        throw new Error("storage unavailable");
+      }),
+      setItem: vi.fn(() => {
+        throw new Error("storage unavailable");
+      }),
+    } as Storage;
+    Object.defineProperty(window, "localStorage", {
+      configurable: true,
+      value: blockedStorage,
+    });
+
+    render(
+      <ThemeProvider>
+        <TestConsumer />
+      </ThemeProvider>,
+    );
+
+    try {
+      await user.click(screen.getByText("Dark"));
+      expect(screen.getByTestId("preference").textContent).toBe("dark");
+      expect(screen.getByTestId("resolved").textContent).toBe("dark");
+    } finally {
+      Object.defineProperty(window, "localStorage", {
+        configurable: true,
+        value: originalLocalStorage,
+      });
+      await user.click(screen.getByText("Auto"));
+    }
   });
 
   it("responds to system preference changes while in auto mode", () => {
