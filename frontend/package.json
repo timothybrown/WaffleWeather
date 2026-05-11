@@ -15,15 +15,15 @@
   },
   "dependencies": {
     "@remixicon/react": "^4.9.0",
-    "@tanstack/react-query": "^5.100.5",
+    "@tanstack/react-query": "^5.100.10",
     "clsx": "^2.1.1",
     "leaflet": "^1.9.4",
-    "next": "16.2.4",
-    "react": "19.2.5",
-    "react-dom": "19.2.5",
+    "next": "16.2.6",
+    "react": "19.2.6",
+    "react-dom": "19.2.6",
     "react-leaflet": "^5.0.0",
     "suncalc": "^1.9.0",
-    "tailwind-merge": "^3.5.0",
+    "tailwind-merge": "^3.6.0",
     "uplot": "^1.6.32"
   },
   "devDependencies": {
@@ -36,13 +36,13 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@types/suncalc": "^1.9.2",
-    "@vitest/coverage-v8": "^4.1.5",
+    "@vitest/coverage-v8": "^4.1.6",
     "eslint": "^9",
-    "eslint-config-next": "16.2.4",
+    "eslint-config-next": "16.2.6",
     "happy-dom": "^20.9.0",
-    "orval": "^8.9.0",
+    "orval": "^8.9.1",
     "tailwindcss": "^4",
     "typescript": "^5",
-    "vitest": "^4.1.5"
+    "vitest": "^4.1.6"
   }
 }
