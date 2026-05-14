@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import type { RecordMetric } from "@/generated/models";
 import RecordCell from "./RecordCell";
+import RecordValue from "./RecordValue";
 
 interface RecordCardProps {
   title: string;
@@ -11,6 +12,9 @@ interface RecordCardProps {
   formatValue: (metric: string, value: number, system: "metric" | "imperial") => string;
 }
 
+const PERIOD_LABEL_CLASS =
+  "mb-1 text-[0.6rem] font-medium uppercase tracking-wider text-text-faint";
+
 export default function RecordCard({ title, icon, records, formatValue }: RecordCardProps) {
   return (
     <div className="weather-card flex flex-col rounded-xl p-5 shadow-sm">
@@ -18,7 +22,50 @@ export default function RecordCard({ title, icon, records, formatValue }: Record
         {icon}
         <h3 className="text-xs font-semibold uppercase tracking-wider">{title}</h3>
       </div>
-      <div className="overflow-x-auto">
+
+      {/* Mobile: stacked layout (one block per metric, 3-col period grid) */}
+      <div className="space-y-3 sm:hidden">
+        {records.map((rec) => (
+          <div
+            key={rec.metric}
+            className="border-b border-border/50 pb-3 last:border-0 last:pb-0"
+          >
+            <div className="mb-2 text-sm text-text-muted">{rec.label}</div>
+            <div className="grid grid-cols-3 gap-2">
+              <div>
+                <div className={PERIOD_LABEL_CLASS}>This Month</div>
+                <RecordValue
+                  value={rec.this_month?.value}
+                  date={rec.this_month?.date}
+                  format={(v, sys) => formatValue(rec.metric, v, sys)}
+                  align="left"
+                />
+              </div>
+              <div>
+                <div className={PERIOD_LABEL_CLASS}>This Year</div>
+                <RecordValue
+                  value={rec.this_year?.value}
+                  date={rec.this_year?.date}
+                  format={(v, sys) => formatValue(rec.metric, v, sys)}
+                  align="left"
+                />
+              </div>
+              <div>
+                <div className={PERIOD_LABEL_CLASS}>All-Time</div>
+                <RecordValue
+                  value={rec.all_time?.value}
+                  date={rec.all_time?.date}
+                  format={(v, sys) => formatValue(rec.metric, v, sys)}
+                  align="left"
+                />
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Tablet+: table layout */}
+      <div className="hidden overflow-x-auto sm:block">
         <table className="w-full table-fixed text-sm">
           <colgroup>
             <col />
