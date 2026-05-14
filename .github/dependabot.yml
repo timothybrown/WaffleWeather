@@ -14,9 +14,9 @@ updates:
     open-pull-requests-limit: 10
     cooldown:
       default-days: 7
-      semver-major-days: 14
+      semver-major-days: 7
       semver-minor-days: 7
-      semver-patch-days: 3
+      semver-patch-days: 7
       include:
         - "*"
 
@@ -33,9 +33,9 @@ updates:
     open-pull-requests-limit: 10
     cooldown:
       default-days: 7
-      semver-major-days: 14
+      semver-major-days: 7
       semver-minor-days: 7
-      semver-patch-days: 3
+      semver-patch-days: 7
       include:
         - "*"
 
@@ -46,8 +46,8 @@ updates:
       day: monday
     cooldown:
       default-days: 7
-      semver-major-days: 14
+      semver-major-days: 7
       semver-minor-days: 7
-      semver-patch-days: 3
+      semver-patch-days: 7
       include:
         - "*"
