@@ -7,12 +7,18 @@ from __future__ import annotations
 
 import os
 import stat
+from importlib.metadata import PackageNotFoundError, version as pkg_version
 from pathlib import Path
 
 import click
 
 from app.cli._docker import is_docker_environment
-from app.cli._git import list_remote_tags  # noqa: F401 - used via monkeypatch in tests; T19+ adds direct use
+from app.cli._git import (
+    STABLE_TAG_RE,
+    current_tag,
+    list_remote_tags,  # noqa: F401 - used via monkeypatch in tests; T20 adds direct use
+    pick_latest_stable,
+)
 from app.cli._privilege import has_sudo_for
 from app.cli._state import STATE_DIR
 from app.cli._systemd import SYSTEMCTL
@@ -28,6 +34,58 @@ BACKUP_DIR_HINT = Path("/var/backups/waffleweather")
 
 class PreflightFail(Exception):
     """Raised when a preflight check fails. The CLI maps this to exit code 2."""
+
+
+class InvalidTarget(Exception):
+    """User supplied --target that doesn't match the stable CalVer pattern, or it doesn't exist."""
+
+
+def installed_version() -> str | None:
+    """Return the installed waffleweather-backend wheel version, or None."""
+    try:
+        return pkg_version("waffleweather-backend")
+    except PackageNotFoundError:
+        return None
+
+
+def detect_current_version(cwd: Path) -> str | None:
+    """Resolve the currently-installed version as a v-prefixed CalVer string.
+
+    Precedence:
+      1. git describe --tags --exact-match HEAD (returned with leading 'v')
+      2. importlib.metadata wheel version (prepend 'v')
+      3. None
+    """
+    tag = current_tag(cwd)
+    if tag:
+        return tag if tag.startswith("v") else f"v{tag}"
+    pkg = installed_version()
+    if pkg:
+        return f"v{pkg}"
+    return None
+
+
+def _normalize_target(value: str) -> str:
+    """Normalize a user-supplied target tag to have a leading 'v'."""
+    return value if value.startswith("v") else f"v{value}"
+
+
+def select_target(available_tags: list[str], override: str | None) -> str:
+    """Pick the target tag: either the user's --target, or the latest stable."""
+    stable = [t for t in available_tags if STABLE_TAG_RE.match(t)]
+    if override is None:
+        chosen = pick_latest_stable(stable)
+        if chosen is None:
+            raise InvalidTarget("No stable release tags found on origin.")
+        return chosen
+    if not STABLE_TAG_RE.match(override):
+        raise InvalidTarget(
+            f"Target '{override}' is not a stable release tag (expected v?YYYY.M.D.N)."
+        )
+    normalized = _normalize_target(override)
+    if normalized not in stable:
+        raise InvalidTarget(f"Target tag '{normalized}' not found on origin.")
+    return normalized
 
 
 def _err_exit(ctx: click.Context, message: str, code: int = 2) -> None:
