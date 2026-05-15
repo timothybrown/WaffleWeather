@@ -14,6 +14,8 @@ dependencies = [
     "pydantic-settings>=2.7",
     "python-dotenv>=1.0",
     "pyyaml>=6.0",
+    "click>=8.1",
+    "rich>=13.7",
 ]
 
 [project.optional-dependencies]
@@ -27,6 +29,16 @@ dev = [
     "mypy>=1.15",
     "types-PyYAML>=6.0",
 ]
+
+[project.scripts]
+waffleweather = "app.cli.__main__:cli"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.uv]
+package = true
 
 [tool.setuptools.packages.find]
 include = ["app*"]

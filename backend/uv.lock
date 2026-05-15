@@ -1402,17 +1402,19 @@ wheels = [
 
 [[package]]
 name = "waffleweather-backend"
-version = "2026.4.28.2"
-source = { virtual = "." }
+version = "2026.5.14.2"
+source = { editable = "." }
 dependencies = [
     { name = "aiomqtt" },
     { name = "alembic" },
     { name = "asyncpg" },
+    { name = "click" },
     { name = "fastapi" },
     { name = "pydantic" },
     { name = "pydantic-settings" },
     { name = "python-dotenv" },
     { name = "pyyaml" },
+    { name = "rich" },
     { name = "sqlalchemy", extra = ["asyncio"] },
     { name = "uvicorn", extra = ["standard"] },
 ]
@@ -1434,6 +1436,7 @@ requires-dist = [
     { name = "aiomqtt", specifier = ">=2.5" },
     { name = "alembic", specifier = ">=1.15" },
     { name = "asyncpg", specifier = ">=0.30" },
+    { name = "click", specifier = ">=8.1" },
     { name = "fastapi", specifier = ">=0.115" },
     { name = "httpx", marker = "extra == 'dev'", specifier = ">=0.28" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.15" },
@@ -1444,6 +1447,7 @@ requires-dist = [
     { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=6.0" },
     { name = "python-dotenv", specifier = ">=1.0" },
     { name = "pyyaml", specifier = ">=6.0" },
+    { name = "rich", specifier = ">=13.7" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.9" },
     { name = "schemathesis", marker = "extra == 'dev'", specifier = ">=3.38" },
     { name = "sqlalchemy", extras = ["asyncio"], specifier = ">=2.0" },
