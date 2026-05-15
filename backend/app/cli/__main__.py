@@ -66,3 +66,7 @@ cli.add_command(logs_cmd)
 from app.cli.restart import restart_cmd  # noqa: E402
 
 cli.add_command(restart_cmd)
+
+from app.cli.status import status_cmd  # noqa: E402
+
+cli.add_command(status_cmd)
