@@ -53,3 +53,8 @@ def cli(
             err=True,
         )
         ctx.exit(2)
+
+
+from app.cli.version import version_cmd  # noqa: E402
+
+cli.add_command(version_cmd)
