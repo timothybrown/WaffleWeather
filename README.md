@@ -240,6 +240,35 @@ Three continuous aggregates (hourly, daily, monthly) roll up key metrics hierarc
 
 All derived values (dew point, heat index, wind chill, feels like, UTCI, Zambretti) are computed at query time, not stored. This keeps the schema clean and makes it easy to refine calculations without backfilling.
 
+## CLI Reference
+
+`waffleweather` is the operations CLI installed alongside the backend on
+bare-metal systems. After `uv sync` (or via install.sh, future), it's
+available at `/opt/waffleweather/backend/.venv/bin/waffleweather`.
+
+| Command | What it does |
+| ------- | ------------ |
+| `waffleweather status` | Quick health check: managed services, Postgres, schema, disk, version. Exit 0/1 for green/red. |
+| `waffleweather doctor` | Comprehensive diagnostic. Adds warn-level checks (data freshness, env audit, alembic state, NRestarts). Use `--json` for bug-report-paste. |
+| `waffleweather version` | Show installed wheel version vs running `/api/v1/version`. |
+| `waffleweather logs [SERVICE]` | Tail journald for a managed unit. Aliases: `backend`, `frontend`, `mqtt`, `ecowitt`, `db`. |
+| `waffleweather restart [SERVICE ...]` | Bounce one or more units. Default: backend + frontend + ecowitt2mqtt. |
+| `waffleweather backup` | gzipped `pg_dump` to `/var/backups/waffleweather/` with `--keep N` retention. |
+| `waffleweather update [--check]` | Update to the latest stable tagged release. `--check` reports without applying. `--target VERSION` pins a specific tag. `--force-resume` retries a failed update. |
+
+Global flags: `--json`, `--debug`, `--no-color`, `--config-path PATH`. Also
+respects `NO_COLOR` and `WW_CLI_ENV` env vars.
+
+**Privileged operations** (`restart`, `update`) require membership in the
+`waffleweather-admin` group; install.sh (separate backlog item) handles
+group setup and installs the sudoers drop-in at
+`/etc/sudoers.d/waffleweather`. For manual setup, see
+`deploy/sudoers.d/waffleweather` plus the install steps in the design
+spec.
+
+Full "Installing" and "Updating" narrative sections will accompany the
+`install.sh` rollout.
+
 ## Documentation
 
 - **[DEVELOPMENT.md](DEVELOPMENT.md)** — Local setup, testing, environment variables, project structure, and deployment
