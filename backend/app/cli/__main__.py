@@ -70,3 +70,7 @@ cli.add_command(restart_cmd)
 from app.cli.status import status_cmd  # noqa: E402
 
 cli.add_command(status_cmd)
+
+from app.cli.doctor import doctor_cmd  # noqa: E402
+
+cli.add_command(doctor_cmd)
