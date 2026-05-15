@@ -74,3 +74,7 @@ cli.add_command(status_cmd)
 from app.cli.doctor import doctor_cmd  # noqa: E402
 
 cli.add_command(doctor_cmd)
+
+from app.cli.backup import backup_cmd  # noqa: E402
+
+cli.add_command(backup_cmd)
