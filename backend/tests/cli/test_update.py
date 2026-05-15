@@ -400,3 +400,31 @@ def test_force_resume_post_migration_starts_from_checkout(runner, _ready_project
     assert result.exit_code == 0
     from app.cli._state import Phase as P
     assert captured == [P.CHECKOUT]
+
+
+# ---------- Dirty tree + --force ----------
+
+
+def test_dirty_tree_refuses_without_force(runner, _ready_project, monkeypatch):
+    monkeypatch.setattr("app.cli.update.is_working_tree_clean", lambda cwd: False)
+    result = runner.invoke(cli, ["update", "--yes"])
+    assert result.exit_code == 2
+    assert "local changes" in result.stdout.lower() or "local changes" in result.stderr.lower()
+
+
+def test_dirty_tree_force_auto_stashes_and_prints_ref(runner, _ready_project, monkeypatch):
+    monkeypatch.setattr("app.cli.update.is_working_tree_clean", lambda cwd: False)
+    monkeypatch.setattr("app.cli.update.stash_push", lambda cwd, message: "stash@{0}")
+    # Make the apply succeed quickly
+    monkeypatch.setattr("app.cli.update.do_backup", lambda url, keep: (_ready_project / "fake.sql.gz", 0, []))
+    monkeypatch.setattr("app.cli.update.load_settings", lambda env_path=None: MagicMock(database_url="postgresql+asyncpg://u:p@h:5432/d", api_key=None))
+    monkeypatch.setattr("subprocess.run", lambda *a, **kw: _ok())
+    monkeypatch.setattr("app.cli.update.git_checkout", lambda cwd, ref: None)
+    monkeypatch.setattr("app.cli.update.verify_tag_versions_match", lambda cwd, tag: None)
+    monkeypatch.setattr("app.cli.update.is_active", lambda unit: True)
+    monkeypatch.setattr("app.cli.update.poll_running_version", lambda target, api_key, timeout: True)
+
+    result = runner.invoke(cli, ["update", "--yes", "--force"])
+    assert result.exit_code == 0
+    assert "stash@{0}" in result.stdout
+    assert "NOT auto-popped" in result.stdout or "NOT pop" in result.stdout

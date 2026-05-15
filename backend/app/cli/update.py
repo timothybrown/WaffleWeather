@@ -26,11 +26,12 @@ from app.cli._git import (
     commit_log,
     current_tag,
     fetch_tags,
-    is_working_tree_clean,  # noqa: F401 - patched in tests; T23 adds direct use
+    is_working_tree_clean,
     list_remote_tags,
     parse_github_url,
     pick_latest_stable,
     remote_origin_url,
+    stash_push,
     tag_compare,
 )
 from app.cli._privilege import has_sudo_for
@@ -480,6 +481,29 @@ def update_cmd(
                 code=2,
             )
             return
+
+    # Dirty-tree handling — runs only for full updates, never for --check.
+    if not check_only and not is_working_tree_clean(PROJECT_DIR):
+        if not force:
+            _err_exit(
+                ctx,
+                f"✗ Local changes detected in {PROJECT_DIR}. "
+                "Update aborted to avoid clobbering them. Run 'git status' to see what changed. "
+                "Pass --force to auto-stash and continue.",
+                code=2,
+            )
+            return
+        stash_message = f"waffleweather update auto-stash {_utc_now_iso()}"
+        try:
+            stash_ref = stash_push(PROJECT_DIR, stash_message)
+        except Exception as exc:
+            _err_exit(ctx, f"✗ Could not stash local changes: {exc}", code=2)
+            return
+        click.echo(
+            f"A stash was created at {stash_ref}. It was NOT auto-popped. "
+            "After the update, run 'git stash list' and 'git stash pop' manually "
+            "if you want your changes back."
+        )
 
     # Discover (network-dependent — runs for both --check and full update)
     try:
