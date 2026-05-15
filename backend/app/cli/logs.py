@@ -17,7 +17,12 @@ def _stdout_is_tty() -> bool:
 @click.command("logs")
 @click.argument("service", default="backend")
 @click.option("--lines", "-n", default=100, show_default=True, help="Number of lines to show.")
-@click.option("--since", default="1h", show_default=True, help="Time window passed to journalctl.")
+@click.option(
+    "--since",
+    default="1 hour ago",
+    show_default=True,
+    help="Time window passed to journalctl (e.g. '1 hour ago', '-30m', '2026-05-15 09:00').",
+)
 @click.option(
     "--follow/--no-follow",
     default=None,
