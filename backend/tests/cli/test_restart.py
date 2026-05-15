@@ -12,10 +12,12 @@ def _ok():
 
 
 def test_restart_default_units(runner):
-    with patch("subprocess.run", return_value=_ok()) as mock_run, \
-         patch("app.cli.restart.is_active", return_value=True), \
-         patch("app.cli.restart.is_root", return_value=False), \
-         patch("app.cli.restart.has_sudo_for", return_value=True):
+    with (
+        patch("subprocess.run", return_value=_ok()) as mock_run,
+        patch("app.cli.restart.is_active", return_value=True),
+        patch("app.cli.restart.is_root", return_value=False),
+        patch("app.cli.restart.has_sudo_for", return_value=True),
+    ):
         result = runner.invoke(cli, ["restart"])
     assert result.exit_code == 0, result.output
     # One sudo systemctl call per default unit
@@ -25,10 +27,12 @@ def test_restart_default_units(runner):
 
 
 def test_restart_single_unit_by_alias(runner):
-    with patch("subprocess.run", return_value=_ok()) as mock_run, \
-         patch("app.cli.restart.is_active", return_value=True), \
-         patch("app.cli.restart.is_root", return_value=False), \
-         patch("app.cli.restart.has_sudo_for", return_value=True):
+    with (
+        patch("subprocess.run", return_value=_ok()) as mock_run,
+        patch("app.cli.restart.is_active", return_value=True),
+        patch("app.cli.restart.is_root", return_value=False),
+        patch("app.cli.restart.has_sudo_for", return_value=True),
+    ):
         result = runner.invoke(cli, ["restart", "backend"])
     assert result.exit_code == 0, result.output
     sudo_calls = [c for c in mock_run.call_args_list if c.args[0][:2] == ["sudo", SYSTEMCTL]]
@@ -49,19 +53,23 @@ def test_restart_reports_failure_when_unit_inactive_after(runner):
         except StopIteration:
             return 1000.0
 
-    with patch("subprocess.run", return_value=_ok()), \
-         patch("app.cli.restart.is_active", return_value=False), \
-         patch("app.cli.restart.is_root", return_value=False), \
-         patch("app.cli.restart.has_sudo_for", return_value=True), \
-         patch("app.cli.restart.time.sleep", lambda _s: None), \
-         patch("app.cli.restart.time.monotonic", _fake_monotonic):
+    with (
+        patch("subprocess.run", return_value=_ok()),
+        patch("app.cli.restart.is_active", return_value=False),
+        patch("app.cli.restart.is_root", return_value=False),
+        patch("app.cli.restart.has_sudo_for", return_value=True),
+        patch("app.cli.restart.time.sleep", lambda _s: None),
+        patch("app.cli.restart.time.monotonic", _fake_monotonic),
+    ):
         result = runner.invoke(cli, ["restart", "backend"])
     assert result.exit_code == 1, result.output
 
 
 def test_restart_fails_when_no_sudo(runner):
-    with patch("app.cli.restart.has_sudo_for", return_value=False), \
-         patch("app.cli.restart.is_root", return_value=False):
+    with (
+        patch("app.cli.restart.has_sudo_for", return_value=False),
+        patch("app.cli.restart.is_root", return_value=False),
+    ):
         result = runner.invoke(cli, ["restart"])
     assert result.exit_code == 2
     assert "sudo" in result.stdout.lower() or "sudo" in result.stderr.lower()
@@ -74,8 +82,10 @@ def test_restart_precheck_lists_all_missing_units(runner):
         # Grant sudo for every unit except waffleweather-frontend
         return cmd[2] != "waffleweather-frontend"
 
-    with patch("app.cli.restart.has_sudo_for", side_effect=grant), \
-         patch("app.cli.restart.is_root", return_value=False):
+    with (
+        patch("app.cli.restart.has_sudo_for", side_effect=grant),
+        patch("app.cli.restart.is_root", return_value=False),
+    ):
         result = runner.invoke(cli, ["restart", "backend", "frontend"])
     assert result.exit_code == 2
     combined = (result.stdout + result.stderr).lower()

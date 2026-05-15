@@ -37,16 +37,20 @@ def test_logs_passes_lines_and_since(runner):
 
 
 def test_logs_follow_when_tty(runner):
-    with patch("app.cli.logs.os.execvp") as exec_mock, \
-         patch("app.cli.logs._stdout_is_tty", return_value=True):
+    with (
+        patch("app.cli.logs.os.execvp") as exec_mock,
+        patch("app.cli.logs._stdout_is_tty", return_value=True),
+    ):
         runner.invoke(cli, ["logs"])
     _, argv = exec_mock.call_args[0]
     assert "-f" in argv
 
 
 def test_logs_no_follow_when_piped(runner):
-    with patch("app.cli.logs.os.execvp") as exec_mock, \
-         patch("app.cli.logs._stdout_is_tty", return_value=False):
+    with (
+        patch("app.cli.logs.os.execvp") as exec_mock,
+        patch("app.cli.logs._stdout_is_tty", return_value=False),
+    ):
         runner.invoke(cli, ["logs"])
     _, argv = exec_mock.call_args[0]
     assert "-f" not in argv

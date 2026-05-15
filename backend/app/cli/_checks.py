@@ -214,7 +214,9 @@ async def schema_present(database_url: str) -> Check:
     try:
         async with engine.connect() as conn:
             await conn.execute(text("SELECT 1 FROM weather_observations LIMIT 1"))
-        return Check(name="Schema present", severity=Severity.OK, detail="weather_observations exists")
+        return Check(
+            name="Schema present", severity=Severity.OK, detail="weather_observations exists"
+        )
     except Exception as exc:
         return Check(
             name="Schema present",

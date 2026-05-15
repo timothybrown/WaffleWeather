@@ -47,6 +47,7 @@ def collect_status_checks(settings: Settings) -> list[Check]:
     # Version cross-check: running must match installed.
     try:
         from app.cli._checks import backend_http_version
+
         installed = pkg_version("waffleweather-backend")
         running = backend_http_version(api_key=settings.api_key)
         if running is None:

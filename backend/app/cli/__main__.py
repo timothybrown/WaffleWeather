@@ -10,14 +10,20 @@ from rich.console import Console
 # Commands that support --json output. The CLI group validates --json against
 # this set BEFORE invoking the subcommand so unsupported combos exit cleanly
 # without side effects.
-JSON_SUPPORTED_COMMANDS: frozenset[str] = frozenset(
-    {"status", "doctor", "version", "backup"}
-)
+JSON_SUPPORTED_COMMANDS: frozenset[str] = frozenset({"status", "doctor", "version", "backup"})
 
 
 @click.group(context_settings={"help_option_names": ["-h", "--help"]})
-@click.option("--json", "json_output", is_flag=True, default=False, help="Emit machine-readable JSON where supported.")
-@click.option("--debug", is_flag=True, default=False, help="Re-raise tracebacks; verbose subprocess output.")
+@click.option(
+    "--json",
+    "json_output",
+    is_flag=True,
+    default=False,
+    help="Emit machine-readable JSON where supported.",
+)
+@click.option(
+    "--debug", is_flag=True, default=False, help="Re-raise tracebacks; verbose subprocess output."
+)
 @click.option("--no-color", is_flag=True, default=False, help="Disable Rich coloring.")
 @click.option(
     "--config-path",
@@ -46,7 +52,11 @@ def cli(
     ctx.obj["err_console"] = Console(no_color=no_color, stderr=True)
 
     # Validate --json compatibility BEFORE the subcommand runs (no side effects yet).
-    if json_output and ctx.invoked_subcommand and ctx.invoked_subcommand not in JSON_SUPPORTED_COMMANDS:
+    if (
+        json_output
+        and ctx.invoked_subcommand
+        and ctx.invoked_subcommand not in JSON_SUPPORTED_COMMANDS
+    ):
         click.echo(
             f"Error: --json is not supported by '{ctx.invoked_subcommand}'. "
             f"Supported: {', '.join(sorted(JSON_SUPPORTED_COMMANDS))}.",

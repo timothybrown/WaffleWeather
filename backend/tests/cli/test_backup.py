@@ -23,8 +23,10 @@ def test_backup_missing_dir_exits_1(runner, tmp_path, monkeypatch):
 
 def test_backup_success(tmp_path, runner, monkeypatch):
     monkeypatch.setattr("app.cli.backup.BACKUP_DIR", tmp_path)
-    with patch("app.cli.backup.load_settings", return_value=_mock_settings()), \
-         patch("subprocess.Popen") as mock_popen:
+    with (
+        patch("app.cli.backup.load_settings", return_value=_mock_settings()),
+        patch("subprocess.Popen") as mock_popen,
+    ):
         mock_proc = MagicMock()
         mock_proc.stdout.read.side_effect = [b"SELECT 1;\n", b""]
         mock_proc.stderr.read.return_value = b""
@@ -38,8 +40,10 @@ def test_backup_success(tmp_path, runner, monkeypatch):
 
 def test_backup_url_parsed_into_pg_env(tmp_path, runner, monkeypatch):
     monkeypatch.setattr("app.cli.backup.BACKUP_DIR", tmp_path)
-    with patch("app.cli.backup.load_settings", return_value=_mock_settings()), \
-         patch("subprocess.Popen") as mock_popen:
+    with (
+        patch("app.cli.backup.load_settings", return_value=_mock_settings()),
+        patch("subprocess.Popen") as mock_popen,
+    ):
         mock_proc = MagicMock()
         mock_proc.stdout.read.side_effect = [b"", b""]
         mock_proc.stderr.read.return_value = b""
@@ -57,8 +61,10 @@ def test_backup_url_parsed_into_pg_env(tmp_path, runner, monkeypatch):
 
 def test_backup_json_output(tmp_path, runner, monkeypatch):
     monkeypatch.setattr("app.cli.backup.BACKUP_DIR", tmp_path)
-    with patch("app.cli.backup.load_settings", return_value=_mock_settings()), \
-         patch("subprocess.Popen") as mock_popen:
+    with (
+        patch("app.cli.backup.load_settings", return_value=_mock_settings()),
+        patch("subprocess.Popen") as mock_popen,
+    ):
         # Simulate pg_dump producing minimal SQL output
         mock_proc = MagicMock()
         mock_proc.stdout.read.side_effect = [b"SELECT 1;\n", b""]
@@ -74,9 +80,12 @@ def test_backup_json_output(tmp_path, runner, monkeypatch):
 def test_backup_produces_valid_gzip(tmp_path, runner, monkeypatch):
     """Regression test: the output file must actually be gzip-compressed."""
     import gzip
+
     monkeypatch.setattr("app.cli.backup.BACKUP_DIR", tmp_path)
-    with patch("app.cli.backup.load_settings", return_value=_mock_settings()), \
-         patch("subprocess.Popen") as mock_popen:
+    with (
+        patch("app.cli.backup.load_settings", return_value=_mock_settings()),
+        patch("subprocess.Popen") as mock_popen,
+    ):
         mock_proc = MagicMock()
         sql_dump = b"-- waffleweather dump\nSELECT 1;\n"
         mock_proc.stdout.read.side_effect = [sql_dump, b""]
@@ -95,8 +104,10 @@ def test_backup_produces_valid_gzip(tmp_path, runner, monkeypatch):
 def test_backup_pg_dump_failure_cleans_up_partial(tmp_path, runner, monkeypatch):
     """pg_dump exit non-zero must clean up the .partial file and exit 1."""
     monkeypatch.setattr("app.cli.backup.BACKUP_DIR", tmp_path)
-    with patch("app.cli.backup.load_settings", return_value=_mock_settings()), \
-         patch("subprocess.Popen") as mock_popen:
+    with (
+        patch("app.cli.backup.load_settings", return_value=_mock_settings()),
+        patch("subprocess.Popen") as mock_popen,
+    ):
         mock_proc = MagicMock()
         mock_proc.stdout.read.side_effect = [b"", b""]
         mock_proc.stderr.read.return_value = b"connection refused"
@@ -115,10 +126,16 @@ def test_backup_pg_dump_failure_cleans_up_partial(tmp_path, runner, monkeypatch)
 def test_prune_keeps_newest_n(tmp_path, monkeypatch):
     """_prune retains the newest N matching files and deletes older."""
     from app.cli.backup import _prune
+
     monkeypatch.setattr("app.cli.backup.BACKUP_DIR", tmp_path)
     # Create 5 dated backups; newest filename sorts last
-    for date in ["20260101-000000", "20260201-000000", "20260301-000000",
-                 "20260401-000000", "20260501-000000"]:
+    for date in [
+        "20260101-000000",
+        "20260201-000000",
+        "20260301-000000",
+        "20260401-000000",
+        "20260501-000000",
+    ]:
         (tmp_path / f"waffleweather-{date}.sql.gz").write_text("")
     # Add a non-matching file that must NOT be deleted
     (tmp_path / "some-other-file.txt").write_text("user data")

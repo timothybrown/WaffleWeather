@@ -154,5 +154,6 @@ def test_backend_http_version_success(monkeypatch):
 def test_backend_http_version_returns_none_on_error(monkeypatch):
     def boom(*a, **k):
         raise socket.timeout("nope")
+
     monkeypatch.setattr("urllib.request.urlopen", boom)
     assert backend_http_version(api_key=None) is None

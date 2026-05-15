@@ -153,8 +153,7 @@ def preflight_full(ctx: click.Context, env_path: Path | None) -> None:
     """Full-update preflight (adds beyond minimal): uv, pnpm, .env, state dir, backup dir, sudo, project writable."""
     if not UV_PATH.exists() or not os.access(UV_PATH, os.X_OK):
         raise PreflightFail(
-            f"uv not found at {UV_PATH}. "
-            f"Run: sudo install -m 0755 ~/.local/bin/uv {UV_PATH}"
+            f"uv not found at {UV_PATH}. Run: sudo install -m 0755 ~/.local/bin/uv {UV_PATH}"
         )
     if not PNPM_PATH.exists() or not _executable_by_others(PNPM_PATH):
         raise PreflightFail(
@@ -375,7 +374,9 @@ def run_apply(
     if _phase_should_run(Phase.DEPS):
         _transition(state, Phase.DEPS)
         try:
-            _run_step(["sudo", "-u", "waffleweather", str(UV_PATH), "sync", "--frozen"], cwd=BACKEND_DIR)
+            _run_step(
+                ["sudo", "-u", "waffleweather", str(UV_PATH), "sync", "--frozen"], cwd=BACKEND_DIR
+            )
         except Exception as exc:
             _record_failure("deps", exc)
             raise
@@ -384,7 +385,9 @@ def run_apply(
         _transition(state, Phase.MIGRATE)
         alembic = BACKEND_DIR / ".venv" / "bin" / "alembic"
         try:
-            _run_step(["sudo", "-u", "waffleweather", str(alembic), "upgrade", "head"], cwd=BACKEND_DIR)
+            _run_step(
+                ["sudo", "-u", "waffleweather", str(alembic), "upgrade", "head"], cwd=BACKEND_DIR
+            )
         except Exception as exc:
             _record_failure("migrate", exc)
             raise
@@ -436,12 +439,29 @@ def run_apply(
 
 
 @click.command("update")
-@click.option("--check", "check_only", is_flag=True, default=False, help="Show whether an update is available and exit.")
-@click.option("--force", is_flag=True, default=False, help="Stash uncommitted changes and continue.")
-@click.option("--no-restart", is_flag=True, default=False, help="Skip service restart and verification.")
-@click.option("--yes", "-y", is_flag=True, default=False, help="Skip the interactive confirmation prompt.")
+@click.option(
+    "--check",
+    "check_only",
+    is_flag=True,
+    default=False,
+    help="Show whether an update is available and exit.",
+)
+@click.option(
+    "--force", is_flag=True, default=False, help="Stash uncommitted changes and continue."
+)
+@click.option(
+    "--no-restart", is_flag=True, default=False, help="Skip service restart and verification."
+)
+@click.option(
+    "--yes", "-y", is_flag=True, default=False, help="Skip the interactive confirmation prompt."
+)
 @click.option("--target", default=None, help="Apply a specific stable tag instead of the latest.")
-@click.option("--force-resume", is_flag=True, default=False, help="Retry a previously-failed update from its last step.")
+@click.option(
+    "--force-resume",
+    is_flag=True,
+    default=False,
+    help="Retry a previously-failed update from its last step.",
+)
 @click.pass_context
 def update_cmd(
     ctx: click.Context,

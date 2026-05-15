@@ -25,9 +25,7 @@ from app.cli._systemd import (
 def restart_cmd(ctx: click.Context, services: tuple[str, ...]) -> None:
     """Restart one or more managed units. Default: backend + frontend + ecowitt2mqtt."""
     units: tuple[str, ...] = (
-        tuple(resolve_unit(s) for s in services)
-        if services
-        else DEFAULT_RESTART_UNITS
+        tuple(resolve_unit(s) for s in services) if services else DEFAULT_RESTART_UNITS
     )
 
     # Privilege check: either we're already root, or sudoers grants us the
@@ -35,10 +33,7 @@ def restart_cmd(ctx: click.Context, services: tuple[str, ...]) -> None:
     # mismatch in sudoers (e.g. backend granted, frontend not) fail mid-batch
     # with a confusing systemctl error.
     if not is_root():
-        missing = [
-            u for u in units
-            if not has_sudo_for([SYSTEMCTL, "restart", u])
-        ]
+        missing = [u for u in units if not has_sudo_for([SYSTEMCTL, "restart", u])]
         if missing:
             click.echo(
                 f"This command needs sudo for: {', '.join(missing)}. "

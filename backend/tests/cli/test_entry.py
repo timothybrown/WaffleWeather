@@ -33,6 +33,7 @@ def test_json_rejected_on_unsupported_command():
     # we'll add a runtime test in Task 13 (logs) when --json logs would
     # otherwise execvp. For now, lock in the membership invariants.
     from app.cli.__main__ import JSON_SUPPORTED_COMMANDS
+
     assert "logs" not in JSON_SUPPORTED_COMMANDS
     assert "restart" not in JSON_SUPPORTED_COMMANDS
     assert "update" not in JSON_SUPPORTED_COMMANDS
@@ -40,6 +41,7 @@ def test_json_rejected_on_unsupported_command():
 
 def test_json_accepted_on_supported_commands():
     from app.cli.__main__ import JSON_SUPPORTED_COMMANDS
+
     assert "status" in JSON_SUPPORTED_COMMANDS
     assert "doctor" in JSON_SUPPORTED_COMMANDS
     assert "version" in JSON_SUPPORTED_COMMANDS

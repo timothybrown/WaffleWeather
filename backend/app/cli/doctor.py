@@ -66,7 +66,9 @@ def _group_check(database_url: str, label: str, columns: tuple[str, ...]) -> Che
     if all(a is None for a in ages):
         return field_freshness(label, max_age_seconds=None)
     best = min((a for a in ages if a is not None), default=None)
-    return field_freshness(label, max_age_seconds=best, warn_after=warn_after, fail_after=fail_after)
+    return field_freshness(
+        label, max_age_seconds=best, warn_after=warn_after, fail_after=fail_after
+    )
 
 
 def collect_doctor_checks(settings: Settings, env_path: Path | None = None) -> list[Check]:
@@ -88,13 +90,17 @@ def collect_doctor_checks(settings: Settings, env_path: Path | None = None) -> l
         if age is None:
             checks.append(Check("Database freshness", Severity.WARN, "no observations yet"))
         else:
-            checks.append(field_freshness("Database freshness", age, warn_after=300, fail_after=1800))
+            checks.append(
+                field_freshness("Database freshness", age, warn_after=300, fail_after=1800)
+            )
         # Per-station last_seen
         for sid, station_age in asyncio.run(stations_last_seen(settings.database_url)).items():
             if station_age is None:
                 checks.append(Check(f"Station {sid}", Severity.WARN, "never seen"))
             else:
-                checks.append(field_freshness(f"Station {sid}", station_age, warn_after=300, fail_after=1800))
+                checks.append(
+                    field_freshness(f"Station {sid}", station_age, warn_after=300, fail_after=1800)
+                )
         # Field-group freshness
         for label, cols in FIELD_GROUPS:
             checks.append(_group_check(settings.database_url, label, cols))
@@ -110,7 +116,11 @@ def collect_doctor_checks(settings: Settings, env_path: Path | None = None) -> l
     # Env audit
     ecowitt_enabled = is_enabled("ecowitt2mqtt")
     mqtt_explicit = _mqtt_broker_was_explicit(env_path)
-    checks.extend(audit_env_keys(settings, ecowitt_enabled=ecowitt_enabled, mqtt_broker_explicit=mqtt_explicit))
+    checks.extend(
+        audit_env_keys(
+            settings, ecowitt_enabled=ecowitt_enabled, mqtt_broker_explicit=mqtt_explicit
+        )
+    )
 
     # Disk
     checks.append(free_disk_check())

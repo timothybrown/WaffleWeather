@@ -51,11 +51,13 @@ def test_status_version_mismatch_fails(monkeypatch):
     fake_settings = MM()
     fake_settings.database_url = ""
     fake_settings.api_key = None
-    with patch("app.cli.status.systemd_unit_check") as mock_unit, \
-         patch("app.cli.status.backend_http_check") as mock_http, \
-         patch("app.cli.status.free_disk_check") as mock_disk, \
-         patch("app.cli.status.pkg_version", return_value="2026.5.14.2"), \
-         patch("app.cli._checks.backend_http_version", return_value="2026.5.6.2"):
+    with (
+        patch("app.cli.status.systemd_unit_check") as mock_unit,
+        patch("app.cli.status.backend_http_check") as mock_http,
+        patch("app.cli.status.free_disk_check") as mock_disk,
+        patch("app.cli.status.pkg_version", return_value="2026.5.14.2"),
+        patch("app.cli._checks.backend_http_version", return_value="2026.5.6.2"),
+    ):
         mock_unit.return_value = Check("u", Severity.OK, "")
         mock_http.return_value = Check("Backend HTTP", Severity.OK, "")
         mock_disk.return_value = Check("Free disk", Severity.OK, "")

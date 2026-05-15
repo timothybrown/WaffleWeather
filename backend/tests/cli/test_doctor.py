@@ -34,7 +34,9 @@ def test_doctor_fail_exits_1(runner):
 
 
 def test_doctor_cannot_load_settings_exits_2(runner):
-    with patch("app.cli.doctor.load_settings", side_effect=RuntimeError("permission denied on .env")):
+    with patch(
+        "app.cli.doctor.load_settings", side_effect=RuntimeError("permission denied on .env")
+    ):
         result = runner.invoke(cli, ["doctor"])
     assert result.exit_code == 2
 
@@ -58,6 +60,7 @@ def test_audit_env_keys_does_not_leak_database_url():
     """Direct test on audit_env_keys: detail string must not echo the URL."""
     from app.cli._checks import audit_env_keys
     from unittest.mock import MagicMock as MM
+
     s = MM()
     s.database_url = "postgresql+asyncpg://secretuser:secretpass@localhost:5432/wx"
     s.api_key = "ak_secret_value"

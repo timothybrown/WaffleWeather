@@ -55,12 +55,14 @@ def test_update_full_requires_uv_and_pnpm(runner, tmp_path, monkeypatch):
 
 def test_current_version_uses_git_describe(tmp_path, monkeypatch):
     from app.cli.update import detect_current_version
+
     monkeypatch.setattr("app.cli.update.current_tag", lambda cwd: "v2026.5.6.2")
     assert detect_current_version(tmp_path) == "v2026.5.6.2"
 
 
 def test_current_version_falls_back_to_pkg_metadata(tmp_path, monkeypatch):
     from app.cli.update import detect_current_version
+
     monkeypatch.setattr("app.cli.update.current_tag", lambda cwd: None)
     monkeypatch.setattr("app.cli.update.installed_version", lambda: "2026.5.14.2")
     assert detect_current_version(tmp_path) == "v2026.5.14.2"
@@ -68,6 +70,7 @@ def test_current_version_falls_back_to_pkg_metadata(tmp_path, monkeypatch):
 
 def test_current_version_returns_none_when_nothing_works(tmp_path, monkeypatch):
     from app.cli.update import detect_current_version
+
     monkeypatch.setattr("app.cli.update.current_tag", lambda cwd: None)
     monkeypatch.setattr("app.cli.update.installed_version", lambda: None)
     assert detect_current_version(tmp_path) is None
@@ -75,24 +78,28 @@ def test_current_version_returns_none_when_nothing_works(tmp_path, monkeypatch):
 
 def test_discover_picks_latest_stable():
     from app.cli.update import select_target
+
     tags = ["v2026.5.6.2", "v2026.5.14.2", "v2026.5.14.2-rc1", "main", "v2026.4.18.3"]
     assert select_target(tags, override=None) == "v2026.5.14.2"
 
 
 def test_discover_rejects_unstable_target():
     from app.cli.update import select_target, InvalidTarget
+
     with pytest.raises(InvalidTarget):
         select_target(["v2026.5.14.2"], override="main")
 
 
 def test_discover_rejects_nonexistent_target():
     from app.cli.update import select_target, InvalidTarget
+
     with pytest.raises(InvalidTarget):
         select_target(["v2026.5.14.2"], override="v9999.0.0.0")
 
 
 def test_discover_accepts_valid_target_with_or_without_v():
     from app.cli.update import select_target
+
     assert select_target(["v2026.5.14.2"], override="v2026.5.14.2") == "v2026.5.14.2"
     assert select_target(["v2026.5.14.2"], override="2026.5.14.2") == "v2026.5.14.2"
 
@@ -115,9 +122,13 @@ def test_check_update_available_exits_10(runner, tmp_path, monkeypatch):
     (tmp_path / ".git").mkdir()
     monkeypatch.setattr("app.cli.update.is_docker_environment", lambda: False)
     monkeypatch.setattr("app.cli.update.PROJECT_DIR", tmp_path)
-    monkeypatch.setattr("app.cli.update.list_remote_tags", lambda cwd: ["v2026.5.6.2", "v2026.5.14.2"])
+    monkeypatch.setattr(
+        "app.cli.update.list_remote_tags", lambda cwd: ["v2026.5.6.2", "v2026.5.14.2"]
+    )
     monkeypatch.setattr("app.cli.update.detect_current_version", lambda cwd: "v2026.5.6.2")
-    monkeypatch.setattr("app.cli.update.remote_origin_url", lambda cwd: "https://github.com/foo/bar.git")
+    monkeypatch.setattr(
+        "app.cli.update.remote_origin_url", lambda cwd: "https://github.com/foo/bar.git"
+    )
     result = runner.invoke(cli, ["update", "--check"])
     assert result.exit_code == 10
     assert "v2026.5.14.2" in result.stdout
@@ -140,7 +151,9 @@ def test_full_update_prompts_for_confirmation(runner, tmp_path, monkeypatch):
     monkeypatch.setattr("app.cli.update.PROJECT_DIR", tmp_path)
     monkeypatch.setattr("app.cli.update.preflight_full", lambda ctx, env_path=None: None)
     monkeypatch.setattr("app.cli.update.fetch_tags", lambda cwd: None)
-    monkeypatch.setattr("app.cli.update.list_remote_tags", lambda cwd: ["v2026.5.6.2", "v2026.5.14.2"])
+    monkeypatch.setattr(
+        "app.cli.update.list_remote_tags", lambda cwd: ["v2026.5.6.2", "v2026.5.14.2"]
+    )
     monkeypatch.setattr("app.cli.update.detect_current_version", lambda cwd: "v2026.5.6.2")
     monkeypatch.setattr("app.cli.update.remote_origin_url", lambda cwd: None)
     monkeypatch.setattr("app.cli.update.commit_log", lambda cwd, a, b: ["abc123 foo", "def456 bar"])
@@ -168,7 +181,9 @@ def _ready_project(tmp_path, monkeypatch):
     monkeypatch.setattr("app.cli.update.FRONTEND_DIR", tmp_path / "frontend")
     monkeypatch.setattr("app.cli.update.preflight_full", lambda ctx, env_path=None: None)
     monkeypatch.setattr("app.cli.update.fetch_tags", lambda cwd: None)
-    monkeypatch.setattr("app.cli.update.list_remote_tags", lambda cwd: ["v2026.5.6.2", "v2026.5.14.2"])
+    monkeypatch.setattr(
+        "app.cli.update.list_remote_tags", lambda cwd: ["v2026.5.6.2", "v2026.5.14.2"]
+    )
     monkeypatch.setattr("app.cli.update.detect_current_version", lambda cwd: "v2026.5.6.2")
     monkeypatch.setattr("app.cli.update.remote_origin_url", lambda cwd: None)
     monkeypatch.setattr("app.cli.update.commit_log", lambda cwd, a, b: [])
@@ -192,8 +207,15 @@ def test_apply_runs_full_sequence_when_yes(runner, _ready_project, monkeypatch):
         "app.cli.update.do_backup",
         lambda url, keep: (_ready_project / "fake.sql.gz", 0, []),
     )
-    monkeypatch.setattr("app.cli.update.load_settings", lambda env_path=None: MagicMock(database_url="postgresql+asyncpg://u:p@h:5432/d", api_key=None))
-    monkeypatch.setattr("app.cli.update.poll_running_version", lambda target, api_key, timeout: True)
+    monkeypatch.setattr(
+        "app.cli.update.load_settings",
+        lambda env_path=None: MagicMock(
+            database_url="postgresql+asyncpg://u:p@h:5432/d", api_key=None
+        ),
+    )
+    monkeypatch.setattr(
+        "app.cli.update.poll_running_version", lambda target, api_key, timeout: True
+    )
     monkeypatch.setattr("app.cli.update.is_active", lambda unit: True)
     monkeypatch.setattr("app.cli.update.git_checkout", lambda cwd, ref: None)
     monkeypatch.setattr("app.cli.update.verify_tag_versions_match", lambda cwd, tag: None)
@@ -217,8 +239,15 @@ def test_no_restart_skips_restart_and_verify(runner, _ready_project, monkeypatch
         return subprocess.CompletedProcess(args=cmd, returncode=0, stdout=b"", stderr=b"")
 
     monkeypatch.setattr("subprocess.run", fake_run)
-    monkeypatch.setattr("app.cli.update.do_backup", lambda url, keep: (_ready_project / "fake.sql.gz", 0, []))
-    monkeypatch.setattr("app.cli.update.load_settings", lambda env_path=None: MagicMock(database_url="postgresql+asyncpg://u:p@h:5432/d", api_key=None))
+    monkeypatch.setattr(
+        "app.cli.update.do_backup", lambda url, keep: (_ready_project / "fake.sql.gz", 0, [])
+    )
+    monkeypatch.setattr(
+        "app.cli.update.load_settings",
+        lambda env_path=None: MagicMock(
+            database_url="postgresql+asyncpg://u:p@h:5432/d", api_key=None
+        ),
+    )
     monkeypatch.setattr("app.cli.update.git_checkout", lambda cwd, ref: None)
     monkeypatch.setattr("app.cli.update.verify_tag_versions_match", lambda cwd, tag: None)
 
@@ -229,12 +258,21 @@ def test_no_restart_skips_restart_and_verify(runner, _ready_project, monkeypatch
 
 def test_version_mismatch_after_restart_exits_1(runner, _ready_project, monkeypatch):
     monkeypatch.setattr("subprocess.run", lambda *a, **kw: _ok())
-    monkeypatch.setattr("app.cli.update.do_backup", lambda url, keep: (_ready_project / "fake.sql.gz", 0, []))
-    monkeypatch.setattr("app.cli.update.load_settings", lambda env_path=None: MagicMock(database_url="postgresql+asyncpg://u:p@h:5432/d", api_key=None))
+    monkeypatch.setattr(
+        "app.cli.update.do_backup", lambda url, keep: (_ready_project / "fake.sql.gz", 0, [])
+    )
+    monkeypatch.setattr(
+        "app.cli.update.load_settings",
+        lambda env_path=None: MagicMock(
+            database_url="postgresql+asyncpg://u:p@h:5432/d", api_key=None
+        ),
+    )
     monkeypatch.setattr("app.cli.update.git_checkout", lambda cwd, ref: None)
     monkeypatch.setattr("app.cli.update.verify_tag_versions_match", lambda cwd, tag: None)
     monkeypatch.setattr("app.cli.update.is_active", lambda unit: True)
-    monkeypatch.setattr("app.cli.update.poll_running_version", lambda target, api_key, timeout: False)
+    monkeypatch.setattr(
+        "app.cli.update.poll_running_version", lambda target, api_key, timeout: False
+    )
 
     result = runner.invoke(cli, ["update", "--yes"])
     assert result.exit_code == 1
@@ -244,16 +282,26 @@ def test_version_mismatch_after_restart_exits_1(runner, _ready_project, monkeypa
 
 
 def test_failed_apply_writes_state_and_exits_1(runner, _ready_project, monkeypatch):
-    monkeypatch.setattr("app.cli.update.do_backup", lambda url, keep: (_ready_project / "fake.sql.gz", 0, []))
-    monkeypatch.setattr("app.cli.update.load_settings", lambda env_path=None: MagicMock(database_url="postgresql+asyncpg://u:p@h:5432/d", api_key=None))
+    monkeypatch.setattr(
+        "app.cli.update.do_backup", lambda url, keep: (_ready_project / "fake.sql.gz", 0, [])
+    )
+    monkeypatch.setattr(
+        "app.cli.update.load_settings",
+        lambda env_path=None: MagicMock(
+            database_url="postgresql+asyncpg://u:p@h:5432/d", api_key=None
+        ),
+    )
     monkeypatch.setattr("app.cli.update.git_checkout", lambda cwd, ref: None)
     monkeypatch.setattr("app.cli.update.verify_tag_versions_match", lambda cwd, tag: None)
 
     # Make the deps phase blow up
     def fake_run(cmd, **kw):
         if "uv" in cmd[0] or (len(cmd) > 1 and "uv" in cmd[1]) or "uv" in " ".join(cmd):
-            return subprocess.CompletedProcess(args=cmd, returncode=1, stdout=b"", stderr=b"uv exploded\n")
+            return subprocess.CompletedProcess(
+                args=cmd, returncode=1, stdout=b"", stderr=b"uv exploded\n"
+            )
         return subprocess.CompletedProcess(args=cmd, returncode=0, stdout=b"", stderr=b"")
+
     monkeypatch.setattr("subprocess.run", fake_run)
 
     written: list = []
@@ -269,6 +317,7 @@ def test_failed_apply_writes_state_and_exits_1(runner, _ready_project, monkeypat
 
 def test_existing_failed_state_refuses_without_force_resume(runner, _ready_project, monkeypatch):
     from app.cli._state import Phase as StatePhase, UpdateState
+
     existing = UpdateState(
         phase=StatePhase.FAILED,
         previous_tag="v2026.5.6.2",
@@ -287,6 +336,7 @@ def test_existing_failed_state_refuses_without_force_resume(runner, _ready_proje
 
 def test_force_resume_with_target_mismatch_refuses(runner, _ready_project, monkeypatch):
     from app.cli._state import Phase as StatePhase, UpdateState
+
     existing = UpdateState(
         phase=StatePhase.FAILED,
         previous_tag="v2026.5.6.2",
@@ -297,7 +347,9 @@ def test_force_resume_with_target_mismatch_refuses(runner, _ready_project, monke
         failed_step="migrate",
     )
     monkeypatch.setattr("app.cli.update.read_state", lambda: existing)
-    monkeypatch.setattr("app.cli.update.list_remote_tags", lambda cwd: ["v2026.5.14.2", "v2026.5.14.3"])
+    monkeypatch.setattr(
+        "app.cli.update.list_remote_tags", lambda cwd: ["v2026.5.14.2", "v2026.5.14.3"]
+    )
 
     result = runner.invoke(cli, ["update", "--yes", "--force-resume", "--target", "v2026.5.14.3"])
     assert result.exit_code == 2
@@ -307,23 +359,33 @@ def test_force_resume_with_target_mismatch_refuses(runner, _ready_project, monke
 def test_force_resume_uses_failed_step_not_phase(runner, _ready_project, monkeypatch):
     """Regression: resume must read failed_step, not phase (phase is always FAILED)."""
     from app.cli._state import Phase as StatePhase, UpdateState
+
     existing = UpdateState(
-        phase=StatePhase.FAILED,            # would always be FAILED on a real failed state
+        phase=StatePhase.FAILED,  # would always be FAILED on a real failed state
         previous_tag="v2026.5.6.2",
         previous_version="2026.5.6.2",
         target_tag="v2026.5.14.2",
         started_at="2026-05-14T14:30:22Z",
         updated_at="2026-05-14T14:32:00Z",
-        failed_step="deps",                  # actual failed phase
+        failed_step="deps",  # actual failed phase
     )
     monkeypatch.setattr("app.cli.update.read_state", lambda: existing)
-    monkeypatch.setattr("app.cli.update.do_backup", lambda url, keep: (_ready_project / "fake.sql.gz", 0, []))
-    monkeypatch.setattr("app.cli.update.load_settings", lambda env_path=None: MagicMock(database_url="postgresql+asyncpg://u:p@h:5432/d", api_key=None))
+    monkeypatch.setattr(
+        "app.cli.update.do_backup", lambda url, keep: (_ready_project / "fake.sql.gz", 0, [])
+    )
+    monkeypatch.setattr(
+        "app.cli.update.load_settings",
+        lambda env_path=None: MagicMock(
+            database_url="postgresql+asyncpg://u:p@h:5432/d", api_key=None
+        ),
+    )
     monkeypatch.setattr("subprocess.run", lambda *a, **kw: _ok())
     monkeypatch.setattr("app.cli.update.git_checkout", lambda cwd, ref: None)
     monkeypatch.setattr("app.cli.update.verify_tag_versions_match", lambda cwd, tag: None)
     monkeypatch.setattr("app.cli.update.is_active", lambda unit: True)
-    monkeypatch.setattr("app.cli.update.poll_running_version", lambda target, api_key, timeout: True)
+    monkeypatch.setattr(
+        "app.cli.update.poll_running_version", lambda target, api_key, timeout: True
+    )
 
     captured: list = []
 
@@ -336,6 +398,7 @@ def test_force_resume_uses_failed_step_not_phase(runner, _ready_project, monkeyp
     assert result.exit_code == 0
     # failed_step was "deps" — that's pre-migration — so we should start_phase=DEPS
     from app.cli._state import Phase as P
+
     assert captured == [P.DEPS]
 
 
@@ -354,6 +417,7 @@ def test_check_ignores_failed_state_file(runner, tmp_path, monkeypatch):
     monkeypatch.setattr("app.cli.update.remote_origin_url", lambda cwd: None)
     # A leftover failed-state file would normally trigger the resume gate.
     from app.cli._state import Phase as StatePhase, UpdateState
+
     leftover = UpdateState(
         phase=StatePhase.FAILED,
         previous_tag="v2026.5.6.2",
@@ -375,6 +439,7 @@ def test_check_ignores_failed_state_file(runner, tmp_path, monkeypatch):
 def test_force_resume_post_migration_starts_from_checkout(runner, _ready_project, monkeypatch):
     """Failures at MIGRATE or later must re-run from CHECKOUT (re-backup, re-migrate)."""
     from app.cli._state import Phase as StatePhase, UpdateState
+
     existing = UpdateState(
         phase=StatePhase.FAILED,
         previous_tag="v2026.5.6.2",
@@ -382,23 +447,35 @@ def test_force_resume_post_migration_starts_from_checkout(runner, _ready_project
         target_tag="v2026.5.14.2",
         started_at="2026-05-14T14:30:22Z",
         updated_at="2026-05-14T14:32:00Z",
-        failed_step="build",                 # post-migration failure
+        failed_step="build",  # post-migration failure
     )
     monkeypatch.setattr("app.cli.update.read_state", lambda: existing)
-    monkeypatch.setattr("app.cli.update.do_backup", lambda url, keep: (_ready_project / "fake.sql.gz", 0, []))
-    monkeypatch.setattr("app.cli.update.load_settings", lambda env_path=None: MagicMock(database_url="postgresql+asyncpg://u:p@h:5432/d", api_key=None))
+    monkeypatch.setattr(
+        "app.cli.update.do_backup", lambda url, keep: (_ready_project / "fake.sql.gz", 0, [])
+    )
+    monkeypatch.setattr(
+        "app.cli.update.load_settings",
+        lambda env_path=None: MagicMock(
+            database_url="postgresql+asyncpg://u:p@h:5432/d", api_key=None
+        ),
+    )
     monkeypatch.setattr("subprocess.run", lambda *a, **kw: _ok())
     monkeypatch.setattr("app.cli.update.git_checkout", lambda cwd, ref: None)
     monkeypatch.setattr("app.cli.update.verify_tag_versions_match", lambda cwd, tag: None)
     monkeypatch.setattr("app.cli.update.is_active", lambda unit: True)
-    monkeypatch.setattr("app.cli.update.poll_running_version", lambda target, api_key, timeout: True)
+    monkeypatch.setattr(
+        "app.cli.update.poll_running_version", lambda target, api_key, timeout: True
+    )
 
     captured: list = []
-    monkeypatch.setattr("app.cli.update.run_apply", lambda **kw: captured.append(kw.get("start_phase")))
+    monkeypatch.setattr(
+        "app.cli.update.run_apply", lambda **kw: captured.append(kw.get("start_phase"))
+    )
 
     result = runner.invoke(cli, ["update", "--yes", "--force-resume"])
     assert result.exit_code == 0
     from app.cli._state import Phase as P
+
     assert captured == [P.CHECKOUT]
 
 
@@ -416,13 +493,22 @@ def test_dirty_tree_force_auto_stashes_and_prints_ref(runner, _ready_project, mo
     monkeypatch.setattr("app.cli.update.is_working_tree_clean", lambda cwd: False)
     monkeypatch.setattr("app.cli.update.stash_push", lambda cwd, message: "stash@{0}")
     # Make the apply succeed quickly
-    monkeypatch.setattr("app.cli.update.do_backup", lambda url, keep: (_ready_project / "fake.sql.gz", 0, []))
-    monkeypatch.setattr("app.cli.update.load_settings", lambda env_path=None: MagicMock(database_url="postgresql+asyncpg://u:p@h:5432/d", api_key=None))
+    monkeypatch.setattr(
+        "app.cli.update.do_backup", lambda url, keep: (_ready_project / "fake.sql.gz", 0, [])
+    )
+    monkeypatch.setattr(
+        "app.cli.update.load_settings",
+        lambda env_path=None: MagicMock(
+            database_url="postgresql+asyncpg://u:p@h:5432/d", api_key=None
+        ),
+    )
     monkeypatch.setattr("subprocess.run", lambda *a, **kw: _ok())
     monkeypatch.setattr("app.cli.update.git_checkout", lambda cwd, ref: None)
     monkeypatch.setattr("app.cli.update.verify_tag_versions_match", lambda cwd, tag: None)
     monkeypatch.setattr("app.cli.update.is_active", lambda unit: True)
-    monkeypatch.setattr("app.cli.update.poll_running_version", lambda target, api_key, timeout: True)
+    monkeypatch.setattr(
+        "app.cli.update.poll_running_version", lambda target, api_key, timeout: True
+    )
 
     result = runner.invoke(cli, ["update", "--yes", "--force"])
     assert result.exit_code == 0
