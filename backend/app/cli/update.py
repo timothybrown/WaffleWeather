@@ -15,9 +15,15 @@ import click
 from app.cli._docker import is_docker_environment
 from app.cli._git import (
     STABLE_TAG_RE,
+    commit_log,
     current_tag,
-    list_remote_tags,  # noqa: F401 - used via monkeypatch in tests; T20 adds direct use
+    fetch_tags,
+    is_working_tree_clean,  # noqa: F401 - patched in tests; T23 adds direct use
+    list_remote_tags,
+    parse_github_url,
     pick_latest_stable,
+    remote_origin_url,
+    tag_compare,
 )
 from app.cli._privilege import has_sudo_for
 from app.cli._state import STATE_DIR
@@ -181,6 +187,17 @@ def preflight_full(ctx: click.Context, env_path: Path | None) -> None:
         )
 
 
+def _release_notes_url(cwd: Path, target_tag: str) -> str | None:
+    url = remote_origin_url(cwd)
+    if url is None:
+        return None
+    parsed = parse_github_url(url)
+    if parsed is None:
+        return None
+    owner, repo = parsed
+    return f"https://github.com/{owner}/{repo}/releases/tag/{target_tag}"
+
+
 @click.command("update")
 @click.option("--check", "check_only", is_flag=True, default=False, help="Show whether an update is available and exit.")
 @click.option("--force", is_flag=True, default=False, help="Stash uncommitted changes and continue.")
@@ -213,6 +230,61 @@ def update_cmd(
             _err_exit(ctx, f"✗ {exc}", code=2)
             return
 
-    # Tasks 19-22 add discover/plan/apply/state logic here.
-    click.echo("Update flow not yet wired up — see Tasks 19-22.")
+    # Discover (network-dependent — runs for both --check and full update)
+    try:
+        if check_only:
+            tags = list_remote_tags(PROJECT_DIR)
+        else:
+            fetch_tags(PROJECT_DIR)
+            tags = list_remote_tags(PROJECT_DIR)
+    except Exception as exc:
+        _err_exit(ctx, f"✗ Could not reach origin: {exc}", code=2)
+        return
+
+    current = detect_current_version(PROJECT_DIR)
+    if current is None:
+        _err_exit(ctx, "✗ Could not determine current installed version.", code=2)
+        return
+
+    try:
+        target = select_target(tags, override=target)
+    except InvalidTarget as exc:
+        _err_exit(ctx, f"✗ {exc}", code=2)
+        return
+
+    # Up to date?
+    if tag_compare(current, target) >= 0:
+        click.echo(f"Up to date ({current}).")
+        ctx.exit(0)
+        return
+
+    notes_url = _release_notes_url(PROJECT_DIR, target)
+
+    if check_only:
+        click.echo(f"Update available: {current} → {target}")
+        if notes_url:
+            click.echo(f"Release notes: {notes_url}")
+        click.echo("Run 'waffleweather update' to apply.")
+        ctx.exit(10)
+        return
+
+    # Full update: print commit log, then confirm
+    log_lines = commit_log(PROJECT_DIR, current, target)
+    click.echo(f"Updating from {current} → {target} ({len(log_lines)} commits)")
+    for line in log_lines:
+        click.echo(f"  {line}")
+    if notes_url:
+        click.echo(f"Release notes: {notes_url}")
+
+    # Frontend rebuild hint will be added in Task 21.
+
+    if not yes:
+        if not click.confirm("Continue?", default=False):
+            click.echo("Update cancelled.")
+            ctx.exit(0)
+            return
+
+    # Tasks 21-22 implement the actual apply + verify + state machine.
+    # Stub until Task 21 lands:
+    click.echo("Apply not yet implemented — see Task 21.")
     ctx.exit(0)
