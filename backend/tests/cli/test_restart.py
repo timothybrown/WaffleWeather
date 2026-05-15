@@ -65,3 +65,18 @@ def test_restart_fails_when_no_sudo(runner):
         result = runner.invoke(cli, ["restart"])
     assert result.exit_code == 2
     assert "sudo" in result.stdout.lower() or "sudo" in result.stderr.lower()
+
+
+def test_restart_precheck_lists_all_missing_units(runner):
+    """Pre-check must report every unit lacking sudo, not just the first."""
+
+    def grant(cmd):
+        # Grant sudo for every unit except waffleweather-frontend
+        return cmd[2] != "waffleweather-frontend"
+
+    with patch("app.cli.restart.has_sudo_for", side_effect=grant), \
+         patch("app.cli.restart.is_root", return_value=False):
+        result = runner.invoke(cli, ["restart", "backend", "frontend"])
+    assert result.exit_code == 2
+    combined = (result.stdout + result.stderr).lower()
+    assert "waffleweather-frontend" in combined

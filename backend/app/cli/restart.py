@@ -30,12 +30,19 @@ def restart_cmd(ctx: click.Context, services: tuple[str, ...]) -> None:
         else DEFAULT_RESTART_UNITS
     )
 
-    # Privilege check: either we're already root, or sudoers grants us the restart.
+    # Privilege check: either we're already root, or sudoers grants us the
+    # restart for EVERY requested unit. Checking only the first would let a
+    # mismatch in sudoers (e.g. backend granted, frontend not) fail mid-batch
+    # with a confusing systemctl error.
     if not is_root():
-        first_unit = units[0]
-        if not has_sudo_for([SYSTEMCTL, "restart", first_unit]):
+        missing = [
+            u for u in units
+            if not has_sudo_for([SYSTEMCTL, "restart", u])
+        ]
+        if missing:
             click.echo(
-                f"This command needs sudo. Run: sudo waffleweather restart {' '.join(services or ())}".rstrip(),
+                f"This command needs sudo for: {', '.join(missing)}. "
+                f"Run: sudo waffleweather restart {' '.join(services or ())}".rstrip(),
                 err=True,
             )
             ctx.exit(2)
@@ -58,7 +65,16 @@ def restart_cmd(ctx: click.Context, services: tuple[str, ...]) -> None:
             any_failed = True
             continue
         if result.returncode != 0:
-            table.add_row(unit, f"[red]✗ systemctl exited {result.returncode}[/red]")
+            stderr_first = (
+                result.stderr.decode(errors="replace").strip().splitlines()[0]
+                if result.stderr
+                else ""
+            )
+            suffix = f": {stderr_first}" if stderr_first else ""
+            table.add_row(
+                unit,
+                f"[red]✗ systemctl exited {result.returncode}{suffix}[/red]",
+            )
             any_failed = True
             continue
         # Poll is-active for up to 30s
