@@ -238,3 +238,165 @@ def test_version_mismatch_after_restart_exits_1(runner, _ready_project, monkeypa
 
     result = runner.invoke(cli, ["update", "--yes"])
     assert result.exit_code == 1
+
+
+# ---------- Failure handling + resume ----------
+
+
+def test_failed_apply_writes_state_and_exits_1(runner, _ready_project, monkeypatch):
+    monkeypatch.setattr("app.cli.update.do_backup", lambda url, keep: (_ready_project / "fake.sql.gz", 0, []))
+    monkeypatch.setattr("app.cli.update.load_settings", lambda env_path=None: MagicMock(database_url="postgresql+asyncpg://u:p@h:5432/d", api_key=None))
+    monkeypatch.setattr("app.cli.update.git_checkout", lambda cwd, ref: None)
+    monkeypatch.setattr("app.cli.update.verify_tag_versions_match", lambda cwd, tag: None)
+
+    # Make the deps phase blow up
+    def fake_run(cmd, **kw):
+        if "uv" in cmd[0] or (len(cmd) > 1 and "uv" in cmd[1]) or "uv" in " ".join(cmd):
+            return subprocess.CompletedProcess(args=cmd, returncode=1, stdout=b"", stderr=b"uv exploded\n")
+        return subprocess.CompletedProcess(args=cmd, returncode=0, stdout=b"", stderr=b"")
+    monkeypatch.setattr("subprocess.run", fake_run)
+
+    written: list = []
+    monkeypatch.setattr("app.cli.update.write_state", lambda s: written.append(s))
+    monkeypatch.setattr("app.cli.update.delete_state", lambda: None)
+
+    result = runner.invoke(cli, ["update", "--yes"])
+    assert result.exit_code == 1
+    failed = [s for s in written if s.phase.value == "failed"]
+    assert failed, "Expected at least one state write with phase='failed'"
+    assert failed[-1].failed_step == "deps"
+
+
+def test_existing_failed_state_refuses_without_force_resume(runner, _ready_project, monkeypatch):
+    from app.cli._state import Phase as StatePhase, UpdateState
+    existing = UpdateState(
+        phase=StatePhase.FAILED,
+        previous_tag="v2026.5.6.2",
+        previous_version="2026.5.6.2",
+        target_tag="v2026.5.14.2",
+        started_at="2026-05-14T14:30:22Z",
+        updated_at="2026-05-14T14:32:00Z",
+        failed_step="migrate",
+    )
+    monkeypatch.setattr("app.cli.update.read_state", lambda: existing)
+
+    result = runner.invoke(cli, ["update", "--yes"])
+    assert result.exit_code == 2
+    assert "force-resume" in result.stdout or "force-resume" in result.stderr
+
+
+def test_force_resume_with_target_mismatch_refuses(runner, _ready_project, monkeypatch):
+    from app.cli._state import Phase as StatePhase, UpdateState
+    existing = UpdateState(
+        phase=StatePhase.FAILED,
+        previous_tag="v2026.5.6.2",
+        previous_version="2026.5.6.2",
+        target_tag="v2026.5.14.2",
+        started_at="2026-05-14T14:30:22Z",
+        updated_at="2026-05-14T14:32:00Z",
+        failed_step="migrate",
+    )
+    monkeypatch.setattr("app.cli.update.read_state", lambda: existing)
+    monkeypatch.setattr("app.cli.update.list_remote_tags", lambda cwd: ["v2026.5.14.2", "v2026.5.14.3"])
+
+    result = runner.invoke(cli, ["update", "--yes", "--force-resume", "--target", "v2026.5.14.3"])
+    assert result.exit_code == 2
+    assert "changed" in result.stdout.lower() or "changed" in result.stderr.lower()
+
+
+def test_force_resume_uses_failed_step_not_phase(runner, _ready_project, monkeypatch):
+    """Regression: resume must read failed_step, not phase (phase is always FAILED)."""
+    from app.cli._state import Phase as StatePhase, UpdateState
+    existing = UpdateState(
+        phase=StatePhase.FAILED,            # would always be FAILED on a real failed state
+        previous_tag="v2026.5.6.2",
+        previous_version="2026.5.6.2",
+        target_tag="v2026.5.14.2",
+        started_at="2026-05-14T14:30:22Z",
+        updated_at="2026-05-14T14:32:00Z",
+        failed_step="deps",                  # actual failed phase
+    )
+    monkeypatch.setattr("app.cli.update.read_state", lambda: existing)
+    monkeypatch.setattr("app.cli.update.do_backup", lambda url, keep: (_ready_project / "fake.sql.gz", 0, []))
+    monkeypatch.setattr("app.cli.update.load_settings", lambda env_path=None: MagicMock(database_url="postgresql+asyncpg://u:p@h:5432/d", api_key=None))
+    monkeypatch.setattr("subprocess.run", lambda *a, **kw: _ok())
+    monkeypatch.setattr("app.cli.update.git_checkout", lambda cwd, ref: None)
+    monkeypatch.setattr("app.cli.update.verify_tag_versions_match", lambda cwd, tag: None)
+    monkeypatch.setattr("app.cli.update.is_active", lambda unit: True)
+    monkeypatch.setattr("app.cli.update.poll_running_version", lambda target, api_key, timeout: True)
+
+    captured: list = []
+
+    def capture_run_apply(**kwargs):
+        captured.append(kwargs.get("start_phase"))
+
+    monkeypatch.setattr("app.cli.update.run_apply", capture_run_apply)
+
+    result = runner.invoke(cli, ["update", "--yes", "--force-resume"])
+    assert result.exit_code == 0
+    # failed_step was "deps" — that's pre-migration — so we should start_phase=DEPS
+    from app.cli._state import Phase as P
+    assert captured == [P.DEPS]
+
+
+def test_check_ignores_failed_state_file(runner, tmp_path, monkeypatch):
+    """--check is side-effect-free; a leftover failed state file must not block it.
+
+    Regression: an earlier draft of the resume-state gate ran for --check too,
+    which meant a previously-failed full update would lock out --check until
+    --force-resume was passed. That's wrong — --check doesn't mutate.
+    """
+    (tmp_path / ".git").mkdir()
+    monkeypatch.setattr("app.cli.update.is_docker_environment", lambda: False)
+    monkeypatch.setattr("app.cli.update.PROJECT_DIR", tmp_path)
+    monkeypatch.setattr("app.cli.update.list_remote_tags", lambda cwd: ["v2026.5.14.2"])
+    monkeypatch.setattr("app.cli.update.detect_current_version", lambda cwd: "v2026.5.14.2")
+    monkeypatch.setattr("app.cli.update.remote_origin_url", lambda cwd: None)
+    # A leftover failed-state file would normally trigger the resume gate.
+    from app.cli._state import Phase as StatePhase, UpdateState
+    leftover = UpdateState(
+        phase=StatePhase.FAILED,
+        previous_tag="v2026.5.6.2",
+        previous_version="2026.5.6.2",
+        target_tag="v2026.5.14.2",
+        started_at="2026-05-14T14:30:22Z",
+        updated_at="2026-05-14T14:32:00Z",
+        failed_step="migrate",
+    )
+    monkeypatch.setattr("app.cli.update.read_state", lambda: leftover)
+
+    result = runner.invoke(cli, ["update", "--check"])
+    # Up to date in this fixture → exit 0. Crucially, exit must NOT be 2.
+    assert result.exit_code in (0, 10)
+    assert "previous update attempt" not in result.stdout.lower()
+    assert "previous update attempt" not in result.stderr.lower()
+
+
+def test_force_resume_post_migration_starts_from_checkout(runner, _ready_project, monkeypatch):
+    """Failures at MIGRATE or later must re-run from CHECKOUT (re-backup, re-migrate)."""
+    from app.cli._state import Phase as StatePhase, UpdateState
+    existing = UpdateState(
+        phase=StatePhase.FAILED,
+        previous_tag="v2026.5.6.2",
+        previous_version="2026.5.6.2",
+        target_tag="v2026.5.14.2",
+        started_at="2026-05-14T14:30:22Z",
+        updated_at="2026-05-14T14:32:00Z",
+        failed_step="build",                 # post-migration failure
+    )
+    monkeypatch.setattr("app.cli.update.read_state", lambda: existing)
+    monkeypatch.setattr("app.cli.update.do_backup", lambda url, keep: (_ready_project / "fake.sql.gz", 0, []))
+    monkeypatch.setattr("app.cli.update.load_settings", lambda env_path=None: MagicMock(database_url="postgresql+asyncpg://u:p@h:5432/d", api_key=None))
+    monkeypatch.setattr("subprocess.run", lambda *a, **kw: _ok())
+    monkeypatch.setattr("app.cli.update.git_checkout", lambda cwd, ref: None)
+    monkeypatch.setattr("app.cli.update.verify_tag_versions_match", lambda cwd, tag: None)
+    monkeypatch.setattr("app.cli.update.is_active", lambda unit: True)
+    monkeypatch.setattr("app.cli.update.poll_running_version", lambda target, api_key, timeout: True)
+
+    captured: list = []
+    monkeypatch.setattr("app.cli.update.run_apply", lambda **kw: captured.append(kw.get("start_phase")))
+
+    result = runner.invoke(cli, ["update", "--yes", "--force-resume"])
+    assert result.exit_code == 0
+    from app.cli._state import Phase as P
+    assert captured == [P.CHECKOUT]

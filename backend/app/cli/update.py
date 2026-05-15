@@ -36,11 +36,12 @@ from app.cli._git import (
 from app.cli._privilege import has_sudo_for
 from app.cli._settings import load_settings
 from app.cli._state import (
+    PRE_MIGRATION_PHASES,
     STATE_DIR,
     Phase,
     UpdateState,
     delete_state,
-    read_state,  # noqa: F401 - patched in tests; T22 adds direct use
+    read_state,
     write_state,
 )
 from app.cli._systemd import DEFAULT_RESTART_UNITS, SYSTEMCTL, is_active
@@ -269,6 +270,26 @@ def poll_running_version(target_tag: str, api_key: str | None, timeout: float = 
     return False
 
 
+def _transition(state: UpdateState, phase: Phase) -> None:
+    """Advance the state machine: set phase, refresh timestamp, persist."""
+    state.phase = phase
+    state.updated_at = _utc_now_iso()
+    write_state(state)
+
+
+# Ordered apply pipeline. Used by `_phase_should_run` to decide which phases
+# to skip when resuming. Anything from MIGRATE onwards is post-migration; see
+# `PRE_MIGRATION_PHASES` in app.cli._state for the resume policy.
+_PHASE_ORDER: tuple[Phase, ...] = (
+    Phase.CHECKOUT,
+    Phase.DEPS,
+    Phase.MIGRATE,
+    Phase.BUILD,
+    Phase.RESTART,
+    Phase.VERIFY,
+)
+
+
 def run_apply(
     *,
     ctx: click.Context,
@@ -276,11 +297,19 @@ def run_apply(
     target: str,
     no_restart: bool,
     settings: Any,
+    start_phase: Phase = Phase.STARTING,
 ) -> None:
     """Execute the apply pipeline: checkout, deps, migrate, build, restart, verify.
 
-    Writes state at each phase boundary. Raises RuntimeError on failure — the
-    caller maps that to exit code 1 with failure-state recording (Task 22).
+    Writes state at each phase boundary. On failure, records `phase=FAILED`
+    with the failing step name in `failed_step` and re-raises. The caller
+    (`update_cmd`) maps that to exit code 1.
+
+    `start_phase` controls resume behaviour. STARTING runs the full pipeline
+    (including a fresh backup). When resuming pre-migration phases the
+    pipeline still re-takes a backup; resumes from MIGRATE or later are
+    intentionally restarted from CHECKOUT by `update_cmd` so the backup +
+    migration both re-run (alembic upgrade head is idempotent).
     """
     state = UpdateState(
         phase=Phase.STARTING,
@@ -290,75 +319,118 @@ def run_apply(
         started_at=_utc_now_iso(),
         updated_at=_utc_now_iso(),
     )
-    write_state(state)
 
-    # Backup
-    backup_path, _, _ = do_backup(settings.database_url, keep=7)
-    state.backup_path = str(backup_path)
-    state.updated_at = _utc_now_iso()
-    write_state(state)
+    def _record_failure(failed_step: str, exc: Exception) -> None:
+        """Persist FAILED state for the audit trail; safe to call multiple times."""
+        state.phase = Phase.FAILED
+        state.failed_step = failed_step
+        state.error_summary = str(exc)[-1000:]
+        state.updated_at = _utc_now_iso()
+        try:
+            write_state(state)
+        except OSError:
+            # Best effort — if we can't write the state file (disk full,
+            # permission flip), still surface the original failure to the
+            # caller. The state writer logs nothing of its own.
+            pass
 
-    # Phase: checkout
-    state.phase = Phase.CHECKOUT
-    state.updated_at = _utc_now_iso()
-    write_state(state)
-    git_checkout(PROJECT_DIR, target)
-    verify_tag_versions_match(PROJECT_DIR, target)
+    def _phase_should_run(phase: Phase) -> bool:
+        """True when `phase` should execute given the configured `start_phase`."""
+        if start_phase == Phase.STARTING:
+            return True
+        try:
+            start_idx = _PHASE_ORDER.index(start_phase)
+        except ValueError:
+            return True
+        return _PHASE_ORDER.index(phase) >= start_idx
 
-    # Phase: deps (backend)
-    state.phase = Phase.DEPS
-    state.updated_at = _utc_now_iso()
-    write_state(state)
-    _run_step(["sudo", "-u", "waffleweather", str(UV_PATH), "sync", "--frozen"], cwd=BACKEND_DIR)
+    try:
+        write_state(state)
+    except OSError as exc:
+        _record_failure("starting", exc)
+        raise
 
-    # Phase: migrate
-    state.phase = Phase.MIGRATE
-    state.updated_at = _utc_now_iso()
-    write_state(state)
-    alembic = BACKEND_DIR / ".venv" / "bin" / "alembic"
-    _run_step(["sudo", "-u", "waffleweather", str(alembic), "upgrade", "head"], cwd=BACKEND_DIR)
-
-    # Phase: build (frontend)
-    state.phase = Phase.BUILD
-    state.updated_at = _utc_now_iso()
-    write_state(state)
-    _run_step(
-        ["sudo", "-u", "waffleweather", str(PNPM_PATH), "install", "--frozen-lockfile"],
-        cwd=FRONTEND_DIR,
-    )
-    _run_step(["sudo", "-u", "waffleweather", str(PNPM_PATH), "build"], cwd=FRONTEND_DIR)
-
-    if no_restart:
-        state.phase = Phase.COMPLETE
-        state.restart_skipped = True
+    # Always take a backup before mutating anything — even on resume, we
+    # don't trust the previous attempt's backup. (Resume from MIGRATE+ is
+    # remapped to CHECKOUT in update_cmd to make this explicit.)
+    try:
+        backup_path, _, _ = do_backup(settings.database_url, keep=7)
+        state.backup_path = str(backup_path)
         state.updated_at = _utc_now_iso()
         write_state(state)
+    except Exception as exc:
+        _record_failure("backup", exc)
+        raise
+
+    if _phase_should_run(Phase.CHECKOUT):
+        _transition(state, Phase.CHECKOUT)
+        try:
+            git_checkout(PROJECT_DIR, target)
+            verify_tag_versions_match(PROJECT_DIR, target)
+        except Exception as exc:
+            _record_failure("checkout", exc)
+            raise
+
+    if _phase_should_run(Phase.DEPS):
+        _transition(state, Phase.DEPS)
+        try:
+            _run_step(["sudo", "-u", "waffleweather", str(UV_PATH), "sync", "--frozen"], cwd=BACKEND_DIR)
+        except Exception as exc:
+            _record_failure("deps", exc)
+            raise
+
+    if _phase_should_run(Phase.MIGRATE):
+        _transition(state, Phase.MIGRATE)
+        alembic = BACKEND_DIR / ".venv" / "bin" / "alembic"
+        try:
+            _run_step(["sudo", "-u", "waffleweather", str(alembic), "upgrade", "head"], cwd=BACKEND_DIR)
+        except Exception as exc:
+            _record_failure("migrate", exc)
+            raise
+
+    if _phase_should_run(Phase.BUILD):
+        _transition(state, Phase.BUILD)
+        try:
+            _run_step(
+                ["sudo", "-u", "waffleweather", str(PNPM_PATH), "install", "--frozen-lockfile"],
+                cwd=FRONTEND_DIR,
+            )
+            _run_step(["sudo", "-u", "waffleweather", str(PNPM_PATH), "build"], cwd=FRONTEND_DIR)
+        except Exception as exc:
+            _record_failure("build", exc)
+            raise
+
+    if no_restart:
+        state.restart_skipped = True
+        _transition(state, Phase.COMPLETE)
         click.echo(
             f"✓ Installed {target}. Services were NOT restarted (--no-restart). "
             "Verification skipped. Run 'sudo waffleweather restart' when ready."
         )
         return
 
-    # Phase: restart
-    state.phase = Phase.RESTART
-    state.updated_at = _utc_now_iso()
-    write_state(state)
-    for unit in DEFAULT_RESTART_UNITS:
-        _run_step(["sudo", SYSTEMCTL, "restart", unit], cwd=PROJECT_DIR)
+    if _phase_should_run(Phase.RESTART):
+        _transition(state, Phase.RESTART)
+        try:
+            for unit in DEFAULT_RESTART_UNITS:
+                _run_step(["sudo", SYSTEMCTL, "restart", unit], cwd=PROJECT_DIR)
+        except Exception as exc:
+            _record_failure("restart", exc)
+            raise
 
-    # Phase: verify
-    state.phase = Phase.VERIFY
-    state.updated_at = _utc_now_iso()
-    write_state(state)
-    for unit in DEFAULT_RESTART_UNITS:
-        if not is_active(unit):
-            raise RuntimeError(f"unit {unit} did not become active after restart")
-    if not poll_running_version(target, settings.api_key, timeout=30.0):
-        raise RuntimeError(f"/api/v1/version did not report {target} within 30s of restart")
+    if _phase_should_run(Phase.VERIFY):
+        _transition(state, Phase.VERIFY)
+        try:
+            for unit in DEFAULT_RESTART_UNITS:
+                if not is_active(unit):
+                    raise RuntimeError(f"unit {unit} did not become active after restart")
+            if not poll_running_version(target, settings.api_key, timeout=30.0):
+                raise RuntimeError(f"/api/v1/version did not report {target} within 30s of restart")
+        except Exception as exc:
+            _record_failure("verify", exc)
+            raise
 
-    state.phase = Phase.COMPLETE
-    state.updated_at = _utc_now_iso()
-    write_state(state)
+    _transition(state, Phase.COMPLETE)
     click.echo(f"✓ Update complete: now running {target}.")
 
 
@@ -394,6 +466,21 @@ def update_cmd(
             _err_exit(ctx, f"✗ {exc}", code=2)
             return
 
+    # Resume-state gate. Only applies to full updates — `--check` is
+    # side-effect-free and shouldn't refuse on leftover state.
+    existing_state = read_state() if not check_only else None
+    if existing_state is not None and existing_state.phase != Phase.COMPLETE:
+        if not force_resume:
+            _err_exit(
+                ctx,
+                f"✗ A previous update attempt failed at "
+                f"{existing_state.failed_step or existing_state.phase.value}. "
+                f"State file: /var/lib/waffleweather/update-state.json. "
+                f"Run 'waffleweather update --force-resume' to retry, or inspect the file to investigate.",
+                code=2,
+            )
+            return
+
     # Discover (network-dependent — runs for both --check and full update)
     try:
         if check_only:
@@ -415,6 +502,22 @@ def update_cmd(
     except InvalidTarget as exc:
         _err_exit(ctx, f"✗ {exc}", code=2)
         return
+
+    # When resuming, the selected target must match what was attempted before.
+    # If it changed (newer tag released since, or user passed a different
+    # --target), refuse — the prior state's `failed_step` would be meaningless
+    # against a new target.
+    if force_resume and existing_state is not None:
+        if existing_state.target_tag != target:
+            _err_exit(
+                ctx,
+                f"✗ Target tag changed since last attempt "
+                f"(state file: {existing_state.target_tag}, now selecting: {target}). "
+                f"Either run a fresh 'waffleweather update' or delete "
+                f"/var/lib/waffleweather/update-state.json manually.",
+                code=2,
+            )
+            return
 
     # Up to date?
     if tag_compare(current, target) >= 0:
@@ -448,6 +551,31 @@ def update_cmd(
             ctx.exit(0)
             return
 
+    # Phase-aware resume: failures in pre-migration phases can resume from
+    # the failed phase; failures at MIGRATE or later restart from CHECKOUT so
+    # we re-take a backup and re-run migrations (alembic upgrade head is
+    # idempotent).
+    start_phase = Phase.STARTING
+    if force_resume and existing_state is not None:
+        # `existing_state.phase` is always Phase.FAILED here (the resume gate
+        # only refuses on non-COMPLETE state, and the writer only records
+        # FAILED at end-of-failure). The actual failing step is in
+        # `failed_step` — that's the source of truth.
+        failed_step_name = existing_state.failed_step or "checkout"
+        try:
+            failed_phase_enum = Phase(failed_step_name)
+        except ValueError:
+            # Defensive fallback for older state files or unknown values
+            failed_phase_enum = Phase.CHECKOUT
+        if failed_phase_enum in PRE_MIGRATION_PHASES:
+            # Safe to resume from the failed phase — DB hasn't been touched yet
+            start_phase = failed_phase_enum
+        else:
+            # Failure was at MIGRATE or later: re-run from CHECKOUT to
+            # re-backup, re-validate version, and let alembic upgrade head
+            # run again (idempotent).
+            start_phase = Phase.CHECKOUT
+
     settings = load_settings(env_path=ctx.obj.get("config_path"))
     try:
         run_apply(
@@ -456,10 +584,21 @@ def update_cmd(
             target=target,
             no_restart=no_restart,
             settings=settings,
+            start_phase=start_phase,
         )
-    except RuntimeError as exc:
-        # Task 22 will replace this with full failure-state recording.
+    except (RuntimeError, OSError) as exc:
+        # `run_apply` already wrote the FAILED state (best-effort) via
+        # `_record_failure`. Surface the failure for operator triage.
         click.echo(f"✗ Update failed: {exc}", err=True)
+        click.echo(
+            "  Inspect /var/lib/waffleweather/update-state.json for the failed step + backup path.",
+            err=True,
+        )
+        click.echo(
+            "  Run 'waffleweather doctor' to summarise, or "
+            "'waffleweather update --force-resume' once the underlying issue is fixed.",
+            err=True,
+        )
         ctx.exit(1)
         return
     delete_state()  # success — clean up state file
