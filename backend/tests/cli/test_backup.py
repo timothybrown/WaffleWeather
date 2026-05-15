@@ -90,3 +90,44 @@ def test_backup_produces_valid_gzip(tmp_path, runner, monkeypatch):
     with gzip.open(produced, "rb") as fh:
         decompressed = fh.read()
     assert decompressed == sql_dump
+
+
+def test_backup_pg_dump_failure_cleans_up_partial(tmp_path, runner, monkeypatch):
+    """pg_dump exit non-zero must clean up the .partial file and exit 1."""
+    monkeypatch.setattr("app.cli.backup.BACKUP_DIR", tmp_path)
+    with patch("app.cli.backup.load_settings", return_value=_mock_settings()), \
+         patch("subprocess.Popen") as mock_popen:
+        mock_proc = MagicMock()
+        mock_proc.stdout.read.side_effect = [b"", b""]
+        mock_proc.stderr.read.return_value = b"connection refused"
+        mock_proc.wait.return_value = 2
+        mock_popen.return_value = mock_proc
+        result = runner.invoke(cli, ["backup"])
+    assert result.exit_code == 1
+    # No .partial file should remain
+    partials = list(tmp_path.glob("*.partial"))
+    assert partials == []
+    # No .sql.gz file either (write was aborted)
+    finals = list(tmp_path.glob("*.sql.gz"))
+    assert finals == []
+
+
+def test_prune_keeps_newest_n(tmp_path, monkeypatch):
+    """_prune retains the newest N matching files and deletes older."""
+    from app.cli.backup import _prune
+    monkeypatch.setattr("app.cli.backup.BACKUP_DIR", tmp_path)
+    # Create 5 dated backups; newest filename sorts last
+    for date in ["20260101-000000", "20260201-000000", "20260301-000000",
+                 "20260401-000000", "20260501-000000"]:
+        (tmp_path / f"waffleweather-{date}.sql.gz").write_text("")
+    # Add a non-matching file that must NOT be deleted
+    (tmp_path / "some-other-file.txt").write_text("user data")
+    pruned = _prune(keep=2)
+    assert len(pruned) == 3
+    remaining = sorted(p.name for p in tmp_path.iterdir())
+    # Only newest 2 + the unrelated file should remain
+    assert remaining == [
+        "some-other-file.txt",
+        "waffleweather-20260401-000000.sql.gz",
+        "waffleweather-20260501-000000.sql.gz",
+    ]

@@ -84,7 +84,12 @@ def do_backup(database_url: str, keep: int) -> tuple[Path, int, list[Path]]:
             while chunk := proc.stdout.read(65536):
                 gz_fh.write(chunk)
         proc.stdout.close()
-        return_code = proc.wait()
+        try:
+            return_code = proc.wait(timeout=3600)  # 1 hour ceiling
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            proc.wait(timeout=10)  # reap the process; tmp cleanup happens in outer except
+            raise RuntimeError("pg_dump exceeded 1 hour timeout — backup aborted") from None
         if return_code != 0:
             assert proc.stderr is not None
             stderr = proc.stderr.read().decode(errors="replace").strip()
