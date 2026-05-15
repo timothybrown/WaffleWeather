@@ -30,7 +30,7 @@ from app.cli._checks import (
 )
 from app.cli._format import Severity, badge, make_check_table, summary_line
 from app.cli._settings import load_settings
-from app.cli._state import read_state
+from app.cli._state import Phase, read_state
 from app.cli._systemd import MANAGED_UNITS, is_enabled
 from app.config import Settings
 
@@ -117,14 +117,23 @@ def collect_doctor_checks(settings: Settings, env_path: Path | None = None) -> l
 
     # Last update attempt
     state = read_state()
-    if state is not None and state.phase.value != "complete":
-        checks.append(
-            Check(
-                "Last update attempt",
-                Severity.WARN,
-                f"failed at phase={state.phase.value} on {state.updated_at}",
+    if state is not None:
+        if state.phase == Phase.FAILED:
+            checks.append(
+                Check(
+                    "Last update attempt",
+                    Severity.WARN,
+                    f"failed at step={state.failed_step or 'unknown'} on {state.updated_at}",
+                )
             )
-        )
+        elif state.phase != Phase.COMPLETE:
+            checks.append(
+                Check(
+                    "Update in progress",
+                    Severity.WARN,
+                    f"phase={state.phase.value} (started {state.started_at})",
+                )
+            )
 
     return checks
 

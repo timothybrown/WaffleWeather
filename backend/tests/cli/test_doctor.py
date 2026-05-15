@@ -52,3 +52,22 @@ def test_doctor_json_redacts_secret_values(runner):
     # No password/connection string should ever appear
     assert "postgresql+asyncpg://" not in raw
     assert "@localhost" not in raw
+
+
+def test_audit_env_keys_does_not_leak_database_url():
+    """Direct test on audit_env_keys: detail string must not echo the URL."""
+    from app.cli._checks import audit_env_keys
+    from unittest.mock import MagicMock as MM
+    s = MM()
+    s.database_url = "postgresql+asyncpg://secretuser:secretpass@localhost:5432/wx"
+    s.api_key = "ak_secret_value"
+    s.station_name = "Test"
+    s.station_latitude = 1.0
+    s.station_longitude = 2.0
+    s.mqtt_broker = "localhost"
+    results = audit_env_keys(s, ecowitt_enabled=False)
+    rendered = " ".join(c.detail for c in results)
+    assert "secretpass" not in rendered
+    assert "secretuser" not in rendered
+    assert "ak_secret_value" not in rendered
+    assert "postgresql+asyncpg" not in rendered
