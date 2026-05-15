@@ -18,7 +18,7 @@ from app.cli._checks import (
     schema_present,
     systemd_unit_check,
 )
-from app.cli._format import Severity, make_check_table, summary_line
+from app.cli._format import Severity, badge, make_check_table, summary_line
 from app.cli._settings import load_settings
 from app.cli._systemd import MANAGED_UNITS
 from app.config import Settings
@@ -110,12 +110,7 @@ def status_cmd(ctx: click.Context) -> None:
     console.print(summary_line(passed, len(checks)))
     table = make_check_table("Status")
     for c in checks:
-        badge_str = {
-            Severity.OK: "[green]✓[/green]",
-            Severity.FAIL: "[red]✗[/red]",
-            Severity.WARN: "[yellow]![/yellow]",
-        }[c.severity]
-        table.add_row(c.name, badge_str, c.detail)
+        table.add_row(c.name, badge(c.severity), c.detail)
     console.print(table)
     if passed < len(checks):
         ctx.exit(1)
