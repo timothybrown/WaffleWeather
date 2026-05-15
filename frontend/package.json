@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "NEXT_PUBLIC_API_URL='' NEXT_PUBLIC_WS_URL='' next build",
     "postbuild": "cp -r public .next/standalone/ && cp -r .next/static .next/standalone/.next/",
     "start": "next start",
     "lint": "eslint",
