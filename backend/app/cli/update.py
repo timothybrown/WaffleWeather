@@ -5,16 +5,24 @@ Spec: docs/superpowers/specs/2026-05-14-waffleweather-cli-design.md
 
 from __future__ import annotations
 
+import json
 import os
 import stat
+import subprocess
+import time
+import tomllib
+from datetime import datetime, timezone
 from importlib.metadata import PackageNotFoundError, version as pkg_version
 from pathlib import Path
+from typing import Any
 
 import click
 
+from app.cli._checks import backend_http_version
 from app.cli._docker import is_docker_environment
 from app.cli._git import (
     STABLE_TAG_RE,
+    checkout as git_checkout,
     commit_log,
     current_tag,
     fetch_tags,
@@ -26,8 +34,17 @@ from app.cli._git import (
     tag_compare,
 )
 from app.cli._privilege import has_sudo_for
-from app.cli._state import STATE_DIR
-from app.cli._systemd import SYSTEMCTL
+from app.cli._settings import load_settings
+from app.cli._state import (
+    STATE_DIR,
+    Phase,
+    UpdateState,
+    delete_state,
+    read_state,  # noqa: F401 - patched in tests; T22 adds direct use
+    write_state,
+)
+from app.cli._systemd import DEFAULT_RESTART_UNITS, SYSTEMCTL, is_active
+from app.cli.backup import do_backup
 
 PROJECT_DIR = Path("/opt/waffleweather")
 BACKEND_DIR = PROJECT_DIR / "backend"
@@ -198,6 +215,153 @@ def _release_notes_url(cwd: Path, target_tag: str) -> str | None:
     return f"https://github.com/{owner}/{repo}/releases/tag/{target_tag}"
 
 
+def _utc_now_iso() -> str:
+    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def verify_tag_versions_match(cwd: Path, target_tag: str) -> None:
+    """Confirm backend/pyproject.toml and frontend/package.json both have the target version.
+
+    Raises RuntimeError on mismatch — the safety net for hand-tagged releases.
+    """
+    target_version = target_tag.removeprefix("v")
+    backend_toml = cwd / "backend" / "pyproject.toml"
+    frontend_pkg = cwd / "frontend" / "package.json"
+
+    with open(backend_toml, "rb") as fh:
+        backend_data = tomllib.load(fh)
+    backend_version = backend_data["project"]["version"]
+    if backend_version != target_version:
+        raise RuntimeError(
+            f"backend/pyproject.toml has version {backend_version!r}, expected {target_version!r}"
+        )
+
+    frontend_data = json.loads(frontend_pkg.read_text())
+    frontend_version = frontend_data["version"]
+    if frontend_version != target_version:
+        raise RuntimeError(
+            f"frontend/package.json has version {frontend_version!r}, expected {target_version!r}"
+        )
+
+
+def _run_step(cmd: list[str], cwd: Path) -> None:
+    """Run a subprocess with live output to the terminal. Raises on non-zero exit.
+
+    Deliberately does NOT capture stdout/stderr — long-running steps (uv sync,
+    pnpm build, alembic) should show progress in real time rather than buffer
+    silently for minutes. The user sees the failure as it happens; the state
+    file's `failed_step` is the audit trail.
+    """
+    proc = subprocess.run(cmd, cwd=str(cwd))
+    if proc.returncode != 0:
+        raise RuntimeError(f"{' '.join(cmd)} failed (exit {proc.returncode}). See output above.")
+
+
+def poll_running_version(target_tag: str, api_key: str | None, timeout: float = 30.0) -> bool:
+    """Poll /api/v1/version for up to `timeout` seconds; return True when it matches target."""
+    target_version = target_tag.removeprefix("v")
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        running = backend_http_version(api_key=api_key)
+        if running == target_version:
+            return True
+        time.sleep(2)
+    return False
+
+
+def run_apply(
+    *,
+    ctx: click.Context,
+    previous: str,
+    target: str,
+    no_restart: bool,
+    settings: Any,
+) -> None:
+    """Execute the apply pipeline: checkout, deps, migrate, build, restart, verify.
+
+    Writes state at each phase boundary. Raises RuntimeError on failure — the
+    caller maps that to exit code 1 with failure-state recording (Task 22).
+    """
+    state = UpdateState(
+        phase=Phase.STARTING,
+        previous_tag=previous,
+        previous_version=previous.removeprefix("v"),
+        target_tag=target,
+        started_at=_utc_now_iso(),
+        updated_at=_utc_now_iso(),
+    )
+    write_state(state)
+
+    # Backup
+    backup_path, _, _ = do_backup(settings.database_url, keep=7)
+    state.backup_path = str(backup_path)
+    state.updated_at = _utc_now_iso()
+    write_state(state)
+
+    # Phase: checkout
+    state.phase = Phase.CHECKOUT
+    state.updated_at = _utc_now_iso()
+    write_state(state)
+    git_checkout(PROJECT_DIR, target)
+    verify_tag_versions_match(PROJECT_DIR, target)
+
+    # Phase: deps (backend)
+    state.phase = Phase.DEPS
+    state.updated_at = _utc_now_iso()
+    write_state(state)
+    _run_step(["sudo", "-u", "waffleweather", str(UV_PATH), "sync", "--frozen"], cwd=BACKEND_DIR)
+
+    # Phase: migrate
+    state.phase = Phase.MIGRATE
+    state.updated_at = _utc_now_iso()
+    write_state(state)
+    alembic = BACKEND_DIR / ".venv" / "bin" / "alembic"
+    _run_step(["sudo", "-u", "waffleweather", str(alembic), "upgrade", "head"], cwd=BACKEND_DIR)
+
+    # Phase: build (frontend)
+    state.phase = Phase.BUILD
+    state.updated_at = _utc_now_iso()
+    write_state(state)
+    _run_step(
+        ["sudo", "-u", "waffleweather", str(PNPM_PATH), "install", "--frozen-lockfile"],
+        cwd=FRONTEND_DIR,
+    )
+    _run_step(["sudo", "-u", "waffleweather", str(PNPM_PATH), "build"], cwd=FRONTEND_DIR)
+
+    if no_restart:
+        state.phase = Phase.COMPLETE
+        state.restart_skipped = True
+        state.updated_at = _utc_now_iso()
+        write_state(state)
+        click.echo(
+            f"✓ Installed {target}. Services were NOT restarted (--no-restart). "
+            "Verification skipped. Run 'sudo waffleweather restart' when ready."
+        )
+        return
+
+    # Phase: restart
+    state.phase = Phase.RESTART
+    state.updated_at = _utc_now_iso()
+    write_state(state)
+    for unit in DEFAULT_RESTART_UNITS:
+        _run_step(["sudo", SYSTEMCTL, "restart", unit], cwd=PROJECT_DIR)
+
+    # Phase: verify
+    state.phase = Phase.VERIFY
+    state.updated_at = _utc_now_iso()
+    write_state(state)
+    for unit in DEFAULT_RESTART_UNITS:
+        if not is_active(unit):
+            raise RuntimeError(f"unit {unit} did not become active after restart")
+    if not poll_running_version(target, settings.api_key, timeout=30.0):
+        raise RuntimeError(f"/api/v1/version did not report {target} within 30s of restart")
+
+    state.phase = Phase.COMPLETE
+    state.updated_at = _utc_now_iso()
+    write_state(state)
+    click.echo(f"✓ Update complete: now running {target}.")
+
+
 @click.command("update")
 @click.option("--check", "check_only", is_flag=True, default=False, help="Show whether an update is available and exit.")
 @click.option("--force", is_flag=True, default=False, help="Stash uncommitted changes and continue.")
@@ -284,7 +448,19 @@ def update_cmd(
             ctx.exit(0)
             return
 
-    # Tasks 21-22 implement the actual apply + verify + state machine.
-    # Stub until Task 21 lands:
-    click.echo("Apply not yet implemented — see Task 21.")
+    settings = load_settings(env_path=ctx.obj.get("config_path"))
+    try:
+        run_apply(
+            ctx=ctx,
+            previous=current,
+            target=target,
+            no_restart=no_restart,
+            settings=settings,
+        )
+    except RuntimeError as exc:
+        # Task 22 will replace this with full failure-state recording.
+        click.echo(f"✗ Update failed: {exc}", err=True)
+        ctx.exit(1)
+        return
+    delete_state()  # success — clean up state file
     ctx.exit(0)
