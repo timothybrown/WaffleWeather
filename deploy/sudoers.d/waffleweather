@@ -1,0 +1,25 @@
+# WaffleWeather CLI — per-unit exact-match commands (no wildcards)
+# Install: sudo install -m 0440 -o root -g root deploy/sudoers.d/waffleweather /etc/sudoers.d/waffleweather
+# Validate: sudo visudo -cf /etc/sudoers.d/waffleweather
+
+Cmnd_Alias WW_SYSTEMCTL = \
+    /usr/bin/systemctl start waffleweather-backend, \
+    /usr/bin/systemctl start waffleweather-frontend, \
+    /usr/bin/systemctl start ecowitt2mqtt, \
+    /usr/bin/systemctl stop waffleweather-backend, \
+    /usr/bin/systemctl stop waffleweather-frontend, \
+    /usr/bin/systemctl stop ecowitt2mqtt, \
+    /usr/bin/systemctl restart waffleweather-backend, \
+    /usr/bin/systemctl restart waffleweather-frontend, \
+    /usr/bin/systemctl restart ecowitt2mqtt
+
+Cmnd_Alias WW_UPDATE_AS_SERVICE = \
+    /opt/waffleweather/backend/.venv/bin/alembic upgrade head, \
+    /opt/waffleweather/backend/.venv/bin/alembic current, \
+    /opt/waffleweather/backend/.venv/bin/alembic heads, \
+    /usr/local/bin/uv sync --frozen, \
+    /usr/local/bin/pnpm install --frozen-lockfile, \
+    /usr/local/bin/pnpm build
+
+%waffleweather-admin ALL=(root)          NOPASSWD: WW_SYSTEMCTL
+%waffleweather-admin ALL=(waffleweather) NOPASSWD: WW_UPDATE_AS_SERVICE
