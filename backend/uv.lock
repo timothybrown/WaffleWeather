@@ -1402,8 +1402,8 @@ wheels = [
 
 [[package]]
 name = "waffleweather-backend"
-version = "2026.5.14.2"
-source = { virtual = "." }
+version = "2026.6.6.1"
+source = { editable = "." }
 dependencies = [
     { name = "aiomqtt" },
     { name = "alembic" },
