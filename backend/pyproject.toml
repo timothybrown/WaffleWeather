@@ -15,7 +15,7 @@ dependencies = [
     "alembic>=1.15",
     "aiomqtt>=2.5",
     "pydantic>=2.10",
-    "pydantic-settings>=2.7",
+    "pydantic-settings>=2.14.2",
     "python-dotenv>=1.0",
     "pyyaml>=6.0",
 ]
