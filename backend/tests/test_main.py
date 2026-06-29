@@ -5,7 +5,10 @@ class TestAppRoutes:
     def test_api_routes_registered(self):
         from app.main import app
 
-        paths = [r.path for r in app.routes]
+        # FastAPI >=0.138 stopped flattening included routers into app.routes
+        # (they become opaque _IncludedRouter wrappers without a .path), so we
+        # assert against the OpenAPI schema, which enumerates every HTTP path.
+        paths = app.openapi()["paths"]
         assert "/api/v1/observations/latest" in paths
         assert "/api/v1/observations" in paths
         assert "/api/v1/stations" in paths
@@ -20,8 +23,9 @@ class TestAppRoutes:
     def test_websocket_route_registered(self):
         from app.main import app
 
-        paths = [r.path for r in app.routes]
-        assert "/ws/live" in paths
+        # WebSocket routes are absent from the OpenAPI schema; url_path_for
+        # resolves the route by name and raises if it is not registered.
+        assert app.url_path_for("websocket_live") == "/ws/live"
 
     def test_cors_middleware_present(self):
         from app.main import app
