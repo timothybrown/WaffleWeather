@@ -24,13 +24,18 @@ jobs:
 
       - uses: astral-sh/setup-uv@v7
 
-      - run: uv pip install --system -e ".[dev]" types-PyYAML
+      # Install the *locked* toolchain (ruff/mypy/pytest pinned in uv.lock),
+      # not a fresh resolve of `ruff>=0.9` etc. `uv pip install -e ".[dev]"`
+      # ignores the lockfile and picks up whatever linter PyPI serves that day
+      # — which silently broke this job when ruff 0.16.0 shipped 48 new lints
+      # against unchanged code. --frozen keeps CI reproducible and matches deploy.
+      - run: uv sync --frozen --extra dev
 
       - name: Ruff lint
-        run: ruff check app/
+        run: uv run ruff check app/
 
       - name: Mypy
-        run: mypy app/
+        run: uv run mypy app/
 
       - name: Tests
-        run: pytest --tb=short -q
+        run: uv run pytest --tb=short -q
