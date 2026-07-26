@@ -133,7 +133,7 @@
         {
           "all_time": {
             "date": "2022-12-22",
-            "value": -28.0
+            "value": -28.1
           },
           "label": "Lowest Dewpoint",
           "metric": "lowest_dewpoint",
