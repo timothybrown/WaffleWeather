@@ -10,6 +10,7 @@ import json
 import os
 import random
 import time as _time
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
 
@@ -101,17 +102,29 @@ INDOOR_COUPLING = 0.08
 INDOOR_REFERENCE_C = 18.0
 
 
-def derive_indoor(outdoor_temp: float) -> tuple[float, float]:
-    """Derive plausible indoor temperature and humidity from outdoor temp."""
+def _derive_indoor_with_noise(
+    outdoor_temp: float,
+    gauss: Callable[[float, float], float],
+) -> tuple[float, float]:
     temp = INDOOR_BASE_C + (outdoor_temp - INDOOR_REFERENCE_C) * INDOOR_COUPLING
-    temp += random.gauss(0, 0.25)
+    temp += gauss(0, 0.25)
     temp = max(15.0, min(28.0, temp))
 
     # Warmer indoor air at fixed absolute moisture reads as lower RH.
-    humidity = 45.0 - (temp - INDOOR_BASE_C) * 2.0 + random.gauss(0, 1.5)
+    humidity = 45.0 - (temp - INDOOR_BASE_C) * 2.0 + gauss(0, 1.5)
     humidity = max(20.0, min(70.0, humidity))
 
     return round(temp, 1), round(humidity, 1)
+
+
+def derive_indoor(outdoor_temp: float) -> tuple[float, float]:
+    """Derive plausible indoor temperature and humidity from outdoor temp."""
+    return _derive_indoor_with_noise(outdoor_temp, random.gauss)
+
+
+def _derive_archive_indoor(timestamp: datetime, outdoor_temp: float) -> tuple[float, float]:
+    seed = f"{timestamp.isoformat()}|{outdoor_temp:.3f}"
+    return _derive_indoor_with_noise(outdoor_temp, random.Random(seed).gauss)
 
 
 def fetch_current(lat: float, lon: float) -> dict[str, float]:
@@ -215,7 +228,7 @@ def fetch_archive(lat: float, lon: float, start: date, end: date) -> list[dict[s
                 row[db_col] = float(val)
         outdoor = row.get("temp_outdoor")
         if outdoor is not None:
-            row["temp_indoor"], row["humidity_indoor"] = derive_indoor(float(outdoor))
+            row["temp_indoor"], row["humidity_indoor"] = _derive_archive_indoor(ts, float(outdoor))
         # Accumulate daily rain from hourly rain amounts
         day_key = ts_str[:10]
         if day_key != current_day:
@@ -376,9 +389,11 @@ def simulate(env_file, lat, lon, altitude, broker, port, username, password, top
                         continue
 
             payload = apply_jitter(truth)
-            indoor_temp, indoor_humidity = derive_indoor(payload["temp"])
-            payload["tempin"] = indoor_temp
-            payload["humidityin"] = indoor_humidity
+            outdoor_temp = payload.get("temp")
+            if outdoor_temp is not None:
+                indoor_temp, indoor_humidity = derive_indoor(outdoor_temp)
+                payload["tempin"] = indoor_temp
+                payload["humidityin"] = indoor_humidity
             publish_mqtt(cfg, payload, start_time)
 
             ts = _time.strftime("%H:%M:%S")

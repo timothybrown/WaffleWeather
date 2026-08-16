@@ -109,8 +109,6 @@ class TestBackfillIndoor:
         assert "humidity_indoor" in simulator.DB_COLUMNS
 
     def test_fetch_archive_emits_indoor_columns(self, monkeypatch) -> None:
-        derive_calls: list[float] = []
-
         def fake_get(_url: str, *, params: dict[str, Any], timeout: int) -> FakeResponse:
             assert params["timezone"] == "UTC"
             assert timeout == 60
@@ -121,18 +119,38 @@ class TestBackfillIndoor:
                 },
             })
 
-        def fake_derive_indoor(outdoor: float) -> tuple[float, float]:
-            derive_calls.append(outdoor)
-            return 22.2, 44.4
-
         monkeypatch.setattr(simulator.httpx, "get", fake_get)
-        monkeypatch.setattr(simulator, "derive_indoor", fake_derive_indoor)
 
         rows = simulator.fetch_archive(40.7, -74.0, date(2026, 4, 28), date(2026, 4, 28))
 
-        assert derive_calls == [10.0]
-        assert rows[0]["temp_indoor"] == 22.2
-        assert rows[0]["humidity_indoor"] == 44.4
+        assert isinstance(rows[0]["temp_indoor"], float)
+        assert isinstance(rows[0]["humidity_indoor"], float)
+
+    def test_fetch_archive_indoor_is_deterministic(self, monkeypatch) -> None:
+        def fake_get(_url: str, *, params: dict[str, Any], timeout: int) -> FakeResponse:
+            return FakeResponse({
+                "hourly": {
+                    "time": ["2026-04-28T12:00"],
+                    "temperature_2m": [10.0],
+                },
+            })
+
+        global_gauss_calls = 0
+
+        def changing_global_gauss(_mu: float, _sigma: float) -> float:
+            nonlocal global_gauss_calls
+            global_gauss_calls += 1
+            return 10.0 if global_gauss_calls % 2 else -10.0
+
+        monkeypatch.setattr(simulator.httpx, "get", fake_get)
+        monkeypatch.setattr(simulator.random, "gauss", changing_global_gauss)
+
+        first = simulator.fetch_archive(40.7, -74.0, date(2026, 4, 28), date(2026, 4, 28))
+        second = simulator.fetch_archive(40.7, -74.0, date(2026, 4, 28), date(2026, 4, 28))
+
+        assert first[0]["temp_indoor"] == second[0]["temp_indoor"]
+        assert first[0]["humidity_indoor"] == second[0]["humidity_indoor"]
+        assert global_gauss_calls == 0
 
 
 def test_simulate_publishes_indoor_mqtt_keys(monkeypatch) -> None:
@@ -162,3 +180,34 @@ def test_simulate_publishes_indoor_mqtt_keys(monkeypatch) -> None:
     assert result.exit_code == 0
     assert captured_payloads[0]["tempin"] == 20.4
     assert captured_payloads[0]["humidityin"] == 46.3
+
+
+def test_simulate_publishes_sparse_current_without_indoor_mqtt_keys(monkeypatch) -> None:
+    captured_payloads: list[dict[str, float | int]] = []
+
+    def fake_publish_mqtt(
+        _cfg: simulator.Config,
+        payload: dict[str, float | int],
+        _start_time: float,
+    ) -> None:
+        captured_payloads.append(payload.copy())
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr(
+        simulator,
+        "fetch_current",
+        lambda _lat, _lon: {"humidity": 55.0, "windspeed": 12.0},
+    )
+    monkeypatch.setattr(simulator.random, "gauss", lambda _mu, _sigma: 0.0)
+    monkeypatch.setattr(simulator, "publish_mqtt", fake_publish_mqtt)
+
+    result = CliRunner().invoke(
+        simulator.simulate,
+        ["--lat", "40.7", "--lon", "-74.0", "--broker", "localhost"],
+    )
+
+    assert result.exit_code == 0
+    assert captured_payloads[0]["humidity"] == 55.0
+    assert captured_payloads[0]["windspeed"] == 12.0
+    assert "tempin" not in captured_payloads[0]
+    assert "humidityin" not in captured_payloads[0]
