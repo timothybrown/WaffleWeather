@@ -225,7 +225,7 @@ WaffleWeather's MQTT parser maps field names from ecowitt2mqtt to database colum
 | Pressure | `baromrel`, `baromrelin`, `baromabs` |
 | Solar/UV | `solarradiation`, `uv` |
 | Lightning | `lightning`, `lightning_time`, `lightning_num` |
-| Indoor temp/humidity | `tempinf`, `humidityin` |
+| Indoor temp/humidity | `tempin`, `tempinf`, `humidityin` |
 | Black Globe / WBGT / VPD | `bgt`, `wbgt`, `vpd` |
 
 If your sensor setup uses different field names, check `backend/app/mqtt/parser.py` — the mapping is straightforward to extend.
