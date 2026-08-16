@@ -188,10 +188,11 @@ Then configure your gateway to push data to `http://your-pi:8080/data/report` (o
 From your development machine:
 
 ```bash
-# Install backend dependencies and run migrations
+# Install backend dependencies, run migrations, materialize aggregates
 cd /opt/waffleweather/backend
 uv sync
 uv run alembic upgrade head
+uv run python -m app.maintenance.refresh_aggregates
 
 # Install frontend dependencies and build
 # (postbuild step copies static assets into .next/standalone automatically)
@@ -203,6 +204,8 @@ pnpm build
 sudo chown -R waffleweather:waffleweather /opt/waffleweather
 sudo systemctl enable --now waffleweather-backend waffleweather-frontend
 ```
+
+The refresh step materializes historical continuous-aggregate buckets. It runs separately from migrations because TimescaleDB forbids `refresh_continuous_aggregate` inside a transaction block. It is idempotent and safe to re-run.
 
 The dashboard should now be accessible at `http://your-pi` on port 80. For HTTPS (required for PWA service worker and install prompts), see the Tailscale TLS section in [DEVELOPMENT.md](DEVELOPMENT.md).
 

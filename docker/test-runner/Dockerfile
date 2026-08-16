@@ -10,6 +10,12 @@ RUN cd /app/simulator && (uv sync --frozen --no-dev --no-install-project 2>/dev/
 COPY tools/simulator/ /app/simulator/
 RUN cd /app/simulator && uv sync --no-dev && uv pip install --no-deps -e .
 
+# Install backend (for refreshing aggregates after seeding)
+COPY backend/pyproject.toml backend/uv.lock /app/backend/
+RUN cd /app/backend && uv sync --frozen --no-dev --no-install-project
+COPY backend/ /app/backend/
+RUN cd /app/backend && uv sync --frozen --no-dev && uv pip install --no-deps -e .
+
 # Install E2E test deps
 COPY tests/e2e/pyproject.toml /app/tests/e2e/
 RUN cd /app/tests/e2e && (uv sync --frozen --no-dev --no-install-project 2>/dev/null || uv sync --no-dev --no-install-project)

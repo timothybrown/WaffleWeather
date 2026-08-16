@@ -57,7 +57,10 @@ services:
     env_file: ./.env
     environment:
       WW_DATABASE_URL: postgresql+asyncpg://waffleweather:${WW_DB_PASSWORD}@timescaledb:5432/waffleweather
-    command: ["uv", "run", "alembic", "upgrade", "head"]
+    command:
+      - sh
+      - -c
+      - uv run alembic upgrade head && uv run python -m app.maintenance.refresh_aggregates
 
   backend:
     image: ghcr.io/timothybrown/waffleweather-backend:latest

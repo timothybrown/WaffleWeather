@@ -239,36 +239,6 @@ def insert_rows(db_url: str, rows: list[dict[str, object]], station_id: str) -> 
         conn.close()
 
 
-CONTINUOUS_AGGREGATES = [
-    "observations_hourly",
-    "observations_daily",
-    "observations_monthly",
-]
-
-
-def refresh_aggregates(db_url: str, start: date, end: date) -> None:
-    """Refresh TimescaleDB continuous aggregates for the given date range."""
-    from dateutil.relativedelta import relativedelta
-
-    sync_url = db_url.replace("postgresql+asyncpg://", "postgresql://")
-    conn = psycopg2.connect(sync_url)
-    conn.autocommit = True
-    try:
-        cur = conn.cursor()
-        start_ts = datetime.combine(start, datetime.min.time(), tzinfo=timezone.utc)
-        end_ts = datetime.combine(end, datetime.min.time(), tzinfo=timezone.utc)
-        for agg in CONTINUOUS_AGGREGATES:
-            # Monthly aggregate needs window covering at least two full buckets
-            agg_end = end_ts + relativedelta(months=2) if "monthly" in agg else end_ts
-            click.echo(f"  Refreshing {agg}...")
-            cur.execute(
-                f"CALL refresh_continuous_aggregate('{agg}', %s::timestamptz, %s::timestamptz)",
-                (start_ts, agg_end),
-            )
-    finally:
-        conn.close()
-
-
 def _resolve(cli_val: object, env: dict[str, str | None], env_key: str, default: object) -> object:
     """Resolve a config value: CLI arg > .env file > shell env > default."""
     if cli_val is not None:
@@ -424,9 +394,6 @@ def backfill(env_file, lat, lon, altitude, db_url, start, end, station_id, **_) 
     click.echo(f"Inserting into weather_observations (station_id={cfg.station_id})...")
     inserted = insert_rows(cfg.db_url, rows, cfg.station_id)
     click.echo(f"  {inserted} rows inserted ({len(rows) - inserted} skipped as duplicates)")
-
-    click.echo("Refreshing continuous aggregates...")
-    refresh_aggregates(cfg.db_url, start_date, end_date)
 
     elapsed = _time.time() - t0
     click.echo(f"\nDone: {inserted} rows in {elapsed:.1f}s")
