@@ -1,0 +1,221 @@
+{
+  "rows": [
+    {
+      "bucket": "2021-02-19T06:00:00Z",
+      "humidity_avg": 49.1,
+      "humidity_max": 52.5,
+      "humidity_min": 46.0,
+      "sensor_key": "gw",
+      "station_id": "simulator",
+      "temp_avg": 18.92083333333333,
+      "temp_max": 19.8,
+      "temp_min": 17.8
+    },
+    {
+      "bucket": "2021-02-18T06:00:00Z",
+      "humidity_avg": 49.89583333333334,
+      "humidity_max": 53.7,
+      "humidity_min": 45.7,
+      "sensor_key": "gw",
+      "station_id": "simulator",
+      "temp_avg": 18.675,
+      "temp_max": 19.5,
+      "temp_min": 18.1
+    },
+    {
+      "bucket": "2021-02-17T06:00:00Z",
+      "humidity_avg": 49.229166666666664,
+      "humidity_max": 53.1,
+      "humidity_min": 45.4,
+      "sensor_key": "gw",
+      "station_id": "simulator",
+      "temp_avg": 18.745833333333337,
+      "temp_max": 19.1,
+      "temp_min": 18.4
+    },
+    {
+      "bucket": "2021-02-16T06:00:00Z",
+      "humidity_avg": 50.57500000000001,
+      "humidity_max": 54.7,
+      "humidity_min": 47.0,
+      "sensor_key": "gw",
+      "station_id": "simulator",
+      "temp_avg": 18.162499999999998,
+      "temp_max": 18.9,
+      "temp_min": 16.9
+    },
+    {
+      "bucket": "2021-02-15T06:00:00Z",
+      "humidity_avg": 50.86249999999999,
+      "humidity_max": 54.2,
+      "humidity_min": 48.1,
+      "sensor_key": "gw",
+      "station_id": "simulator",
+      "temp_avg": 18.004166666666666,
+      "temp_max": 19.0,
+      "temp_min": 17.5
+    },
+    {
+      "bucket": "2021-02-14T06:00:00Z",
+      "humidity_avg": 50.05833333333333,
+      "humidity_max": 55.6,
+      "humidity_min": 47.2,
+      "sensor_key": "gw",
+      "station_id": "simulator",
+      "temp_avg": 18.408333333333335,
+      "temp_max": 19.0,
+      "temp_min": 18.1
+    },
+    {
+      "bucket": "2021-02-13T06:00:00Z",
+      "humidity_avg": 49.462500000000006,
+      "humidity_max": 52.0,
+      "humidity_min": 47.2,
+      "sensor_key": "gw",
+      "station_id": "simulator",
+      "temp_avg": 18.75416666666667,
+      "temp_max": 19.2,
+      "temp_min": 18.1
+    },
+    {
+      "bucket": "2021-02-12T06:00:00Z",
+      "humidity_avg": 49.574999999999996,
+      "humidity_max": 53.5,
+      "humidity_min": 46.3,
+      "sensor_key": "gw",
+      "station_id": "simulator",
+      "temp_avg": 18.8375,
+      "temp_max": 19.4,
+      "temp_min": 18.2
+    },
+    {
+      "bucket": "2021-02-11T06:00:00Z",
+      "humidity_avg": 49.13333333333333,
+      "humidity_max": 53.1,
+      "humidity_min": 46.4,
+      "sensor_key": "gw",
+      "station_id": "simulator",
+      "temp_avg": 19.058333333333334,
+      "temp_max": 19.8,
+      "temp_min": 18.5
+    },
+    {
+      "bucket": "2021-02-10T06:00:00Z",
+      "humidity_avg": 48.725000000000016,
+      "humidity_max": 50.0,
+      "humidity_min": 46.0,
+      "sensor_key": "gw",
+      "station_id": "simulator",
+      "temp_avg": 19.17916666666667,
+      "temp_max": 19.8,
+      "temp_min": 18.7
+    },
+    {
+      "bucket": "2021-02-09T06:00:00Z",
+      "humidity_avg": 49.04166666666668,
+      "humidity_max": 52.1,
+      "humidity_min": 45.1,
+      "sensor_key": "gw",
+      "station_id": "simulator",
+      "temp_avg": 19.17916666666667,
+      "temp_max": 20.2,
+      "temp_min": 18.6
+    },
+    {
+      "bucket": "2021-02-08T06:00:00Z",
+      "humidity_avg": 48.33333333333332,
+      "humidity_max": 50.7,
+      "humidity_min": 46.0,
+      "sensor_key": "gw",
+      "station_id": "simulator",
+      "temp_avg": 19.45416666666667,
+      "temp_max": 20.0,
+      "temp_min": 18.7
+    },
+    {
+      "bucket": "2021-02-07T06:00:00Z",
+      "humidity_avg": 47.65,
+      "humidity_max": 50.6,
+      "humidity_min": 45.1,
+      "sensor_key": "gw",
+      "station_id": "simulator",
+      "temp_avg": 19.591666666666665,
+      "temp_max": 20.4,
+      "temp_min": 18.8
+    },
+    {
+      "bucket": "2021-02-06T06:00:00Z",
+      "humidity_avg": 47.51666666666667,
+      "humidity_max": 50.0,
+      "humidity_min": 45.8,
+      "sensor_key": "gw",
+      "station_id": "simulator",
+      "temp_avg": 19.820833333333336,
+      "temp_max": 20.5,
+      "temp_min": 19.0
+    },
+    {
+      "bucket": "2021-02-05T06:00:00Z",
+      "humidity_avg": 46.70416666666668,
+      "humidity_max": 49.8,
+      "humidity_min": 44.2,
+      "sensor_key": "gw",
+      "station_id": "simulator",
+      "temp_avg": 20.058333333333334,
+      "temp_max": 21.0,
+      "temp_min": 18.9
+    },
+    {
+      "bucket": "2021-02-04T06:00:00Z",
+      "humidity_avg": 46.59166666666667,
+      "humidity_max": 51.6,
+      "humidity_min": 40.9,
+      "sensor_key": "gw",
+      "station_id": "simulator",
+      "temp_avg": 20.233333333333334,
+      "temp_max": 21.4,
+      "temp_min": 19.4
+    },
+    {
+      "bucket": "2021-02-03T06:00:00Z",
+      "humidity_avg": 46.67083333333333,
+      "humidity_max": 48.8,
+      "humidity_min": 43.5,
+      "sensor_key": "gw",
+      "station_id": "simulator",
+      "temp_avg": 20.370833333333334,
+      "temp_max": 21.1,
+      "temp_min": 19.4
+    },
+    {
+      "bucket": "2021-02-02T06:00:00Z",
+      "humidity_avg": 46.5875,
+      "humidity_max": 50.3,
+      "humidity_min": 43.9,
+      "sensor_key": "gw",
+      "station_id": "simulator",
+      "temp_avg": 20.220833333333335,
+      "temp_max": 20.8,
+      "temp_min": 19.5
+    },
+    {
+      "bucket": "2021-02-01T06:00:00Z",
+      "humidity_avg": 47.11666666666667,
+      "humidity_max": 49.9,
+      "humidity_min": 43.3,
+      "sensor_key": "gw",
+      "station_id": "simulator",
+      "temp_avg": 19.950000000000003,
+      "temp_max": 20.5,
+      "temp_min": 19.0
+    }
+  ],
+  "sensors": [
+    {
+      "label": "Indoor",
+      "placement": "indoor",
+      "sensor_key": "gw",
+      "station_id": "simulator"
+    }
+  ]
+}

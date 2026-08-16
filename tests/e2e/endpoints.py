@@ -66,6 +66,25 @@ SCHEMA_ENDPOINTS: list[Endpoint] = [
         },
     ),
     Endpoint(
+        path="/api/v1/observations/sensors",
+        params={
+            "station_id": "simulator",
+            "granularity": "hourly",
+            "start": "2021-02-14T00:00:00Z",
+            "end": "2021-02-17T00:00:00Z",
+        },
+    ),
+    Endpoint(
+        path="/api/v1/observations/sensors",
+        params={
+            "station_id": "simulator",
+            "granularity": "raw",
+            "start": "2021-02-14T00:00:00Z",
+            "end": "2021-02-15T00:00:00Z",
+            "limit": 10,
+        },
+    ),
+    Endpoint(
         path="/api/v1/observations/lightning/events",
         params={"station_id": "simulator", "limit": 10},
     ),
@@ -112,6 +131,17 @@ GOLDEN_ENDPOINTS: list[Endpoint] = [
         params={
             "station_id": "simulator",
             "start": "2021-02-10T00:00:00Z",
+            "end": "2021-02-20T00:00:00Z",
+        },
+        golden=True,
+    ),
+    # Feb 2021 indoor sensor daily aggregates
+    Endpoint(
+        path="/api/v1/observations/sensors",
+        params={
+            "station_id": "simulator",
+            "granularity": "daily",
+            "start": "2021-02-01T00:00:00Z",
             "end": "2021-02-20T00:00:00Z",
         },
         golden=True,
