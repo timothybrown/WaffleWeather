@@ -5,9 +5,25 @@ import logging
 import math
 from collections.abc import Callable
 from datetime import datetime, timezone
-from typing import Any, cast
+from typing import Any, NamedTuple, cast
 
 logger = logging.getLogger(__name__)
+
+
+class SensorReading(NamedTuple):
+    """One auxiliary sensor's temperature/humidity from a single payload."""
+
+    sensor_key: str
+    temp: float | None
+    humidity: float | None
+
+
+class ParsedPayload(NamedTuple):
+    """Result of parsing one ecowitt2mqtt payload."""
+
+    observation: dict[str, object]
+    diagnostics: dict[str, object]
+    sensors: list[SensorReading]
 
 # Mapping from ecowitt2mqtt JSON keys to our database column names.
 # ecowitt2mqtt may use different keys depending on firmware/config,
@@ -106,6 +122,7 @@ def _round2(value: float) -> float:
 # on gateway config. Database storage is metric-normalized.
 IMPERIAL_KEY_CONVERTERS: dict[str, Callable[[float], float]] = {
     "tempf": _fahrenheit_to_celsius,
+    "tempinf": _fahrenheit_to_celsius,
     "baromabsin": lambda value: _round2(value * INHG_TO_HPA),
     "baromrelin": lambda value: _round2(value * INHG_TO_HPA),
     "windspeedmph": lambda value: _round2(value * MPH_TO_KMH),
@@ -219,15 +236,15 @@ def _coerce_float(key: str, raw: object, device_id: str | None = None) -> float 
 
 def parse_ecowitt_payload(
     device_id: str, payload: str | bytes
-) -> tuple[dict[str, object], dict[str, object]] | None:
-    """Parse an ecowitt2mqtt JSON payload into observation + diagnostics.
+) -> ParsedPayload | None:
+    """Parse an ecowitt2mqtt JSON payload into observation, diagnostics, and sensors.
 
     Args:
         device_id: The device identifier extracted from the MQTT topic.
         payload: The raw MQTT message payload (JSON string or bytes).
 
     Returns:
-        A tuple of (observation_dict, diagnostics_dict), or None if parsing fails.
+        A parsed payload, or None if parsing fails.
         The observation dict has keys matching WeatherObservation columns.
         The diagnostics dict has battery levels and gateway info (not stored in DB).
     """
@@ -358,4 +375,20 @@ def parse_ecowitt_payload(
                     device_id,
                 )
 
-    return result, diagnostics
+    # Auxiliary sensors. For now only the gateway's built-in sensor; the WH31
+    # phase appends ch1..ch8 here, which is why this is a list.
+    sensors: list[SensorReading] = []
+    gw_temp = result.get("temp_indoor")
+    gw_humidity = result.get("humidity_indoor")
+    if gw_temp is not None or gw_humidity is not None:
+        sensors.append(
+            SensorReading(
+                sensor_key="gw",
+                temp=float(gw_temp) if isinstance(gw_temp, (int, float)) else None,
+                humidity=(
+                    float(gw_humidity) if isinstance(gw_humidity, (int, float)) else None
+                ),
+            )
+        )
+
+    return ParsedPayload(observation=result, diagnostics=diagnostics, sensors=sensors)

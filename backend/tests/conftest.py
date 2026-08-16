@@ -79,7 +79,7 @@ def sample_ecowitt_payload():
     return json.dumps({
         "temp": 22.5,
         "humidity": 65.0,
-        "tempinf": 21.0,
+        "tempin": 21.0,
         "humidityin": 45.0,
         "baromabs": 1010.0,
         "baromrel": 1013.25,

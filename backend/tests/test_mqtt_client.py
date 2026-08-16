@@ -12,6 +12,7 @@ from app.mqtt.client import (
     _pressure_history,
     _seed_pressure_history,
 )
+from app.mqtt.parser import ParsedPayload
 
 
 def _make_message(topic="ecowitt2mqtt/device1", payload=b'{"temp": 22.5}'):
@@ -43,6 +44,17 @@ def _make_settings(**kwargs):
     for k, v in defaults.items():
         setattr(settings, k, v)
     return settings
+
+
+def _parsed_payload(
+    observation: dict[str, object],
+    diagnostics: dict[str, object] | None = None,
+) -> ParsedPayload:
+    return ParsedPayload(
+        observation=observation,
+        diagnostics=diagnostics or {"batteries": {}, "gateway": {}},
+        sensors=[],
+    )
 
 
 def _mock_db_session():
@@ -83,7 +95,7 @@ class TestHandleMessage:
         ts = datetime(2026, 4, 5, 12, 0, tzinfo=timezone.utc)
         parsed = {"station_id": "device1", "timestamp": ts, "temp_outdoor": 22.5}
         diagnostics = {"batteries": {}, "gateway": {}}
-        mock_parse.return_value = (parsed, diagnostics)
+        mock_parse.return_value = _parsed_payload(parsed, diagnostics)
 
         await _handle_message(_make_message(), _make_settings(), broadcast_fn=None)
 
@@ -105,7 +117,7 @@ class TestHandleMessage:
         ts = datetime(2026, 4, 5, 12, 0, tzinfo=timezone.utc)
         parsed = {"station_id": "device1", "timestamp": ts, "temp_outdoor": 22.5, "humidity_outdoor": 50.0}
         diagnostics = {"batteries": {}, "gateway": {}}
-        mock_parse.return_value = (parsed, diagnostics)
+        mock_parse.return_value = _parsed_payload(parsed, diagnostics)
 
         broadcast_fn = AsyncMock()
         await _handle_message(_make_message(), _make_settings(), broadcast_fn=broadcast_fn)
@@ -124,7 +136,7 @@ class TestHandleMessage:
         ts = datetime(2026, 4, 5, 12, 0, tzinfo=timezone.utc)
         parsed = {"station_id": "device1", "timestamp": ts, "pressure_rel": 1013.0}
         diagnostics = {"batteries": {}, "gateway": {}}
-        mock_parse.return_value = (parsed, diagnostics)
+        mock_parse.return_value = _parsed_payload(parsed, diagnostics)
         _pressure_history["device1"] = deque(maxlen=1000)
 
         broadcast_fn = AsyncMock()
@@ -145,7 +157,7 @@ class TestHandleMessage:
         ts = datetime(2026, 4, 5, 12, 0, tzinfo=timezone.utc)
         parsed = {"station_id": "device1", "timestamp": ts, "temp_outdoor": 22.5}
         diagnostics = {"batteries": {}, "gateway": {}}
-        mock_parse.return_value = (parsed, diagnostics)
+        mock_parse.return_value = _parsed_payload(parsed, diagnostics)
 
         ctx_mgr = AsyncMock()
         ctx_mgr.__aenter__ = AsyncMock(side_effect=Exception("DB error"))
@@ -178,7 +190,7 @@ class TestHandleMessage:
         ts = datetime(2026, 4, 5, 12, 0, tzinfo=timezone.utc)
         parsed = {"station_id": "d1", "timestamp": ts, "pressure_rel": 1013.0}
         diagnostics = {"batteries": {}, "gateway": {}}
-        mock_parse.return_value = (parsed, diagnostics)
+        mock_parse.return_value = _parsed_payload(parsed, diagnostics)
 
         # Pre-populate empty deque to skip DB seeding in this unit test
         _pressure_history["device1"] = deque(maxlen=1000)
@@ -203,7 +215,7 @@ class TestHandleMessage:
 
         parsed = {"station_id": "d1", "timestamp": now, "pressure_rel": 1020.0}
         diagnostics = {"batteries": {}, "gateway": {}}
-        mock_parse.return_value = (parsed, diagnostics)
+        mock_parse.return_value = _parsed_payload(parsed, diagnostics)
 
         broadcast_fn = AsyncMock()
         await _handle_message(_make_message(), _make_settings(), broadcast_fn=broadcast_fn)
@@ -225,7 +237,7 @@ class TestHandleMessage:
         # Device ID is extracted from the topic segment (default "device1")
         parsed = {"station_id": "device1", "timestamp": now, "pressure_rel": 1020.0}
         diagnostics = {"batteries": {}, "gateway": {}}
-        mock_parse.return_value = (parsed, diagnostics)
+        mock_parse.return_value = _parsed_payload(parsed, diagnostics)
 
         cache: dict = {}
         # No broadcast_fn on purpose — cache should populate regardless.
@@ -250,7 +262,7 @@ class TestHandleMessage:
         ts = datetime(2026, 4, 5, 12, 0, tzinfo=timezone.utc)
         parsed = {"station_id": "device1", "timestamp": ts, "pressure_rel": 1013.0}
         diagnostics = {"batteries": {}, "gateway": {}}
-        mock_parse.return_value = (parsed, diagnostics)
+        mock_parse.return_value = _parsed_payload(parsed, diagnostics)
 
         # Pre-populate an empty deque so the handler skips DB seeding
         # (simulates a station whose DB also has no recent pressure data).
@@ -291,7 +303,7 @@ class TestHandleMessage:
 
         # Handle fresh observation for stationA — pressure rising from 1010.
         parsed_a = {"station_id": "stationA", "timestamp": now, "pressure_rel": 1011.0}
-        mock_parse.return_value = (parsed_a, {"batteries": {}, "gateway": {}})
+        mock_parse.return_value = _parsed_payload(parsed_a)
         await _handle_message(
             _make_message(topic="ecowitt2mqtt/stationA"),
             _make_settings(),
@@ -301,7 +313,7 @@ class TestHandleMessage:
 
         # Handle fresh observation for stationB — pressure falling from 1020.
         parsed_b = {"station_id": "stationB", "timestamp": now, "pressure_rel": 1019.0}
-        mock_parse.return_value = (parsed_b, {"batteries": {}, "gateway": {}})
+        mock_parse.return_value = _parsed_payload(parsed_b)
         await _handle_message(
             _make_message(topic="ecowitt2mqtt/stationB"),
             _make_settings(),

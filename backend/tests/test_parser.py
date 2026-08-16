@@ -10,7 +10,7 @@ class TestParseEcowittPayload:
     def test_complete_payload(self, sample_ecowitt_payload):
         result = parse_ecowitt_payload("test-device", sample_ecowitt_payload)
         assert result is not None
-        obs, diag = result
+        obs = result.observation
 
         assert obs["station_id"] == "test-device"
         assert obs["temp_outdoor"] == 22.5
@@ -33,7 +33,7 @@ class TestParseEcowittPayload:
         payload = json.dumps({"temp": 22.5, "humidity": 65.0}).encode()
         result = parse_ecowitt_payload("dev1", payload)
         assert result is not None
-        obs, _ = result
+        obs = result.observation
         assert obs["temp_outdoor"] == 22.5
         assert obs["humidity_outdoor"] == 65.0
         assert "wind_speed" not in obs
@@ -42,7 +42,7 @@ class TestParseEcowittPayload:
         payload = b'{"temp": 22.5}'
         result = parse_ecowitt_payload("dev1", payload)
         assert result is not None
-        obs, _ = result
+        obs = result.observation
         assert obs["temp_outdoor"] == 22.5
 
     def test_string_payload(self):
@@ -59,7 +59,7 @@ class TestParseEcowittPayload:
     def test_empty_object(self):
         result = parse_ecowitt_payload("dev1", b"{}")
         assert result is not None
-        obs, _ = result
+        obs = result.observation
         assert obs["station_id"] == "dev1"
         assert "timestamp" in obs
 
@@ -68,79 +68,87 @@ class TestParseEcowittPayload:
         payload = json.dumps({"temp": 10.0, "tempf": 68.0}).encode()
         result = parse_ecowitt_payload("dev1", payload)
         assert result is not None
-        obs, _ = result
+        obs = result.observation
         assert obs["temp_outdoor"] == 10.0
 
     def test_temp1_no_longer_aliases_outdoor(self):
         payload = json.dumps({"temp1": 20.0, "humidity1": 55.0}).encode()
         result = parse_ecowitt_payload("dev1", payload)
         assert result is not None
-        obs, _ = result
+        obs = result.observation
         assert "temp_outdoor" not in obs
         assert "humidity_outdoor" not in obs
 
     def test_lightning_count_parsed_as_int(self):
         payload = json.dumps({"lightning_num": "5"}).encode()
         result = parse_ecowitt_payload("dev1", payload)
-        obs, _ = result
+        obs = result.observation
         assert obs["lightning_count"] == 5
         assert isinstance(obs["lightning_count"], int)
 
     def test_lightning_time_iso_string(self):
         payload = json.dumps({"lightning_time": "2026-04-05T11:45:00+00:00"}).encode()
         result = parse_ecowitt_payload("dev1", payload)
-        obs, _ = result
+        obs = result.observation
         assert isinstance(obs["lightning_time"], datetime)
 
     def test_lightning_time_unix_timestamp(self):
         ts = 1775300700.0  # some timestamp
         payload = json.dumps({"lightning_time": ts}).encode()
         result = parse_ecowitt_payload("dev1", payload)
-        obs, _ = result
+        obs = result.observation
         assert isinstance(obs["lightning_time"], datetime)
 
     def test_null_values_skipped(self):
         payload = json.dumps({"temp": None, "humidity": 65.0}).encode()
         result = parse_ecowitt_payload("dev1", payload)
-        obs, _ = result
+        obs = result.observation
         assert "temp_outdoor" not in obs
         assert obs["humidity_outdoor"] == 65.0
 
     def test_empty_string_values_skipped(self):
         payload = json.dumps({"temp": "", "humidity": 65.0}).encode()
         result = parse_ecowitt_payload("dev1", payload)
-        obs, _ = result
+        obs = result.observation
         assert "temp_outdoor" not in obs
 
     def test_invalid_numeric_skipped(self):
         payload = json.dumps({"temp": "not_a_number"}).encode()
         result = parse_ecowitt_payload("dev1", payload)
-        obs, _ = result
+        obs = result.observation
         assert "temp_outdoor" not in obs
 
     def test_battery_diagnostics_boolean(self, sample_ecowitt_payload):
-        _, diag = parse_ecowitt_payload("dev1", sample_ecowitt_payload)
+        result = parse_ecowitt_payload("dev1", sample_ecowitt_payload)
+        assert result is not None
+        diag = result.diagnostics
         assert "wh25batt" in diag["batteries"]
         batt = diag["batteries"]["wh25batt"]
         assert batt["label"] == "Indoor T/H/Baro Sensor"
         assert batt["type"] == "boolean"
 
     def test_battery_diagnostics_voltage(self, sample_ecowitt_payload):
-        _, diag = parse_ecowitt_payload("dev1", sample_ecowitt_payload)
+        result = parse_ecowitt_payload("dev1", sample_ecowitt_payload)
+        assert result is not None
+        diag = result.diagnostics
         assert "wh80batt" in diag["batteries"]
         batt = diag["batteries"]["wh80batt"]
         assert batt["type"] == "voltage"
         assert batt["value"] == 3.2
 
     def test_battery_diagnostics_percentage(self, sample_ecowitt_payload):
-        _, diag = parse_ecowitt_payload("dev1", sample_ecowitt_payload)
+        result = parse_ecowitt_payload("dev1", sample_ecowitt_payload)
+        assert result is not None
+        diag = result.diagnostics
         assert "wh57batt" in diag["batteries"]
         batt = diag["batteries"]["wh57batt"]
         assert batt["type"] == "percentage"
         assert batt["value"] == 85
 
     def test_gateway_fields(self, sample_ecowitt_payload):
-        _, diag = parse_ecowitt_payload("dev1", sample_ecowitt_payload)
+        result = parse_ecowitt_payload("dev1", sample_ecowitt_payload)
+        assert result is not None
+        diag = result.diagnostics
         assert diag["gateway"]["runtime"] == 12345.0
         assert diag["gateway"]["heap"] == 45000.0
         assert diag["gateway"]["interval"] == 16.0
@@ -148,7 +156,7 @@ class TestParseEcowittPayload:
     def test_rain_variants_piezo(self):
         payload = json.dumps({"drain_piezo": 5.0, "rrain_piezo": 1.2}).encode()
         result = parse_ecowitt_payload("dev1", payload)
-        obs, _ = result
+        obs = result.observation
         assert obs["rain_daily"] == 5.0
         assert obs["rain_rate"] == 1.2
 
@@ -164,7 +172,7 @@ class TestParseEcowittPayload:
         }).encode()
         result = parse_ecowitt_payload("dev1", payload)
         assert result is not None
-        obs, _ = result
+        obs = result.observation
 
         assert obs["temp_outdoor"] == 20.0
         assert obs["pressure_rel"] == 1013.21
@@ -177,7 +185,7 @@ class TestParseEcowittPayload:
     def test_unknown_fields_ignored(self):
         payload = json.dumps({"temp": 22.0, "unknown_field": "foo"}).encode()
         result = parse_ecowitt_payload("dev1", payload)
-        obs, _ = result
+        obs = result.observation
         assert "unknown_field" not in obs
 
     def test_field_map_has_expected_coverage(self):
@@ -201,7 +209,7 @@ class TestParserSafety:
         payload = json.dumps({"temp": 20.5, "wh68batt": "NaN"}).encode()
         result = parse_ecowitt_payload("dev1", payload)
         assert result is not None, "Parser should not return None for the whole observation"
-        obs, diag = result
+        obs, diag = result.observation, result.diagnostics
         # Other fields survived
         assert obs.get("temp_outdoor") == 20.5
         # Battery entry either omitted or has a non-literal value
@@ -214,7 +222,7 @@ class TestParserSafety:
         payload = json.dumps({"temp": 20.5, "wh57batt": "N/A"}).encode()
         result = parse_ecowitt_payload("dev1", payload)
         assert result is not None
-        obs, diag = result
+        obs = result.observation
         assert obs.get("temp_outdoor") == 20.5
 
     def test_tolerates_non_numeric_gateway_field(self):
@@ -222,7 +230,7 @@ class TestParserSafety:
         payload = json.dumps({"temp": 20.5, "runtime": "broken"}).encode()
         result = parse_ecowitt_payload("dev1", payload)
         assert result is not None
-        obs, diag = result
+        obs, diag = result.observation, result.diagnostics
         assert obs.get("temp_outdoor") == 20.5
         # Runtime either absent or None; NEVER the literal "broken"
         assert diag["gateway"].get("runtime") != "broken"
@@ -231,55 +239,55 @@ class TestParserSafety:
         """Pressure outside physical bounds should be set to None, not stored."""
         payload = json.dumps({"baromabs": 1500.0}).encode()
         result = parse_ecowitt_payload("dev1", payload)
-        obs, _ = result
+        obs = result.observation
         assert obs.get("pressure_abs") is None or "pressure_abs" not in obs
 
     def test_rejects_out_of_range_pressure_rel(self):
         payload = json.dumps({"baromrel": 300.0}).encode()  # too low
         result = parse_ecowitt_payload("dev1", payload)
-        obs, _ = result
+        obs = result.observation
         assert obs.get("pressure_rel") is None or "pressure_rel" not in obs
 
     def test_rejects_out_of_range_temperature(self):
         payload = json.dumps({"temp": 200.0}).encode()  # way too hot
         result = parse_ecowitt_payload("dev1", payload)
-        obs, _ = result
+        obs = result.observation
         assert obs.get("temp_outdoor") is None or "temp_outdoor" not in obs
 
     def test_rejects_out_of_range_temperature_indoor(self):
         payload = json.dumps({"tempin": -100.0}).encode()  # too cold for indoors
         result = parse_ecowitt_payload("dev1", payload)
-        obs, _ = result
+        obs = result.observation
         assert obs.get("temp_indoor") is None or "temp_indoor" not in obs
 
     def test_rejects_out_of_range_humidity(self):
         payload = json.dumps({"humidity": 150.0}).encode()
         result = parse_ecowitt_payload("dev1", payload)
-        obs, _ = result
+        obs = result.observation
         assert obs.get("humidity_outdoor") is None or "humidity_outdoor" not in obs
 
     def test_rejects_negative_rain(self):
         payload = json.dumps({"dailyrain": -5.0}).encode()
         result = parse_ecowitt_payload("dev1", payload)
-        obs, _ = result
+        obs = result.observation
         assert obs.get("rain_daily") is None or "rain_daily" not in obs
 
     def test_rejects_negative_wind_speed(self):
         payload = json.dumps({"windspeed": -3.0}).encode()
         result = parse_ecowitt_payload("dev1", payload)
-        obs, _ = result
+        obs = result.observation
         assert obs.get("wind_speed") is None or "wind_speed" not in obs
 
     def test_rejects_out_of_range_uv(self):
         payload = json.dumps({"uv": 500.0}).encode()
         result = parse_ecowitt_payload("dev1", payload)
-        obs, _ = result
+        obs = result.observation
         assert obs.get("uv_index") is None or "uv_index" not in obs
 
     def test_rejects_out_of_range_solar(self):
         payload = json.dumps({"solarradiation": 50000.0}).encode()
         result = parse_ecowitt_payload("dev1", payload)
-        obs, _ = result
+        obs = result.observation
         assert obs.get("solar_radiation") is None or "solar_radiation" not in obs
 
     def test_accepts_in_range_values(self):
@@ -294,7 +302,7 @@ class TestParserSafety:
             "solarradiation": 450.0,
         }).encode()
         result = parse_ecowitt_payload("dev1", payload)
-        obs, _ = result
+        obs = result.observation
         assert obs["pressure_abs"] == 1013.25
         assert obs["temp_outdoor"] == 20.0
         assert obs["rain_daily"] == 0.5
@@ -307,6 +315,52 @@ class TestParserSafety:
         """Values at bound edges should be accepted."""
         payload = json.dumps({"humidity": 0.0, "humidityin": 100.0}).encode()
         result = parse_ecowitt_payload("dev1", payload)
-        obs, _ = result
+        obs = result.observation
         assert obs["humidity_outdoor"] == 0.0
         assert obs["humidity_indoor"] == 100.0
+
+
+class TestSensorExtraction:
+    def test_gateway_sensor_extracted(self):
+        payload = json.dumps({"tempinf": 70.0, "humidityin": 45.0}).encode()
+        result = parse_ecowitt_payload("dev1", payload)
+        assert result is not None
+        assert len(result.sensors) == 1
+        sensor = result.sensors[0]
+        assert sensor.sensor_key == "gw"
+        assert sensor.temp == 21.1
+        assert sensor.humidity == 45.0
+
+    def test_metric_keys_also_extracted(self):
+        payload = json.dumps({"tempin": 21.5, "humidityin": 45.0}).encode()
+        result = parse_ecowitt_payload("dev1", payload)
+        assert result is not None
+        assert result.sensors[0].temp == 21.5
+
+    def test_partial_reading_emits_sensor_with_null(self):
+        payload = json.dumps({"tempin": 21.5}).encode()
+        result = parse_ecowitt_payload("dev1", payload)
+        assert result is not None
+        assert len(result.sensors) == 1
+        assert result.sensors[0].temp == 21.5
+        assert result.sensors[0].humidity is None
+
+    def test_no_indoor_keys_emits_no_sensor(self):
+        payload = json.dumps({"temp": 10.0}).encode()
+        result = parse_ecowitt_payload("dev1", payload)
+        assert result is not None
+        assert result.sensors == []
+
+    def test_out_of_range_both_metrics_emits_no_sensor(self):
+        payload = json.dumps({"tempin": 500.0, "humidityin": 500.0}).encode()
+        result = parse_ecowitt_payload("dev1", payload)
+        assert result is not None
+        assert result.sensors == []
+
+    def test_named_fields_accessible(self):
+        payload = json.dumps({"tempin": 21.5}).encode()
+        result = parse_ecowitt_payload("dev1", payload)
+        assert result is not None
+        assert isinstance(result.observation, dict)
+        assert isinstance(result.diagnostics, dict)
+        assert isinstance(result.sensors, list)

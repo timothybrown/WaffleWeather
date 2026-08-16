@@ -171,7 +171,10 @@ async def _handle_message(
     if parse_result is None:
         return
 
-    parsed, diagnostics = parse_result
+    parsed = parse_result.observation
+    diagnostics = parse_result.diagnostics
+    sensor_readings = parse_result.sensors
+    _ = sensor_readings  # Task 8 persists these in the same transaction.
 
     # Compute dewpoint at ingestion so continuous aggregates can use it
     if "dewpoint" not in parsed:
