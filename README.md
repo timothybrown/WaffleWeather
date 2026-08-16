@@ -27,6 +27,12 @@ WaffleWeather was built to fill that gap: a modern, good-looking dashboard that 
 
 The main dashboard with 9 live-updating cards in a 3-column semantic grid. Temperature (daily high/low, dewpoint, indoor), humidity (indoor, VPD), pressure (Zambretti forecast), thermal comfort (UTCI with precise MRT from BGT sensor, Globe and Wet Bulb sub-stats when a WH32 sensor is connected), rain, wind (tick ring compass with canvas particle drift animation), solar (sun arc with irradiance-responsive glow, solar radiation, UV index, day length, golden hour, altitude), lunar (moon phase and illumination), and lightning. Every value updates in real time over WebSocket with 15-minute trend arrows. Click-to-toggle info tips on every card explain what each metric means and how it's calculated.
 
+### Indoor Climate
+
+Temperature and humidity from the gateway's built-in sensor, on two tabs. **Current** shows live values with 15-minute trend arrows and 24-hour sparklines. **History** charts both metrics across day, week, month, and year using the same date pickers as the History page, with synced crosshairs between the two charts.
+
+Readings are stored in a generic auxiliary-sensor table keyed by sensor rather than in fixed columns, so history survives the raw-data retention window and additional temperature/humidity sensors can be added later without a schema change.
+
 ### VFD Console
 
 A Davis Vantage-inspired all-in-one display with an amber vacuum fluorescent aesthetic. Features a wind direction dot on a compass ring with speed centered inside, 24-hour barometric pressure dot chart, Zambretti forecast with large SVG weather icons, DSEG7 seven-segment numerics, Dotrice dot-matrix text, phosphor-glow effects, and a scrolling conditions ticker. Everything on one screen, no scrolling required.
@@ -232,6 +238,8 @@ WaffleWeather's MQTT parser maps field names from ecowitt2mqtt to database colum
 If your sensor setup uses different field names, check `backend/app/mqtt/parser.py` — the mapping is straightforward to extend.
 
 Cards for sensors you don't have (e.g., lightning if you only have a WH32) will simply not render or will show "No data."
+
+> **Upgrade note (2026.8.16.1):** `temp1` and `humidity1` no longer map to outdoor temperature and humidity. These are WH31 multi-channel sensor keys, and treating channel 1 as the primary outdoor reading meant that pairing a WH31 on that channel would silently overwrite outdoor temperature, daily extremes, and Records. Stations reporting `temp`, `tempf`, or `temperature` — which is nearly all of them — are unaffected. If your station reports **only** `temp1`, outdoor temperature will stop populating until per-channel sensor ingestion ships.
 
 ## Database
 

@@ -32,6 +32,11 @@ Weather Station → ecowitt2mqtt → Mosquitto (MQTT)
 | `observations_hourly` | Continuous aggregate | Hourly rollups from raw data. Refreshes every hour. |
 | `observations_daily` | Continuous aggregate | Daily rollups from hourly. Refreshes daily. |
 | `observations_monthly` | Continuous aggregate | Monthly rollups from daily. Refreshes daily. |
+| `sensor_observations` | Hypertable | Auxiliary temperature/humidity readings keyed by `sensor_key` (`gw` for the gateway's built-in sensor). Same compression and retention policy as `weather_observations`. |
+| `sensors` | Table | Auxiliary sensor metadata (label, placement). Auto-registered on first reading; ingestion only ever updates `last_seen`, so labels and placement survive. |
+| `sensor_observations_hourly` | Continuous aggregate | Hourly rollups per sensor. |
+| `sensor_observations_daily` | Continuous aggregate | Daily rollups per sensor, from hourly. |
+| `sensor_observations_monthly` | Continuous aggregate | Monthly rollups per sensor, from daily. |
 
 **Aggregated columns** (all three views share the same schema):
 
@@ -72,6 +77,34 @@ Derived fields (`dewpoint`, `feels_like`, `heat_index`, `wind_chill`, `utci`) ar
 | GET | `/api/v1/observations/monthly` | Monthly aggregated observations |
 
 **Source:** `observations_hourly`, `observations_daily`, `observations_monthly` continuous aggregate views respectively.
+
+### Auxiliary Sensors
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/v1/observations/sensors` | Auxiliary sensor readings (`start`, `end` required) |
+
+**Query parameters:** `granularity` (`raw` \| `hourly` \| `daily` \| `monthly`, default `raw`), `sensor_key` (optional filter), `station_id` (optional filter), `limit` (raw only, default 100, max 10000).
+
+**Span caps:** raw 48 hours, hourly 14 days, daily 366 days, monthly 10 years. Requests exceeding the cap return 400.
+
+**Response:**
+
+```jsonc
+{
+  "sensors": [ { "station_id": "...", "sensor_key": "gw",
+                 "label": "Indoor", "placement": "indoor" } ],
+  "rows": [ /* see below */ ]
+}
+```
+
+Raw rows carry `timestamp`, `station_id`, `sensor_key`, `temp`, `humidity`. Aggregate rows carry `bucket` plus `temp_avg`/`temp_min`/`temp_max` and `humidity_avg`/`humidity_min`/`humidity_max`.
+
+`temp` and `humidity` are independently nullable — a sensor whose humidity element fails still produces usable temperature history. An unknown `sensor_key` returns an empty `rows` array rather than 404.
+
+**Source:** `sensor_observations` (raw) or the matching `sensor_observations_*` continuous aggregate.
+
+**Note:** the gateway's indoor readings are also still written to `weather_observations.temp_indoor` / `.humidity_indoor` and remain available on `/observations` and `/observations/latest`.
 
 ### Calendar Heatmap
 
@@ -183,6 +216,7 @@ WebSocket fields overwrite REST fields for real-time feel, but REST-only fields 
 | **Console** | `latest`, `stations`, `hourly` (barometer chart) | Live observation | WS for live obs; hourly chart refetches every 60s |
 | **Lightning** | `latest`, `stations`, `lightning/summary`, `lightning/events` | Live observation | WS for live strike count; REST on time range change |
 | **History** | `observations` (24h) or `hourly`/`daily`/`monthly` (7d/30d/1y) | Not used | One-shot fetch per time range selection |
+| **Indoor Climate** | `observations/sensors` (24h raw on Current; raw/hourly/daily/monthly on History) | Live observation | WS overrides live values on Current; History is one-shot per range |
 | **Wind Rose** | `wind-rose` | Not used | One-shot fetch per time range selection |
 | **Settings** | `stations` | Diagnostics only | Station info once; diagnostics update on each WS message |
 | **Reports** | `reports/monthly`, `reports/yearly` | Not used | One-shot fetch per period selection |
