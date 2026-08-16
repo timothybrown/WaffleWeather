@@ -33,6 +33,14 @@ describe("Sidebar", () => {
     expect(screen.getByText("Diagnostics")).toBeInTheDocument();
   });
 
+  it("links to the Indoor Climate page", () => {
+    renderWithProviders(<Sidebar open={true} onClose={() => {}} />);
+    expect(screen.getByRole("link", { name: /indoor/i })).toHaveAttribute(
+      "href",
+      "/indoor",
+    );
+  });
+
   it("shows 'Live' when connected", () => {
     renderWithProviders(<Sidebar open={true} onClose={() => {}} />);
     expect(screen.getByText("Live")).toBeInTheDocument();

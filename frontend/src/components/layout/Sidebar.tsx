@@ -7,6 +7,7 @@ import { usePathname } from "next/navigation";
 import {
   RiDashboardLine,
   RiDashboard2Line,
+  RiHomeLine,
   RiFlashlightLine,
   RiHistoryLine,
   RiFileChartLine,
@@ -26,6 +27,7 @@ import { useTheme } from "@/providers/ThemeProvider";
 
 const navItems = [
   { href: "/", label: "Observatory", icon: RiDashboardLine },
+  { href: "/indoor", label: "Indoor", icon: RiHomeLine },
   { href: "/console", label: "Console", icon: RiDashboard2Line },
   { href: "/lightning", label: "Lightning", icon: RiFlashlightLine },
   { href: "/wind-rose", label: "Wind Rose", icon: RiCompassLine },
