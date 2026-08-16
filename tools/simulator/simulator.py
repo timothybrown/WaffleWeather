@@ -93,6 +93,27 @@ BOUNDS: dict[str, tuple[float, float]] = {
 }
 
 
+# Indoor baseline and how strongly indoor follows outdoor. A conditioned
+# building damps the outdoor swing heavily rather than tracking it. Open-Meteo
+# has no indoor channel, so this is derived rather than fetched.
+INDOOR_BASE_C = 21.0
+INDOOR_COUPLING = 0.08
+INDOOR_REFERENCE_C = 18.0
+
+
+def derive_indoor(outdoor_temp: float) -> tuple[float, float]:
+    """Derive plausible indoor temperature and humidity from outdoor temp."""
+    temp = INDOOR_BASE_C + (outdoor_temp - INDOOR_REFERENCE_C) * INDOOR_COUPLING
+    temp += random.gauss(0, 0.25)
+    temp = max(15.0, min(28.0, temp))
+
+    # Warmer indoor air at fixed absolute moisture reads as lower RH.
+    humidity = 45.0 - (temp - INDOOR_BASE_C) * 2.0 + random.gauss(0, 1.5)
+    humidity = max(20.0, min(70.0, humidity))
+
+    return round(temp, 1), round(humidity, 1)
+
+
 def fetch_current(lat: float, lon: float) -> dict[str, float]:
     """Fetch current conditions from Open-Meteo. Returns MQTT-keyed dict."""
     url = "https://api.open-meteo.com/v1/forecast"
@@ -192,6 +213,9 @@ def fetch_archive(lat: float, lon: float, start: date, end: date) -> list[dict[s
             val = data.get(om_key, [None] * len(timestamps))[i]
             if val is not None:
                 row[db_col] = float(val)
+        outdoor = row.get("temp_outdoor")
+        if outdoor is not None:
+            row["temp_indoor"], row["humidity_indoor"] = derive_indoor(float(outdoor))
         # Accumulate daily rain from hourly rain amounts
         day_key = ts_str[:10]
         if day_key != current_day:
@@ -209,6 +233,7 @@ DB_COLUMNS = [
     "timestamp", "station_id", "temp_outdoor", "humidity_outdoor",
     "pressure_abs", "pressure_rel", "wind_speed", "wind_gust", "wind_dir",
     "rain_rate", "rain_daily", "solar_radiation", "uv_index", "dewpoint",
+    "temp_indoor", "humidity_indoor",
 ]
 
 
@@ -351,6 +376,9 @@ def simulate(env_file, lat, lon, altitude, broker, port, username, password, top
                         continue
 
             payload = apply_jitter(truth)
+            indoor_temp, indoor_humidity = derive_indoor(payload["temp"])
+            payload["tempin"] = indoor_temp
+            payload["humidityin"] = indoor_humidity
             publish_mqtt(cfg, payload, start_time)
 
             ts = _time.strftime("%H:%M:%S")
