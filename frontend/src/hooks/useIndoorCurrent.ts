@@ -1,8 +1,9 @@
 "use client";
 
 import { useMemo } from "react";
+import { keepPreviousData } from "@tanstack/react-query";
 import { useListSensorObservations } from "@/generated/sensors/sensors";
-import type { SensorReading } from "@/generated/models";
+import type { Observation, SensorReading } from "@/generated/models";
 import { useRollingTimeRange } from "@/hooks/useRollingTimeRange";
 import { CADENCES } from "@/lib/queryCadences";
 import { useWebSocket } from "@/providers/WebSocketProvider";
@@ -27,6 +28,16 @@ function timestampMs(row: SensorReading): number | null {
   if (!row.timestamp) return null;
   const ms = Date.parse(row.timestamp);
   return Number.isNaN(ms) ? null : ms;
+}
+
+function hasObservationField(
+  observation: Observation | null,
+  key: "temp_indoor" | "humidity_indoor",
+): boolean {
+  return (
+    observation != null &&
+    Object.prototype.hasOwnProperty.call(observation, key)
+  );
 }
 
 function metricTrend(
@@ -64,7 +75,12 @@ export function useIndoorCurrent(): IndoorCurrent {
       sensor_key: "gw",
       limit: 10000,
     },
-    { query: { refetchInterval: CADENCES.summary } },
+    {
+      query: {
+        refetchInterval: CADENCES.summary,
+        placeholderData: keepPreviousData,
+      },
+    },
   );
   const { latestObservation } = useWebSocket();
 
@@ -89,10 +105,16 @@ export function useIndoorCurrent(): IndoorCurrent {
     () => metricTrend(orderedRows, "humidity"),
     [orderedRows],
   );
+  const liveTemp = hasObservationField(latestObservation, "temp_indoor")
+    ? latestObservation?.temp_indoor ?? null
+    : latestRow?.temp ?? null;
+  const liveHumidity = hasObservationField(latestObservation, "humidity_indoor")
+    ? latestObservation?.humidity_indoor ?? null
+    : latestRow?.humidity ?? null;
 
   return {
-    temp: latestObservation?.temp_indoor ?? latestRow?.temp ?? null,
-    humidity: latestObservation?.humidity_indoor ?? latestRow?.humidity ?? null,
+    temp: liveTemp,
+    humidity: liveHumidity,
     tempTrend,
     humidityTrend,
     tempSparkline,

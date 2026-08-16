@@ -1,4 +1,5 @@
 import { act, renderHook } from "@testing-library/react";
+import { keepPreviousData } from "@tanstack/react-query";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useListSensorObservations } from "@/generated/sensors/sensors";
 import type { Observation, SensorReading } from "@/generated/models";
@@ -58,7 +59,9 @@ function latestParams() {
 
 function latestOptions() {
   const call = mockUseListSensorObservations.mock.calls.at(-1);
-  return call?.[1] as { query?: { refetchInterval?: number | false } };
+  return call?.[1] as {
+    query?: { refetchInterval?: number | false; placeholderData?: unknown };
+  };
 }
 
 function renderIndoorCurrent() {
@@ -111,6 +114,27 @@ describe("useIndoorCurrent", () => {
 
     expect(result.current.temp).toBe(22.3);
     expect(result.current.humidity).toBe(49);
+    expect(result.current.tempTrend).toBeCloseTo(0.3);
+  });
+
+  it("lets explicit WebSocket indoor nulls override the fetched latest row", () => {
+    mockUseWebSocket.mockReturnValue({
+      latestObservation: {
+        timestamp: "2026-08-16T12:00:10Z",
+        station_id: "simulator",
+        temp_indoor: null,
+        humidity_indoor: null,
+      } as Observation,
+      diagnostics: null,
+      connected: true,
+      offline: false,
+      reconnect: vi.fn(),
+    });
+
+    const { result } = renderIndoorCurrent();
+
+    expect(result.current.temp).toBeNull();
+    expect(result.current.humidity).toBeNull();
     expect(result.current.tempTrend).toBeCloseTo(0.3);
   });
 
@@ -179,6 +203,7 @@ describe("useIndoorCurrent", () => {
     });
     expect(latestOptions().query).toMatchObject({
       refetchInterval: CADENCES.summary,
+      placeholderData: keepPreviousData,
     });
   });
 
