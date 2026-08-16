@@ -129,7 +129,18 @@ describe("IndoorPage", () => {
       currentState.temp = null;
       currentState.humidity = null;
       renderWithProviders(<IndoorPage />);
-      expect(screen.getAllByText("--")).toHaveLength(2);
+      // fmt() renders an em dash for null — same placeholder the Observatory
+      // cards use, so the two pages stay visually consistent.
+      expect(screen.getAllByText("—")).toHaveLength(2);
+    });
+
+    it("renders the unit inline beside the value, not in the card title", () => {
+      renderWithProviders(<IndoorPage />);
+      // Observatory renders "70 °F", never "Temperature (°F)".
+      expect(screen.getByText("Temperature")).toBeInTheDocument();
+      expect(screen.queryByText(/Temperature \(/)).not.toBeInTheDocument();
+      expect(screen.getByText("°C")).toBeInTheDocument();
+      expect(screen.getByText("%")).toBeInTheDocument();
     });
 
     it("shows a rising trend arrow when the delta clears the threshold", () => {

@@ -2,7 +2,8 @@
 
 import { Suspense, useCallback, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
-import { cn, timeAgo } from "@/lib/utils";
+import { RiTempColdLine, RiDropLine } from "@remixicon/react";
+import { cn, fmt, timeAgo } from "@/lib/utils";
 import { convertTemp } from "@/lib/units";
 import { useUnits } from "@/providers/UnitsProvider";
 import { useIndoorData } from "@/hooks/useIndoorData";
@@ -35,6 +36,7 @@ import {
   type ResolvedColors,
 } from "@/components/charts/chartConfigs";
 import HistoryPager from "@/components/history/HistoryPager";
+import WeatherCard from "@/components/dashboard/WeatherCard";
 import TrendIndicator from "@/components/dashboard/TrendIndicator";
 import Sparkline from "@/components/dashboard/Sparkline";
 
@@ -93,17 +95,19 @@ function applyUrl(params: URLSearchParams) {
   }
 }
 
-function ReadingCard({
-  title,
+/** Mirrors the Observatory card body exactly — value, inline unit, trend —
+ *  so the two pages read as one system. See TemperatureCard/HumidityCard. */
+function ReadingBody({
   value,
+  unit,
   decimals,
   trend,
   sparkline,
   sparklineColor,
   sparklineLabel,
 }: {
-  title: string;
-  value: number | null;
+  value: number | null | undefined;
+  unit: string;
   decimals: number;
   trend: TrendDirection;
   sparkline: (number | null)[];
@@ -111,18 +115,16 @@ function ReadingCard({
   sparklineLabel: string;
 }) {
   return (
-    <div className="weather-card rounded-xl p-4">
-      <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-text-muted">
-        {title}
-      </h3>
-      <div className="flex items-baseline gap-2">
-        <span className="font-mono text-3xl font-semibold tabular-nums text-text">
-          {value != null ? value.toFixed(decimals) : "--"}
+    <>
+      <div className="flex items-center gap-1.5">
+        <span className="font-mono text-4xl font-semibold tabular-nums text-text">
+          {fmt(value, decimals)}
         </span>
+        <span className="text-lg text-text-faint">{unit}</span>
         <TrendIndicator trend={trend} />
       </div>
-      {sparkline.length > 0 && (
-        <div className="mt-3">
+      {sparkline.length >= 2 && (
+        <div className="mt-auto pt-3">
           <Sparkline
             data={sparkline}
             color={sparklineColor}
@@ -130,7 +132,7 @@ function ReadingCard({
           />
         </div>
       )}
-    </div>
+    </>
   );
 }
 
@@ -262,7 +264,9 @@ function IndoorPageInner() {
   );
 
   const tempUnit = system === "metric" ? "°C" : "°F";
-  const currentTemp = convertTemp(current.temp, system).value;
+  // Unit comes from convertTemp rather than the local constant so the card
+  // renders it inline exactly the way the Observatory cards do.
+  const currentTempReading = convertTemp(current.temp, system);
   // tempTrend is a delta in °C. It is deliberately NOT passed through
   // convertTemp — that applies the absolute conversion (x9/5 + 32), which
   // would turn a 0.5°C change into 32.9. The arrow renders no number, so
@@ -341,27 +345,40 @@ function IndoorPageInner() {
 
       {view === "current" ? (
         <div className="card-stagger grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <ReadingCard
-            title={`Temperature (${tempUnit})`}
-            value={currentTemp}
-            decimals={1}
-            trend={toTrendDirection(current.tempTrend, TEMP_TREND_THRESHOLD_C)}
-            sparkline={current.tempSparkline}
-            sparklineColor="var(--color-danger)"
-            sparklineLabel="Indoor temperature over the last 24 hours"
-          />
-          <ReadingCard
-            title="Humidity (%)"
-            value={current.humidity}
-            decimals={0}
-            trend={toTrendDirection(
-              current.humidityTrend,
-              HUMIDITY_TREND_THRESHOLD_PCT,
-            )}
-            sparkline={current.humiditySparkline}
-            sparklineColor="var(--color-success)"
-            sparklineLabel="Indoor humidity over the last 24 hours"
-          />
+          <WeatherCard
+            title="Temperature"
+            icon={<RiTempColdLine className="h-4 w-4" />}
+            info="Indoor temperature from the gateway's built-in sensor. Trend compares against the reading from 15 minutes ago."
+          >
+            <ReadingBody
+              value={currentTempReading.value}
+              unit={currentTempReading.unit}
+              decimals={1}
+              trend={toTrendDirection(current.tempTrend, TEMP_TREND_THRESHOLD_C)}
+              sparkline={current.tempSparkline}
+              sparklineColor="var(--color-danger)"
+              sparklineLabel="Indoor temperature over the last 24 hours"
+            />
+          </WeatherCard>
+
+          <WeatherCard
+            title="Humidity"
+            icon={<RiDropLine className="h-4 w-4" />}
+            info="Indoor relative humidity. 30–60% is generally comfortable indoors."
+          >
+            <ReadingBody
+              value={current.humidity}
+              unit="%"
+              decimals={0}
+              trend={toTrendDirection(
+                current.humidityTrend,
+                HUMIDITY_TREND_THRESHOLD_PCT,
+              )}
+              sparkline={current.humiditySparkline}
+              sparklineColor="var(--color-success)"
+              sparklineLabel="Indoor humidity over the last 24 hours"
+            />
+          </WeatherCard>
         </div>
       ) : isLoading ? (
         <div className="flex h-96 items-center justify-center text-text-muted">
