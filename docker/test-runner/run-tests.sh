@@ -10,7 +10,7 @@ sh /app/seed.sh
 
 # Materialize continuous aggregates after seeded raw observations are present.
 cd /app/backend
-uv run python -m app.maintenance.refresh_aggregates --family all
+uv run python -m app.maintenance.refresh_aggregates --family observations
 
 # Run E2E tests
 cd /app/tests/e2e
