@@ -15,6 +15,7 @@ from app.config import Settings
 from app.database import async_session
 from app.models.lightning import LightningEvent
 from app.models.observation import WeatherObservation
+from app.models.sensor import Sensor, SensorObservation
 from app.models.station import Station
 from app.mqtt.parser import parse_ecowitt_payload
 from app.schemas.observation import ObservationSchema
@@ -174,7 +175,6 @@ async def _handle_message(
     parsed = parse_result.observation
     diagnostics = parse_result.diagnostics
     sensor_readings = parse_result.sensors
-    _ = sensor_readings  # Task 8 persists these in the same transaction.
 
     # Compute dewpoint at ingestion so continuous aggregates can use it
     if "dewpoint" not in parsed:
@@ -214,6 +214,34 @@ async def _handle_message(
                 # Insert observation (diagnostics are NOT stored)
                 obs = WeatherObservation(**parsed)
                 session.add(obs)
+
+                # Auxiliary sensor rows share the observation transaction so
+                # sensor readings cannot outlive their parent observation.
+                for reading in sensor_readings:
+                    session.add(
+                        SensorObservation(
+                            timestamp=parsed["timestamp"],
+                            station_id=device_id,
+                            sensor_key=reading.sensor_key,
+                            temp=reading.temp,
+                            humidity=reading.humidity,
+                        )
+                    )
+                    sensor_stmt = (
+                        pg_insert(Sensor)
+                        .values(
+                            station_id=device_id,
+                            sensor_key=reading.sensor_key,
+                            label="Indoor" if reading.sensor_key == "gw" else None,
+                            placement="indoor" if reading.sensor_key == "gw" else "unassigned",
+                            last_seen=parsed["timestamp"],
+                        )
+                        .on_conflict_do_update(
+                            index_elements=["station_id", "sensor_key"],
+                            set_={"last_seen": parsed["timestamp"]},
+                        )
+                    )
+                    await session.execute(sensor_stmt)
 
         logger.debug("Stored observation for %s at %s", device_id, parsed["timestamp"])
     except Exception:

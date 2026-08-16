@@ -4,6 +4,10 @@ from collections import deque
 from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 
+from sqlalchemy.dialects import postgresql
+
+from app.models.observation import WeatherObservation
+from app.models.sensor import SensorObservation
 from app.mqtt.client import (
     _detect_lightning_event,
     _extract_device_id,
@@ -12,7 +16,7 @@ from app.mqtt.client import (
     _pressure_history,
     _seed_pressure_history,
 )
-from app.mqtt.parser import ParsedPayload
+from app.mqtt.parser import ParsedPayload, SensorReading
 
 
 def _make_message(topic="ecowitt2mqtt/device1", payload=b'{"temp": 22.5}'):
@@ -49,11 +53,12 @@ def _make_settings(**kwargs):
 def _parsed_payload(
     observation: dict[str, object],
     diagnostics: dict[str, object] | None = None,
+    sensors: list[SensorReading] | None = None,
 ) -> ParsedPayload:
     return ParsedPayload(
         observation=observation,
         diagnostics=diagnostics or {"batteries": {}, "gateway": {}},
-        sensors=[],
+        sensors=sensors or [],
     )
 
 
@@ -344,6 +349,136 @@ class TestHandleMessage:
         assert cache["stationA"] is not None
         assert cache["stationB"] is not None
         assert cache["stationA"] != cache["stationB"]
+
+
+class TestSensorDualWrite:
+    @patch("app.mqtt.client.async_session")
+    @patch("app.mqtt.client.parse_ecowitt_payload")
+    async def test_sensor_observation_added_alongside_observation(
+        self, mock_parse, mock_async_session
+    ):
+        factory, session = _mock_db_session()
+        mock_async_session.side_effect = factory
+
+        ts = datetime(2026, 4, 5, 12, 0, tzinfo=timezone.utc)
+        parsed = {
+            "station_id": "device1",
+            "timestamp": ts,
+            "temp_indoor": 21.5,
+            "humidity_indoor": 45.0,
+        }
+        mock_parse.return_value = _parsed_payload(
+            parsed,
+            sensors=[SensorReading(sensor_key="gw", temp=21.5, humidity=45.0)],
+        )
+
+        await _handle_message(_make_message(), _make_settings(), broadcast_fn=None)
+
+        added = [call.args[0] for call in session.add.call_args_list]
+        observation_rows = [obj for obj in added if isinstance(obj, WeatherObservation)]
+        sensor_rows = [obj for obj in added if isinstance(obj, SensorObservation)]
+
+        assert len(observation_rows) == 1
+        assert len(sensor_rows) == 1
+        sensor_row = sensor_rows[0]
+        assert sensor_row.timestamp == ts
+        assert sensor_row.station_id == "device1"
+        assert sensor_row.sensor_key == "gw"
+        assert sensor_row.temp == 21.5
+        assert sensor_row.humidity == 45.0
+
+    @patch("app.mqtt.client.async_session")
+    @patch("app.mqtt.client.parse_ecowitt_payload")
+    async def test_sensor_observation_accepts_partial_reading(
+        self, mock_parse, mock_async_session
+    ):
+        factory, session = _mock_db_session()
+        mock_async_session.side_effect = factory
+
+        ts = datetime(2026, 4, 5, 12, 0, tzinfo=timezone.utc)
+        parsed = {"station_id": "device1", "timestamp": ts, "humidity_indoor": 45.0}
+        mock_parse.return_value = _parsed_payload(
+            parsed,
+            sensors=[SensorReading(sensor_key="gw", temp=None, humidity=45.0)],
+        )
+
+        await _handle_message(_make_message(), _make_settings(), broadcast_fn=None)
+
+        sensor_rows = [
+            call.args[0]
+            for call in session.add.call_args_list
+            if isinstance(call.args[0], SensorObservation)
+        ]
+        assert len(sensor_rows) == 1
+        assert sensor_rows[0].temp is None
+        assert sensor_rows[0].humidity == 45.0
+
+    @patch("app.mqtt.client.async_session")
+    @patch("app.mqtt.client.parse_ecowitt_payload")
+    async def test_sensor_metadata_upsert_only_updates_last_seen(
+        self, mock_parse, mock_async_session
+    ):
+        factory, session = _mock_db_session()
+        mock_async_session.side_effect = factory
+
+        ts = datetime(2026, 4, 5, 12, 0, tzinfo=timezone.utc)
+        parsed = {
+            "station_id": "device1",
+            "timestamp": ts,
+            "temp_indoor": 21.5,
+            "humidity_indoor": 45.0,
+        }
+        mock_parse.return_value = _parsed_payload(
+            parsed,
+            sensors=[SensorReading(sensor_key="gw", temp=21.5, humidity=45.0)],
+        )
+
+        await _handle_message(_make_message(), _make_settings(), broadcast_fn=None)
+
+        executed = [call.args[0] for call in session.execute.await_args_list]
+        assert [stmt.table.name for stmt in executed] == ["stations", "sensors"]
+
+        sensor_stmt = executed[1]
+        compiled = sensor_stmt.compile(dialect=postgresql.dialect())
+        sql = str(compiled)
+        update_clause = sql.split("DO UPDATE SET", 1)[1]
+
+        assert "INSERT INTO sensors" in sql
+        assert "ON CONFLICT (station_id, sensor_key) DO UPDATE SET last_seen" in sql
+        assert "label =" not in update_clause
+        assert "placement =" not in update_clause
+
+        assert compiled.params["station_id"] == "device1"
+        assert compiled.params["sensor_key"] == "gw"
+        assert compiled.params["label"] == "Indoor"
+        assert compiled.params["placement"] == "indoor"
+        assert compiled.params["last_seen"] == ts
+        assert compiled.params["param_1"] == ts
+
+    @patch("app.mqtt.client.async_session")
+    @patch("app.mqtt.client.parse_ecowitt_payload")
+    async def test_non_gateway_sensor_metadata_defaults_to_unassigned(
+        self, mock_parse, mock_async_session
+    ):
+        factory, session = _mock_db_session()
+        mock_async_session.side_effect = factory
+
+        ts = datetime(2026, 4, 5, 12, 0, tzinfo=timezone.utc)
+        parsed = {"station_id": "device1", "timestamp": ts}
+        mock_parse.return_value = _parsed_payload(
+            parsed,
+            sensors=[SensorReading(sensor_key="ch1", temp=19.5, humidity=None)],
+        )
+
+        await _handle_message(_make_message(), _make_settings(), broadcast_fn=None)
+
+        sensor_stmt = session.execute.await_args_list[1].args[0]
+        compiled = sensor_stmt.compile(dialect=postgresql.dialect())
+
+        assert compiled.params["station_id"] == "device1"
+        assert compiled.params["sensor_key"] == "ch1"
+        assert compiled.params["label"] is None
+        assert compiled.params["placement"] == "unassigned"
 
 
 class TestDetectLightningEvent:
