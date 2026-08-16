@@ -49,12 +49,12 @@ class TestWindows:
         assert names == FAMILIES["observations"]
         assert not any(name.startswith("sensor_") for name in names)
 
-    def test_non_monthly_windows_use_requested_bounds(self) -> None:
-        for name, window_start, window_end in refresh_windows("all", START, END):
+    def test_non_monthly_windows_use_requested_end(self) -> None:
+        for name, _, window_end in refresh_windows("all", START, END):
             if name.endswith("_monthly"):
                 continue
-            assert window_start == START
             assert window_end == END
+
 
     def test_monthly_windows_extend_end_by_two_months(self) -> None:
         monthly = [
@@ -63,8 +63,7 @@ class TestWindows:
             if window[0].endswith("_monthly")
         ]
         assert len(monthly) == 2
-        for _, window_start, window_end in monthly:
-            assert window_start == START
+        for _, _, window_end in monthly:
             assert window_end == datetime(2026, 8, 1, tzinfo=timezone.utc)
 
     def test_monthly_extension_rolls_over_year_boundary(self) -> None:
@@ -87,3 +86,46 @@ class TestWindows:
     def test_rejects_equal_range(self) -> None:
         with pytest.raises(ValueError):
             refresh_windows("all", START, START)
+
+
+class TestStartFlooring:
+    """refresh_continuous_aggregate only materializes buckets *fully contained*
+    in the window, so the start bound must sit before the first bucket's edge."""
+
+    def test_start_is_floored_below_the_month_boundary(self) -> None:
+        # Production regression: the first observation was 2026-04-01 20:15,
+        # which left the April 1 daily bucket and the whole April monthly
+        # bucket partially outside the window. TimescaleDB skipped both.
+        first_observation = datetime(2026, 4, 1, 20, 15, 44, tzinfo=timezone.utc)
+        windows = refresh_windows(
+            "all", first_observation, datetime(2026, 8, 16, tzinfo=timezone.utc)
+        )
+        for _, window_start, _ in windows:
+            assert window_start < datetime(2026, 4, 1, tzinfo=timezone.utc)
+
+    def test_every_family_shares_the_floored_start(self) -> None:
+        windows = refresh_windows("all", START, END)
+        starts = {window_start for _, window_start, _ in windows}
+        assert len(starts) == 1
+
+    def test_start_flooring_allows_for_timezone_aware_buckets(self) -> None:
+        # Daily and monthly buckets are cut in the station's timezone, so a
+        # month can begin up to ~14h either side of UTC midnight. The floored
+        # start must precede the earliest such boundary.
+        _, window_start, _ = refresh_windows(
+            "observations",
+            datetime(2026, 4, 1, 0, 0, 1, tzinfo=timezone.utc),
+            END,
+        )[0]
+        earliest_possible_bucket_start = datetime(
+            2026, 3, 31, 10, 0, tzinfo=timezone.utc
+        )  # UTC+14
+        assert window_start <= earliest_possible_bucket_start
+
+    def test_start_flooring_crosses_year_boundary(self) -> None:
+        _, window_start, _ = refresh_windows(
+            "observations",
+            datetime(2026, 1, 15, tzinfo=timezone.utc),
+            datetime(2026, 6, 1, tzinfo=timezone.utc),
+        )[0]
+        assert window_start == datetime(2025, 12, 31, tzinfo=timezone.utc)

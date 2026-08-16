@@ -16,7 +16,7 @@ import calendar
 import logging
 import sys
 from collections.abc import Sequence
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import cast
 
 from sqlalchemy import text
@@ -77,14 +77,34 @@ def aggregates_for(family: str) -> list[str]:
     return list(FAMILIES[family])
 
 
+def _floor_to_refresh_start(dt: datetime) -> datetime:
+    """Floor to a bound that fully contains the month bucket holding `dt`.
+
+    refresh_continuous_aggregate only materializes buckets *fully contained*
+    in the window. Passing a raw first-observation timestamp (say
+    2026-04-01 20:15) leaves both the April 1 daily bucket and the whole April
+    monthly bucket partially outside the window, so TimescaleDB silently skips
+    them and that history never appears.
+
+    Flooring to the first of the month covers the monthly bucket (the coarsest
+    one), and the extra day of slack covers timezone-aware bucket boundaries:
+    daily and monthly buckets are cut in the station's timezone, so their start
+    can be up to ~14h either side of UTC midnight.
+    """
+    month_start = dt.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    return month_start - timedelta(days=1)
+
+
 def refresh_windows(
     family: str, start: datetime, end: datetime
 ) -> list[tuple[str, datetime, datetime]]:
     """Return (aggregate, window_start, window_end) tuples in refresh order."""
-    window_start = _as_utc(start)
+    requested_start = _as_utc(start)
     requested_end = _as_utc(end)
-    if requested_end <= window_start:
+    if requested_end <= requested_start:
         raise ValueError(f"end ({end}) must be after start ({start})")
+
+    window_start = _floor_to_refresh_start(requested_start)
 
     windows: list[tuple[str, datetime, datetime]] = []
     for name in aggregates_for(family):
