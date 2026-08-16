@@ -219,7 +219,7 @@ WaffleWeather's MQTT parser maps field names from ecowitt2mqtt to database colum
 
 | Data | Sensor Keys (any of these) |
 |------|---------------------------|
-| Outdoor temp/humidity | `temp1`, `tempf`, `humidity1` |
+| Outdoor temp/humidity | `temp`, `tempf`, `temperature`, `humidity` |
 | Wind | `windspeed`, `windgust`, `winddir` |
 | Rain | `dailyrain`, `dailyrainin`, `drain_piezo` (+ weekly, monthly, yearly, event, rate) |
 | Pressure | `baromrel`, `baromrelin`, `baromabs` |
