@@ -192,7 +192,7 @@ From your development machine:
 cd /opt/waffleweather/backend
 uv sync
 uv run alembic upgrade head
-uv run python -m app.maintenance.refresh_aggregates --family observations
+uv run python -m app.maintenance.refresh_aggregates --family all
 
 # Install frontend dependencies and build
 # (postbuild step copies static assets into .next/standalone automatically)
