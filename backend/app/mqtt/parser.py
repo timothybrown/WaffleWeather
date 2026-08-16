@@ -17,7 +17,6 @@ FIELD_MAP: dict[str, str] = {
     "temp": "temp_outdoor",
     "tempf": "temp_outdoor",
     "temperature": "temp_outdoor",
-    "temp1": "temp_outdoor",
     "tempin": "temp_indoor",
     "tempinf": "temp_indoor",
     "dewpoint": "dewpoint",
@@ -27,7 +26,6 @@ FIELD_MAP: dict[str, str] = {
     "frostpoint": "frost_point",
     # Humidity
     "humidity": "humidity_outdoor",
-    "humidity1": "humidity_outdoor",
     "humidityin": "humidity_indoor",
     # Pressure
     "baromabs": "pressure_abs",

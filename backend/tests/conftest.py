@@ -77,8 +77,8 @@ def sample_ecowitt_payload():
     """JSON bytes mimicking a real ecowitt2mqtt MQTT message."""
     import json
     return json.dumps({
-        "temp1": 22.5,
-        "humidity1": 65.0,
+        "temp": 22.5,
+        "humidity": 65.0,
         "tempinf": 21.0,
         "humidityin": 45.0,
         "baromabs": 1010.0,

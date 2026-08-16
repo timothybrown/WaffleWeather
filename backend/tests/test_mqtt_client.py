@@ -14,7 +14,7 @@ from app.mqtt.client import (
 )
 
 
-def _make_message(topic="ecowitt2mqtt/device1", payload=b'{"temp1": 22.5}'):
+def _make_message(topic="ecowitt2mqtt/device1", payload=b'{"temp": 22.5}'):
     msg = MagicMock()
     msg.topic = MagicMock()
     msg.topic.__str__ = lambda self: topic
