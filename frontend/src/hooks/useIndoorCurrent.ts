@@ -20,6 +20,9 @@ interface IndoorCurrent {
   humidityTrend: number | null;
   tempSparkline: (number | null)[];
   humiditySparkline: (number | null)[];
+  /** Timestamp of the reading currently displayed — from the WebSocket when it
+   *  is supplying live values, otherwise from the newest fetched row. */
+  timestamp: string | null;
   windowStart: string;
   isLoading: boolean;
 }
@@ -112,6 +115,13 @@ export function useIndoorCurrent(): IndoorCurrent {
     ? latestObservation?.humidity_indoor ?? null
     : latestRow?.humidity ?? null;
 
+  // Track the timestamp of whichever source supplied the displayed values, so
+  // "Last update" reflects live WebSocket freshness rather than the age of the
+  // 60s-polled query.
+  const timestamp = hasObservationField(latestObservation, "temp_indoor")
+    ? latestObservation?.timestamp ?? null
+    : latestRow?.timestamp ?? null;
+
   return {
     temp: liveTemp,
     humidity: liveHumidity,
@@ -119,6 +129,7 @@ export function useIndoorCurrent(): IndoorCurrent {
     humidityTrend,
     tempSparkline,
     humiditySparkline,
+    timestamp,
     windowStart: start,
     isLoading: query.isLoading,
   };

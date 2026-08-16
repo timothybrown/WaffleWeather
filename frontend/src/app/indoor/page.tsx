@@ -2,7 +2,7 @@
 
 import { Suspense, useCallback, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
-import { cn } from "@/lib/utils";
+import { cn, timeAgo } from "@/lib/utils";
 import { convertTemp } from "@/lib/units";
 import { useUnits } from "@/providers/UnitsProvider";
 import { useIndoorData } from "@/hooks/useIndoorData";
@@ -273,9 +273,16 @@ function IndoorPageInner() {
     <div className="p-4 sm:p-6">
       <div className="page-header mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-4">
-          <h1 className="font-display text-2xl font-semibold text-text">
-            Indoor Climate
-          </h1>
+          <div>
+            <h1 className="font-display text-2xl font-semibold text-text">
+              Indoor Climate
+            </h1>
+            <p className="mt-1 text-sm text-text-muted">
+              {current.timestamp
+                ? `Last update: ${timeAgo(current.timestamp)}`
+                : "Waiting for data..."}
+            </p>
+          </div>
           <div className="flex gap-1 rounded-lg border border-border bg-surface-alt p-1">
             {(["current", "history"] as const).map((v) => (
               <button

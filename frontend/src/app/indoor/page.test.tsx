@@ -10,6 +10,7 @@ const currentState = vi.hoisted(() => ({
   humidity: 47 as number | null,
   tempTrend: 0.5 as number | null,
   humidityTrend: 0 as number | null,
+  timestamp: "2026-08-16T12:00:00Z" as string | null,
 }));
 
 const dataState = vi.hoisted(() => ({
@@ -38,6 +39,7 @@ vi.mock("@/hooks/useIndoorCurrent", () => ({
     humidityTrend: currentState.humidityTrend,
     tempSparkline: [21, 21.5],
     humiditySparkline: [46, 47],
+    timestamp: currentState.timestamp,
     windowStart: "2026-08-15T00:00:00Z",
     isLoading: false,
   }),
@@ -70,6 +72,7 @@ describe("IndoorPage", () => {
     currentState.humidity = 47;
     currentState.tempTrend = 0.5;
     currentState.humidityTrend = 0;
+    currentState.timestamp = "2026-08-16T12:00:00Z";
     dataState.resolution = "raw";
     dataState.isError = false;
     dataState.rows = [
@@ -137,6 +140,7 @@ describe("IndoorPage", () => {
     it("shows no trend arrow when the delta is inside the threshold", () => {
       currentState.tempTrend = 0.05;
       currentState.humidityTrend = 0;
+    currentState.timestamp = "2026-08-16T12:00:00Z";
       renderWithProviders(<IndoorPage />);
       expect(screen.queryByLabelText("Trending up")).not.toBeInTheDocument();
       expect(screen.queryByLabelText("Trending down")).not.toBeInTheDocument();
@@ -157,5 +161,29 @@ describe("IndoorPage", () => {
       renderWithProviders(<IndoorPage />);
       expect(screen.getByText(/no data for/i)).toBeInTheDocument();
     });
+  });
+});
+
+describe("IndoorPage last update", () => {
+  beforeEach(() => {
+    searchParams.value = new URLSearchParams();
+    currentState.timestamp = "2026-08-16T12:00:00Z";
+  });
+
+  it("shows a last-update line when a reading is present", () => {
+    renderWithProviders(<IndoorPage />);
+    expect(screen.getByText(/last update:/i)).toBeInTheDocument();
+  });
+
+  it("shows a waiting message when no reading has arrived", () => {
+    currentState.timestamp = null;
+    renderWithProviders(<IndoorPage />);
+    expect(screen.getByText(/waiting for data/i)).toBeInTheDocument();
+  });
+
+  it("keeps the last-update line visible on the history tab", () => {
+    searchParams.value = new URLSearchParams("view=history");
+    renderWithProviders(<IndoorPage />);
+    expect(screen.getByText(/last update:/i)).toBeInTheDocument();
   });
 });
