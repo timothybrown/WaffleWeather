@@ -60,7 +60,7 @@ services:
     command:
       - sh
       - -c
-      - uv run alembic upgrade head && uv run python -m app.maintenance.refresh_aggregates --family all
+      - uv run alembic upgrade head && uv run python -m app.maintenance.backfill_sensor_observations && uv run python -m app.maintenance.refresh_aggregates --family all
 
   backend:
     image: ghcr.io/timothybrown/waffleweather-backend:latest

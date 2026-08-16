@@ -188,10 +188,11 @@ Then configure your gateway to push data to `http://your-pi:8080/data/report` (o
 From your development machine:
 
 ```bash
-# Install backend dependencies, run migrations, materialize aggregates
+# Install backend dependencies, run migrations, backfill gateway sensors, materialize aggregates
 cd /opt/waffleweather/backend
 uv sync
 uv run alembic upgrade head
+uv run python -m app.maintenance.backfill_sensor_observations
 uv run python -m app.maintenance.refresh_aggregates --family all
 
 # Install frontend dependencies and build

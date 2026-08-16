@@ -17,7 +17,7 @@ services:
     command:
       - sh
       - -c
-      - uv run alembic upgrade head && uv run python -m app.maintenance.refresh_aggregates --family all
+      - uv run alembic upgrade head && uv run python -m app.maintenance.backfill_sensor_observations && uv run python -m app.maintenance.refresh_aggregates --family all
 
   backend:
     image: waffleweather-backend-dev
@@ -80,7 +80,10 @@ services:
     volumes:
       - ../backend/app:/app/app
       - ../backend/alembic:/app/alembic
-    command: ["uv", "run", "python", "-m", "app.maintenance.refresh_aggregates", "--family", "all"]
+    command:
+      - sh
+      - -c
+      - uv run python -m app.maintenance.backfill_sensor_observations && uv run python -m app.maintenance.refresh_aggregates --family all
 
   simulator:
     image: waffleweather-simulator-dev

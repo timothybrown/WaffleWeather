@@ -8,8 +8,9 @@ set -e
 cd /app/simulator
 sh /app/seed.sh
 
-# Materialize continuous aggregates after seeded raw observations are present.
+# Backfill gateway sensors and materialize aggregates after seeded raw observations are present.
 cd /app/backend
+uv run python -m app.maintenance.backfill_sensor_observations
 uv run python -m app.maintenance.refresh_aggregates --family all
 
 # Run E2E tests
