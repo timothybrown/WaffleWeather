@@ -134,3 +134,32 @@ class AggregatedObservationSchema(BaseModel):
     solar_radiation_avg: float | None = None
     solar_radiation_max: float | None = None
     uv_index_max: float | None = None
+
+
+class SensorMetaSchema(BaseModel):
+    station_id: str
+    sensor_key: str
+    label: str | None = None
+    placement: str = "unassigned"
+
+    model_config = {"from_attributes": True}
+
+
+class SensorReadingSchema(BaseModel):
+    station_id: str
+    sensor_key: str
+    timestamp: datetime | None = None
+    bucket: datetime | None = None
+    temp: float | None = None
+    humidity: float | None = None
+    temp_avg: float | None = None
+    temp_min: float | None = None
+    temp_max: float | None = None
+    humidity_avg: float | None = None
+    humidity_min: float | None = None
+    humidity_max: float | None = None
+
+
+class SensorObservationsResponse(BaseModel):
+    sensors: list[SensorMetaSchema]
+    rows: list[SensorReadingSchema]

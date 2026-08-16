@@ -19,10 +19,11 @@ router = APIRouter(prefix="/observations", tags=["aggregates"])
 # Allowlist of valid view names for aggregate queries (prevents SQL injection)
 _VALID_VIEWS = {"observations_hourly", "observations_daily", "observations_monthly"}
 
-# Max span per granularity. Prevents DoS from unbounded aggregate queries
+# Max span per granularity. Prevents DoS from unbounded observation queries
 # (e.g. start=1970 with hourly granularity forcing the broker to compute over
 # billions of rows). Limits chosen to cover realistic UI use cases with headroom.
 _MAX_SPANS: dict[str, timedelta] = {
+    "raw": timedelta(hours=48),
     "hourly": timedelta(days=14),
     "daily": timedelta(days=366),
     "monthly": timedelta(days=366 * 10),
