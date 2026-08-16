@@ -17,6 +17,7 @@ import {
   type Range,
 } from "@/lib/historyPeriod";
 import { getZonedParts, zonedMidnightToUtc } from "@/lib/stationTime";
+import { formatChartTime } from "@/lib/chartTime";
 import { useResolvedColors } from "@/hooks/useResolvedColors";
 import { useElementSize } from "@/hooks/useElementSize";
 import { useAdaptiveBucket } from "@/hooks/useAdaptiveBucket";
@@ -102,34 +103,6 @@ function applyHistoryUrl(params: URLSearchParams, method: "push" | "replace") {
   } else {
     window.history.pushState(null, "", href);
   }
-}
-
-function formatTime(unix: number, resolution: string, timezone: string): string {
-  const d = new Date(unix * 1000);
-  if (resolution === "raw") {
-    return d.toLocaleTimeString([], {
-      timeZone: timezone,
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: false,
-    });
-  }
-  if (resolution === "hourly") {
-    const parts = getZonedParts(timezone, d);
-    if (parts.hour === 0 && parts.minute === 0) {
-      return d.toLocaleDateString([], { timeZone: timezone, weekday: "short" });
-    }
-    return d.toLocaleTimeString([], {
-      timeZone: timezone,
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: false,
-    });
-  }
-  if (resolution === "daily") {
-    return d.toLocaleDateString([], { timeZone: timezone, month: "short", day: "numeric" });
-  }
-  return d.toLocaleDateString([], { timeZone: timezone, month: "short", year: "numeric" });
 }
 
 function isLeapYear(year: number): boolean {
@@ -558,7 +531,7 @@ function HistoryPageInner() {
   }), [data, useWindBars, windBucket.rows, useSolarBars, solarBucket.rows]);
 
   const tickFmt = useCallback(
-    (v: number) => formatTime(v, resolution, timezone),
+    (v: number) => formatChartTime(v, resolution, timezone),
     [resolution, timezone],
   );
   const useWeeklyDayXAxis = resolution === "hourly" && range === "week" && !activeZoomRange;
