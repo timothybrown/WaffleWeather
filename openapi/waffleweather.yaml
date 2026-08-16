@@ -9,6 +9,19 @@ servers:
     description: Local development
 
 paths:
+  /api/v1/version:
+    get:
+      summary: Get backend version
+      operationId: getVersion
+      tags: [version]
+      responses:
+        "200":
+          description: Backend version
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Version"
+
   /api/v1/stations:
     get:
       summary: List registered weather stations
@@ -208,6 +221,58 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/AggregatedObservation"
+
+  /api/v1/observations/sensors:
+    get:
+      summary: Query auxiliary sensor observations
+      operationId: listSensorObservations
+      tags: [sensors]
+      parameters:
+        - name: start
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date-time
+        - name: end
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date-time
+        - name: granularity
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [raw, hourly, daily, monthly]
+            default: raw
+        - name: sensor_key
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: station_id
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 100
+            minimum: 1
+            maximum: 10000
+          description: Applied only when granularity is raw
+      responses:
+        "200":
+          description: Auxiliary sensor metadata and observation rows
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SensorObservationsResponse"
 
   /api/v1/observations/calendar:
     get:
@@ -538,6 +603,13 @@ paths:
 
 components:
   schemas:
+    Version:
+      type: object
+      required: [version]
+      properties:
+        version:
+          type: string
+
     Station:
       type: object
       required: [id]
@@ -836,6 +908,75 @@ components:
         count:
           type: integer
           description: Number of observations in this bin
+
+    SensorMeta:
+      type: object
+      required: [station_id, sensor_key]
+      properties:
+        station_id:
+          type: string
+        sensor_key:
+          type: string
+        label:
+          type: string
+          nullable: true
+        placement:
+          type: string
+          default: unassigned
+
+    SensorReading:
+      type: object
+      required: [station_id, sensor_key]
+      properties:
+        station_id:
+          type: string
+        sensor_key:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+          description: Raw observation timestamp
+        bucket:
+          type: string
+          format: date-time
+          description: Aggregate bucket start
+        temp:
+          type: number
+          nullable: true
+        humidity:
+          type: number
+          nullable: true
+        temp_avg:
+          type: number
+          nullable: true
+        temp_min:
+          type: number
+          nullable: true
+        temp_max:
+          type: number
+          nullable: true
+        humidity_avg:
+          type: number
+          nullable: true
+        humidity_min:
+          type: number
+          nullable: true
+        humidity_max:
+          type: number
+          nullable: true
+
+    SensorObservationsResponse:
+      type: object
+      required: [sensors, rows]
+      properties:
+        sensors:
+          type: array
+          items:
+            $ref: "#/components/schemas/SensorMeta"
+        rows:
+          type: array
+          items:
+            $ref: "#/components/schemas/SensorReading"
 
     LightningEvent:
       type: object

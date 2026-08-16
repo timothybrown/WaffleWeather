@@ -42,8 +42,22 @@ def _resolve_schema(schema: dict, spec: dict) -> dict:
     return schema
 
 
+def _path_template_matches(template: str, path: str) -> bool:
+    """Return whether an OpenAPI path template matches a concrete path."""
+    template_parts = template.strip("/").split("/")
+    path_parts = path.strip("/").split("/")
+    if len(template_parts) != len(path_parts):
+        return False
+    return all(
+        template_part == path_part
+        or (template_part.startswith("{") and template_part.endswith("}"))
+        for template_part, path_part in zip(template_parts, path_parts, strict=True)
+    )
+
+
 def _get_response_schema(endpoint: Endpoint, spec: dict) -> dict | None:
     """Extract the 200 response schema for an endpoint from the OpenAPI spec."""
+    paths = spec.get("paths", {})
     path_key = endpoint.path
     for param_name in ["station_id"]:
         if f"/{endpoint.params.get(param_name, '')}/" in path_key or path_key.endswith(
@@ -53,7 +67,12 @@ def _get_response_schema(endpoint: Endpoint, spec: dict) -> dict | None:
                 f"/{endpoint.params[param_name]}", f"/{{{param_name}}}"
             )
 
-    path_spec = spec.get("paths", {}).get(path_key)
+    path_spec = paths.get(path_key)
+    if path_spec is None:
+        for template, candidate_spec in paths.items():
+            if _path_template_matches(template, endpoint.path):
+                path_spec = candidate_spec
+                break
     if not path_spec:
         return None
     get_spec = path_spec.get("get")
@@ -87,7 +106,6 @@ def test_endpoint_matches_schema(client, openapi_spec, endpoint: Endpoint) -> No
     assert resp.status_code == 200
 
     schema = _get_response_schema(endpoint, openapi_spec)
-    if schema is None:
-        pytest.skip(f"No OpenAPI schema found for {endpoint.path}")
+    assert schema is not None, f"No OpenAPI schema found for {endpoint.path}"
 
     jsonschema.validate(instance=resp.json(), schema=schema)

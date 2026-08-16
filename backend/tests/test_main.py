@@ -9,12 +9,14 @@ class TestAppRoutes:
         # (they become opaque _IncludedRouter wrappers without a .path), so we
         # assert against the OpenAPI schema, which enumerates every HTTP path.
         paths = app.openapi()["paths"]
+        assert "/api/v1/version" in paths
         assert "/api/v1/observations/latest" in paths
         assert "/api/v1/observations" in paths
         assert "/api/v1/stations" in paths
         assert "/api/v1/observations/hourly" in paths
         assert "/api/v1/observations/daily" in paths
         assert "/api/v1/observations/monthly" in paths
+        assert "/api/v1/observations/sensors" in paths
         assert "/api/v1/observations/calendar" in paths
         assert "/api/v1/observations/wind-rose" in paths
         assert "/api/v1/observations/lightning/events" in paths
