@@ -1,6 +1,6 @@
 {
   "name": "frontend",
-  "version": "2026.8.16.4",
+  "version": "2026.8.17.1",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -48,7 +48,8 @@
   "pnpm": {
     "overrides": {
       "@babel/core": "7.29.6",
-      "brace-expansion": "5.0.7",
+      "brace-expansion": "5.0.9",
+      "minimatch": "^10.2.5",
       "esbuild": "0.28.1",
       "fast-uri": "3.1.4",
       "js-yaml": "4.3.0",
