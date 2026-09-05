@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import localFont from "next/font/local";
-import SunCalc from "suncalc";
+import * as SunCalc from "suncalc";
 import { keepPreviousData } from "@tanstack/react-query";
 import type { AggregatedObservation, Observation, Station } from "@/generated/models";
 import { useGetLatestObservation } from "@/generated/observations/observations";
@@ -125,6 +125,12 @@ export default function ConsolePage() {
     const yesterdayTimes = SunCalc.getTimes(yesterday, lat, lon);
 
     const { sunrise, sunset } = times;
+
+    // SunCalc 2 returns null when the event doesn't occur (polar day/night).
+    if (!sunrise || !sunset || !yesterdayTimes.sunrise || !yesterdayTimes.sunset) {
+      return null;
+    }
+
     const dayLengthMs = sunset.getTime() - sunrise.getTime();
     const dayLengthMinutes = Math.floor(dayLengthMs / 60000);
     const dayH = Math.floor(dayLengthMinutes / 60);

@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import SunCalc from "suncalc";
+import * as SunCalc from "suncalc";
 import { RiMoonLine } from "@remixicon/react";
 import { useListStations } from "@/generated/stations/stations";
 import type { Station } from "@/generated/models";
@@ -113,8 +113,15 @@ export default function MoonCard() {
     let set: Date | undefined;
 
     if (hasLocation) {
+      // SunCalc 2 scans the UTC calendar day of the instant it's given; v1 took
+      // an `inUTC` flag and scanned the local day. Passing local midnight keeps
+      // the window pinned to today's local date instead of rolling over to the
+      // next UTC day during the evening.
+      const localMidnight = new Date(now);
+      localMidnight.setHours(0, 0, 0, 0);
+
       const times = SunCalc.getMoonTimes(
-        now,
+        localMidnight,
         station!.latitude!,
         station!.longitude!,
       );
