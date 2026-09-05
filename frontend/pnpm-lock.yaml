@@ -46,8 +46,8 @@ importers:
         specifier: ^5.0.0
         version: 5.0.0(leaflet@1.9.4)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       suncalc:
-        specifier: ^1.9.0
-        version: 1.9.0
+        specifier: ^2.0.1
+        version: 2.0.2
       tailwind-merge:
         specifier: ^3.6.0
         version: 3.6.0
@@ -79,9 +79,6 @@ importers:
       '@types/react-dom':
         specifier: ^19
         version: 19.2.3(@types/react@19.2.17)
-      '@types/suncalc':
-        specifier: ^1.9.2
-        version: 1.9.2
       '@vitest/coverage-v8':
         specifier: ^4.1.9
         version: 4.1.9(vitest@4.1.6)
@@ -1142,9 +1139,6 @@ packages:
 
   '@types/react@19.2.17':
     resolution: {integrity: sha512-MXfmqaVPEVgkBT/aY0aGCkRWWtByiYQXo3xdQ8r5RzuFrPiRn8Gar2tQdXSUQ2GKV3bkXckek89V8wQBY2Q/Aw==}
-
-  '@types/suncalc@1.9.2':
-    resolution: {integrity: sha512-ATAGBHHfA1TlE2tjfidLyTcysjoT2JHHEAmWRULh73SU9UTn++j5fqHEW16X6Y/2Li87jEQXzgu4R/OOdlDqzw==}
 
   '@types/unist@3.0.3':
     resolution: {integrity: sha512-ko/gIFJRv177XgZsZcBwnqJN5x/Gien8qNOn0D5bQU/zAzVf9Zt3BlcUiLqhV9y4ARk0GbT3tnUiPNgnTXzc/Q==}
@@ -2947,8 +2941,8 @@ packages:
       babel-plugin-macros:
         optional: true
 
-  suncalc@1.9.0:
-    resolution: {integrity: sha512-vMJ8Byp1uIPoj+wb9c1AdK4jpkSKVAywgHX0lqY7zt6+EWRRC3Z+0Ucfjy/0yxTVO1hwwchZe4uoFNqrIC24+A==}
+  suncalc@2.0.2:
+    resolution: {integrity: sha512-cedP91TuhxggoERke/jLkUVr/VMUifEMz1OkxfBZezvOFQdk8LSe9CFv7/Ov0Frn2tc2YUs+44oSrXeNEyTyGQ==}
 
   supports-color@7.2.0:
     resolution: {integrity: sha512-qpCAvRl9stuOHveKsn7HncJRvv501qIacKzQlO/+Lwxc9+0q2wLyv4Dfvt80/DPn2pqOBsJdDiogXGR9+OvwRw==}
@@ -4225,8 +4219,6 @@ snapshots:
   '@types/react@19.2.17':
     dependencies:
       csstype: 3.2.3
-
-  '@types/suncalc@1.9.2': {}
 
   '@types/unist@3.0.3': {}
 
@@ -6290,7 +6282,7 @@ snapshots:
     optionalDependencies:
       '@babel/core': 7.29.6
 
-  suncalc@1.9.0: {}
+  suncalc@2.0.2: {}
 
   supports-color@7.2.0:
     dependencies:

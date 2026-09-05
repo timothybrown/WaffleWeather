@@ -4,18 +4,18 @@ import { renderWithProviders } from "@/test/wrappers";
 import { makeObservation } from "@/test/fixtures";
 import SunCard from "./SunCard";
 
+// SunCalc 2 is ESM with named exports (no default), and reports angles in
+// degrees rather than radians.
 vi.mock("suncalc", () => ({
-  default: {
-    getTimes: () => ({
-      sunrise: new Date("2026-04-05T06:30:00"),
-      sunset: new Date("2026-04-05T18:15:00"),
-      solarNoon: new Date("2026-04-05T12:22:00"),
-      goldenHour: new Date("2026-04-05T17:30:00"),
-    }),
-    getPosition: () => ({
-      altitude: (45 * Math.PI) / 180,
-    }),
-  },
+  getTimes: () => ({
+    sunrise: new Date("2026-04-05T06:30:00"),
+    sunset: new Date("2026-04-05T18:15:00"),
+    solarNoon: new Date("2026-04-05T12:22:00"),
+    goldenHour: new Date("2026-04-05T17:30:00"),
+  }),
+  getPosition: () => ({
+    altitude: 45,
+  }),
 }));
 
 vi.mock("@/generated/stations/stations", () => ({

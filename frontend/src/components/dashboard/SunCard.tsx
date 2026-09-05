@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import SunCalc from "suncalc";
+import * as SunCalc from "suncalc";
 import { RiSunLine } from "@remixicon/react";
 import { useListStations } from "@/generated/stations/stations";
 import type { Station, Observation, BrokenRecord } from "@/generated/models";
@@ -13,7 +13,8 @@ import TrendIndicator from "./TrendIndicator";
 import InfoTip from "@/components/ui/InfoTip";
 import RecordBadge from "@/components/ui/RecordBadge";
 
-function fmtTime(d: Date): string {
+function fmtTime(d: Date | null | undefined): string {
+  if (!d) return "\u2014";
   return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false });
 }
 
@@ -55,6 +56,13 @@ export default function SunCard({ data, solarTrend, uvTrend, brokenRecords }: { 
 
     const { sunrise, sunset, solarNoon, goldenHour } = times;
 
+    // SunCalc 2 returns null for events that don't occur (polar day/night).
+    // Every value below is derived from a sunrise/sunset pair, so without one
+    // there is nothing to draw — fall back to the card's "no data" branch.
+    if (!sunrise || !sunset || !yesterdayTimes.sunrise || !yesterdayTimes.sunset) {
+      return null;
+    }
+
     const dayLengthMs = sunset.getTime() - sunrise.getTime();
     const dayLengthMinutes = Math.floor(dayLengthMs / 60000);
     const dayH = Math.floor(dayLengthMinutes / 60);
@@ -71,7 +79,7 @@ export default function SunCard({ data, solarTrend, uvTrend, brokenRecords }: { 
     const deltaStr = `${sign}${deltaMin}m ${deltaSRemaining}s`;
     const gaining = deltaSec >= 0;
 
-    const currentAltDeg = (position.altitude * 180) / Math.PI;
+    const currentAltDeg = position.altitude;
     const altitudeDeg = Math.round(currentAltDeg);
 
     const totalMs = sunset.getTime() - sunrise.getTime();
@@ -93,8 +101,7 @@ export default function SunCard({ data, solarTrend, uvTrend, brokenRecords }: { 
     for (let i = 0; i < NUM_SAMPLES; i++) {
       const t = i / (NUM_SAMPLES - 1);
       const sampleTime = new Date(sunrise.getTime() + t * totalMs);
-      const sampleAlt =
-        (SunCalc.getPosition(sampleTime, lat, lon).altitude * 180) / Math.PI;
+      const sampleAlt = SunCalc.getPosition(sampleTime, lat, lon).altitude;
       const x = ARC_X0 + t * ARC_WIDTH;
       const y = altToY(sampleAlt);
       coords.push(`${x.toFixed(1)},${y.toFixed(1)}`);

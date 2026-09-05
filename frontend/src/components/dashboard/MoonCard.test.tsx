@@ -3,18 +3,17 @@ import { screen } from "@testing-library/react";
 import { renderWithProviders } from "@/test/wrappers";
 import MoonCard from "./MoonCard";
 
-// Mock SunCalc
+// Mock SunCalc — v2 is ESM with named exports (no default).
 vi.mock("suncalc", () => ({
-  default: {
-    getMoonIllumination: () => ({
-      phase: 0.5, // Full Moon
-      fraction: 0.98,
-    }),
-    getMoonTimes: () => ({
-      rise: new Date("2026-04-05T19:00:00"),
-      set: new Date("2026-04-06T06:00:00"),
-    }),
-  },
+  getMoonIllumination: () => ({
+    phase: 0.5, // Full Moon
+    fraction: 0.98,
+    waxing: false,
+  }),
+  getMoonTimes: () => ({
+    rise: new Date("2026-04-05T19:00:00"),
+    set: new Date("2026-04-06T06:00:00"),
+  }),
 }));
 
 // Mock stations API
