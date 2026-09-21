@@ -15,15 +15,15 @@
   },
   "dependencies": {
     "@remixicon/react": "^4.9.0",
-    "@tanstack/react-query": "^5.102.8",
+    "@tanstack/react-query": "^5.103.1",
     "clsx": "^2.1.1",
     "leaflet": "^1.9.4",
-    "next": "16.3.4",
+    "next": "16.3.5",
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "react-leaflet": "^5.0.0",
     "suncalc": "^2.0.1",
-    "tailwind-merge": "^3.6.0",
+    "tailwind-merge": "^3.7.0",
     "uplot": "^1.6.32"
   },
   "devDependencies": {
@@ -37,7 +37,7 @@
     "@types/react-dom": "^19.3.0",
     "@vitest/coverage-v8": "^4.1.11",
     "eslint": "^9",
-    "eslint-config-next": "16.3.4",
+    "eslint-config-next": "16.3.5",
     "happy-dom": "^20.14.3",
     "orval": "^8.31.0",
     "tailwindcss": "^4.3.3",
