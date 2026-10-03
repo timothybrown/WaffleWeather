@@ -1,6 +1,6 @@
 # WaffleWeather
 
-A self-hosted weather station dashboard built for [Ecowitt](https://www.ecowitt.com/) and other [Fine Offset](https://www.foshk.com/)-based weather stations (Ambient Weather, Froggit, La Crosse, and other white-label brands). Real-time data, historical charts, lightning tracking, wind rose visualization, and a warm design that's actually nice to look at — all running on a Raspberry Pi.
+A self-hosted weather station dashboard built for [Ecowitt](https://www.ecowitt.com/) and other [Fine Offset](https://www.foshk.com/)-based weather stations (Ambient Weather, Froggit, La Crosse, and other white-label brands). Real-time data, historical charts, indoor climate, lightning tracking, wind rose visualization, and a warm design that's actually nice to look at — all running on a Raspberry Pi.
 
 Named after a very good dog.
 
@@ -25,13 +25,24 @@ WaffleWeather was built to fill that gap: a modern, good-looking dashboard that 
 
 ### Observatory
 
-The main dashboard with 9 live-updating cards in a 3-column semantic grid. Temperature (daily high/low, dewpoint, indoor), humidity (indoor, VPD), pressure (Zambretti forecast), thermal comfort (UTCI with precise MRT from BGT sensor, Globe and Wet Bulb sub-stats when a WH32 sensor is connected), rain, wind (tick ring compass with canvas particle drift animation), solar (sun arc with irradiance-responsive glow, solar radiation, UV index, day length, golden hour, altitude), lunar (moon phase and illumination), and lightning. Every value updates in real time over WebSocket with 15-minute trend arrows. Click-to-toggle info tips on every card explain what each metric means and how it's calculated.
+The main dashboard with 9 live-updating cards in a 3-column semantic grid. Temperature (daily high/low, dewpoint, indoor), humidity (indoor, VPD), pressure (Zambretti forecast), thermal comfort (UTCI with precise MRT from BGT sensor, Globe and Wet Bulb sub-stats when a black globe thermometer is connected), rain, wind (tick ring compass with canvas particle drift animation), solar (sun arc with irradiance-responsive glow, solar radiation, UV index, day length, golden hour, altitude), lunar (moon phase and illumination), and lightning. Every value updates in real time over WebSocket with 15-minute trend arrows. Click-to-toggle info tips on every card explain what each metric means and how it's calculated.
 
 ### Indoor Climate
 
-Temperature and humidity from the gateway's built-in sensor, on two tabs. **Current** shows live values with 15-minute trend arrows and 24-hour sparklines. **History** charts both metrics across day, week, month, and year using the same date pickers as the History page, with synced crosshairs between the two charts.
+Temperature and humidity from the gateway's built-in sensor, on two tabs. **Current** shows live values with 15-minute trend arrows and 24-hour sparklines. **History** charts both metrics across Day, Week, Month, and Year with the same pager and date pickers as the History page, and synced crosshairs between the two charts. Week and longer ranges plot temperature as max, average, and min (toggle each from the legend); Day plots the raw readings. The selected view, range, and date live in the URL (`?view=history&range=&date=`).
 
-Readings are stored in a generic auxiliary-sensor table keyed by sensor rather than in fixed columns, so history survives the raw-data retention window and additional temperature/humidity sensors can be added later without a schema change.
+Readings are stored per sensor in their own table, with hourly, daily, and monthly rollups, so indoor history outlives the one-year raw-data retention window. Additional temperature/humidity sensors (such as WH31 channels) can be added later without a schema change.
+
+<table align="center">
+  <tr>
+    <td align="center"><img src="screenshots/indoor-light.png" alt="Indoor Climate, Current tab (light)" width="100%" /></td>
+    <td align="center"><img src="screenshots/indoor-dark.png" alt="Indoor Climate, Current tab (dark)" width="100%" /></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="screenshots/indoor-history-light.png" alt="Indoor Climate, History tab (light)" width="100%" /></td>
+    <td align="center"><img src="screenshots/indoor-history-dark.png" alt="Indoor Climate, History tab (dark)" width="100%" /></td>
+  </tr>
+</table>
 
 ### VFD Console
 
@@ -63,7 +74,7 @@ The 24-hour Wind and Solar charts use adaptive bucketing — bucket size is chos
 
 ### Calendar Heatmap
 
-A GitHub-style calendar heatmap for any metric (temperature, humidity, rain, wind, pressure, solar, lightning). Switch between metrics using the tab bar. Hover over any day to see a detailed breakdown — temperature and humidity show daily low, average, and high; other metrics show the day's value with units.
+A GitHub-style calendar heatmap for daily temperature, humidity, rainfall, wind gust, solar radiation, or lightning. Switch between metrics using the tab bar. Hover over any day to see a detailed breakdown — temperature and humidity show daily low, average, and high; other metrics show the day's value with units.
 
 ![Calendar Heatmap](screenshots/calendar.png)
 
@@ -111,7 +122,7 @@ Weather Station  -->  ecowitt2mqtt  -->  Mosquitto (MQTT)
 
 Your weather station gateway pushes data to [ecowitt2mqtt](https://github.com/bachya/ecowitt2mqtt) over HTTP, which normalizes it and publishes to an MQTT broker. The FastAPI backend subscribes to MQTT, stores observations in TimescaleDB, enriches them with derived calculations, and pushes updates to connected browsers over WebSocket. The Next.js frontend handles all the rendering and unit conversions.
 
-Everything runs natively on the Pi — no Docker, no containers. A Raspberry Pi 4 with 4GB RAM handles it all comfortably.
+The native install runs everything directly on the Pi as systemd services, no containers required. A Raspberry Pi 4 with 4GB RAM handles it all comfortably. If you'd rather use containers, the same stack is available as a Docker Compose setup with prebuilt images (see [DOCKER.md](DOCKER.md)).
 
 ## Tech Stack
 
@@ -126,16 +137,17 @@ Everything runs natively on the Pi — no Docker, no containers. A Raspberry Pi 
 | Styling | Tailwind CSS v4, custom "Warm Observatory" design system |
 | Fonts | Fraunces (headings), Outfit (body), IBM Plex Mono (data readouts) |
 | Package Managers | uv (Python), pnpm (Node) |
-| Deployment | systemd services, Nginx reverse proxy, rsync from dev machine |
+| Deployment | systemd services behind an Nginx reverse proxy, or Docker Compose with images from GHCR |
 
 ## Hardware Requirements
 
 **Weather Station**: Any Ecowitt or Fine Offset-based gateway with sensors — including Ambient Weather, Froggit, La Crosse, and other white-label brands. Data is normalized by [ecowitt2mqtt](https://github.com/bachya/ecowitt2mqtt), which supports Ecowitt, Ambient Weather, and Wunderground input formats. Currently tested with:
 
-- **Gateway**: GW3000B (GW1000, GW1100, GW2000 should also work)
-- **Outdoor sensor**: WS68 (temperature, humidity, wind, solar, UV)
+- **Gateway**: GW3000B (GW1000, GW1100, GW2000 should also work). Its built-in sensor supplies the indoor temperature and humidity.
+- **Outdoor temperature/humidity**: WH32
+- **Wind, solar, UV**: WS68
 - **Rain gauge**: WH40H (piezo)
-- **Indoor sensor**: WH32 (temperature, humidity, Black Globe Temperature, WBGT, VPD)
+- **Black globe thermometer**: WN38 (Black Globe Temperature, WBGT)
 - **Lightning**: WH57 (AS3935 sensor)
 
 Sensors you don't have simply won't populate those cards — the dashboard gracefully handles missing data.
@@ -146,7 +158,7 @@ Sensors you don't have simply won't populate those cards — the dashboard grace
 
 **Docker (recommended for homelab):** See [DOCKER.md](DOCKER.md) for Docker Compose setup — works on Unraid, Proxmox, Synology, or any Docker host. No weather station required if you use the [built-in simulator](tools/simulator/).
 
-**Native Raspberry Pi:** This guide assumes you have a Raspberry Pi running Debian 13 (Bookworm or Trixie) with SSH access and your weather station gateway on the same network.
+**Native Raspberry Pi:** This guide assumes you have a Raspberry Pi running 64-bit Raspberry Pi OS based on Debian 13 (Trixie), with SSH access and your weather station gateway on the same network. The setup script is written for that platform and hasn't been tested on other Debian releases.
 
 ### 1. Clone and run the setup script
 
@@ -160,12 +172,13 @@ bash deploy/setup.sh
 The setup script installs and configures:
 - PostgreSQL 17 + TimescaleDB (tuned for Pi 4)
 - Mosquitto MQTT broker (with authentication)
-- Nginx reverse proxy
-- Node.js + pnpm
+- Nginx reverse proxy (with rate limiting)
+- Node.js 24 + pnpm
 - uv (Python package manager)
-- A `waffleweather` system user and systemd service files
+- ecowitt2mqtt, in its own virtualenv under `/opt/ecowitt2mqtt`
+- `waffleweather` and `ecowitt2mqtt` system users, and systemd service files for the backend, frontend, and ecowitt2mqtt (installed but not started)
 
-It generates random passwords for the database, MQTT broker, and API key, and writes them to `/opt/waffleweather/.env`.
+It generates random passwords for the database, MQTT broker, and API key, and writes them to `/opt/waffleweather/.env`. If Apache2 or WeeWX is running, the script stops and disables it.
 
 ### 2. Configure your environment
 
@@ -183,15 +196,21 @@ The database URL, MQTT credentials, and API key are filled in automatically by t
 
 ### 3. Configure ecowitt2mqtt
 
-Install [ecowitt2mqtt](https://github.com/bachya/ecowitt2mqtt) and point it at your Mosquitto broker. A systemd service file is included at `deploy/ecowitt2mqtt.service` — it reads MQTT credentials from the same `.env` file.
+The setup script already installed [ecowitt2mqtt](https://github.com/bachya/ecowitt2mqtt) and its systemd unit (`deploy/ecowitt2mqtt.service`), which reads the MQTT credentials from the same `.env` file and listens on port 8080. Start it:
 
-Then configure your gateway to push data to `http://your-pi:8080/data/report` (or whatever port ecowitt2mqtt is listening on). On Ecowitt gateways, this is the "Customized" server setting in the WSView or Ecowitt app. Other brands have similar custom server options — see your gateway's documentation.
+```bash
+sudo systemctl enable --now ecowitt2mqtt
+```
 
-**Important**: Run ecowitt2mqtt with `--disable-calculated-data` — WaffleWeather computes its own derived values (dew point, heat index, UTCI, etc.) and the pre-calculated ones from ecowitt2mqtt would conflict.
+Then configure your gateway to push data to `http://your-pi:8080/data/report`. On Ecowitt gateways, this is the "Customized" server setting in the WSView or Ecowitt app. Other brands have similar custom server options — see your gateway's documentation.
+
+**Important**: The setup script installs ecowitt2mqtt **2026.1.0**, and the Docker setup pins the same version. Don't upgrade it on your own for now. Its next release converts Black Globe and WBGT temperatures itself, and WaffleWeather currently does that conversion too, so upgrading early would convert those readings twice. A future WaffleWeather release will drop its own conversion and raise the version together. If a newer ecowitt2mqtt does get installed, pin it back with `sudo /opt/ecowitt2mqtt/venv/bin/pip install ecowitt2mqtt==2026.1.0`.
+
+If you run ecowitt2mqtt some other way, pass `--disable-calculated-data` like the included unit does. WaffleWeather computes its own derived values (dew point, heat index, UTCI, etc.), and the pre-calculated ones from ecowitt2mqtt would conflict.
 
 ### 4. Deploy the application
 
-From your development machine:
+On the Pi:
 
 ```bash
 # Install backend dependencies, run migrations, backfill gateway sensors, materialize aggregates
@@ -239,22 +258,26 @@ If your sensor setup uses different field names, check `backend/app/mqtt/parser.
 
 Cards for sensors you don't have (e.g., lightning if you only have a WH32) will simply not render or will show "No data."
 
-> **Upgrade note (2026.8.16.1):** `temp1` and `humidity1` no longer map to outdoor temperature and humidity. These are WH31 multi-channel sensor keys, and treating channel 1 as the primary outdoor reading meant that pairing a WH31 on that channel would silently overwrite outdoor temperature, daily extremes, and Records. Stations reporting `temp`, `tempf`, or `temperature` — which is nearly all of them — are unaffected. If your station reports **only** `temp1`, outdoor temperature will stop populating until per-channel sensor ingestion ships.
+> **Upgrade note (2026.8.17.1):** `temp1` and `humidity1` no longer map to outdoor temperature and humidity. These are WH31 multi-channel sensor keys, and treating channel 1 as the primary outdoor reading meant that pairing a WH31 on that channel would silently overwrite outdoor temperature, daily extremes, and Records. Stations reporting `temp`, `tempf`, or `temperature` — which is nearly all of them — are unaffected. If your station reports **only** `temp1`, outdoor temperature will stop populating until per-channel sensor ingestion ships.
 
 ## Database
 
-TimescaleDB powers the storage layer with two hypertables:
+TimescaleDB powers the storage layer with three hypertables:
 
 - **`weather_observations`** — one row per station per observation interval (~16s default), chunked by day
+- **`sensor_observations`** — temperature/humidity readings from auxiliary sensors, one row per sensor per interval, keyed by `sensor_key` (`gw` is the gateway's built-in indoor sensor), chunked by day
 - **`lightning_events`** — detected strike events with delta counts and distance, chunked by week
 
-Three continuous aggregates (hourly, daily, monthly) roll up key metrics hierarchically. Compression kicks in after 14 days, retention drops data after 1 year.
+A small **`sensors`** table holds each auxiliary sensor's label and placement. New sensors register themselves on their first reading.
+
+Each observation hypertable has three continuous aggregates (hourly, daily, monthly) that roll up key metrics hierarchically. On both, compression kicks in after 14 days and raw rows are dropped after 1 year; the aggregates keep long-term history after that.
 
 All derived values (dew point, heat index, wind chill, feels like, UTCI, Zambretti) are computed at query time, not stored. This keeps the schema clean and makes it easy to refine calculations without backfilling.
 
 ## Documentation
 
 - **[DEVELOPMENT.md](DEVELOPMENT.md)** — Local setup, testing, environment variables, project structure, and deployment
+- **[DOCKER.md](DOCKER.md)** — Docker Compose setup, configuration, upgrades, backups, and using an existing MQTT broker
 - **[API.md](API.md)** — REST endpoints, WebSocket protocol, database schema, and frontend data flow
 
 ## Security Notes
@@ -268,7 +291,7 @@ WaffleWeather is designed for local network use. The setup script ships sensible
 For internet-facing deployments, additionally:
 
 - **HTTPS**: Uncomment Block 2 in `deploy/nginx.conf` and supply a cert. If you use [Tailscale](https://tailscale.com/), `tailscale cert` provides free automatic certificates for your `.ts.net` domain — see [DEVELOPMENT.md](DEVELOPMENT.md) for setup. Let's Encrypt works well for public-facing setups
-- **CORS**: Tighten the default `allow_methods=["*"]` in the backend config
+- **CORS**: The backend allows only `GET` and `OPTIONS` requests from the origins listed in `WW_CORS_ORIGINS` (default `http://localhost`). Behind Nginx the dashboard and API share an origin, so only add origins you actually call the API from
 
 ## Credits
 
