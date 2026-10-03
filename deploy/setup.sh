@@ -292,7 +292,12 @@ fi
 
 sudo mkdir -p /opt/ecowitt2mqtt
 sudo python3 -m venv /opt/ecowitt2mqtt/venv
-sudo /opt/ecowitt2mqtt/venv/bin/pip install --quiet ecowitt2mqtt
+# Pinned, like the Docker image in docker/docker-compose.yml (PyPI spells the
+# 2026.01.0 tag as 2026.1.0). Upstream's next release converts BGT/WBGT to the
+# configured unit itself; backend/app/mqtt/parser.py FAHRENHEIT_FIELDS also
+# converts them, so an unpinned install would convert twice. Bump this only in
+# the same change that removes FAHRENHEIT_FIELDS.
+sudo /opt/ecowitt2mqtt/venv/bin/pip install --quiet ecowitt2mqtt==2026.1.0
 sudo chown -R ecowitt2mqtt:ecowitt2mqtt /opt/ecowitt2mqtt
 echo "  ecowitt2mqtt installed in /opt/ecowitt2mqtt/venv."
 
