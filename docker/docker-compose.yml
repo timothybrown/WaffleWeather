@@ -30,7 +30,12 @@ services:
     entrypoint: /entrypoint.sh
 
   ecowitt2mqtt:
-    image: bachya/ecowitt2mqtt:latest
+    # Pinned, not :latest. Upstream's next release converts BGT/WBGT to the
+    # configured unit itself; backend/app/mqtt/parser.py FAHRENHEIT_FIELDS
+    # also converts them, so an unpinned upgrade would convert twice and
+    # store plausible-looking wrong temperatures. Bump this tag only in the
+    # same change that removes FAHRENHEIT_FIELDS.
+    image: bachya/ecowitt2mqtt:2026.01.0
     container_name: waffle-ecowitt2mqtt
     restart: unless-stopped
     depends_on:
