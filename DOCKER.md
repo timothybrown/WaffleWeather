@@ -57,10 +57,13 @@ database URL).
 ## Upgrading
 
 ```bash
+git pull
 cd docker
 docker compose pull
 docker compose up -d
 ```
+
+`git pull` matters as much as the image pull: `docker-compose.yml` and the nginx template come from your checkout, not from the images, and releases sometimes change them (for example, the image versions it pins and the Content-Security-Policy that lets the Lightning map load its tiles). Your `docker/.env` is untracked, so it isn't touched.
 
 Database migrations run automatically on startup.
 
