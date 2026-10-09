@@ -494,6 +494,16 @@ body::after {
   z-index: 0;
 }
 
-.leaflet-control-attribution {
-  display: none;
+/* The basemap credit is required by the OpenFreeMap/OpenMapTiles/OpenStreetMap
+   terms, so it stays visible; themed to sit quietly on the map. The extra
+   .leaflet-control class outranks leaflet.css, which loads after this file. */
+.leaflet-container .leaflet-control-attribution.leaflet-control {
+  background: color-mix(in srgb, var(--color-surface) 80%, transparent);
+  color: var(--color-text-faint);
+  font-size: 10px;
+  border-top-left-radius: 6px;
+}
+
+.leaflet-container .leaflet-control-attribution.leaflet-control a {
+  color: var(--color-text-muted);
 }
