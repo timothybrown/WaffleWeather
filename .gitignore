@@ -51,5 +51,8 @@ docs/superpowers/
 !frontend/public/favicon.png
 !frontend/public/waffle-logo.png
 
+# MapLibre worker, copied from node_modules by frontend/scripts/copy-maplibre-worker.mjs
+frontend/public/maplibre/
+
 # Deploy (contains local hostname)
 scripts/deploy.sh
