@@ -1,7 +1,8 @@
 // MapLibre GL 6 loads its tile worker from a URL next to its own module file.
 // Bundling moves the module, so that URL 404s and the map never draws. Serve
-// the worker (plus the shared chunk it imports) from public/ instead, under a
-// versioned directory so a cached worker can never pair with a newer bundle.
+// the worker from public/ instead, under a versioned directory so a cached
+// worker can never pair with a newer bundle. (Since 6.13 the worker is
+// self-contained; maplibre-gl-shared.mjs is an empty stub due to be removed.)
 // LightningMap.tsx points setWorkerUrl() here. Runs before `dev` and `build`.
 import { copyFileSync, mkdirSync, readFileSync, rmSync } from "node:fs";
 import { createRequire } from "node:module";
@@ -17,7 +18,6 @@ rmSync(outRoot, { recursive: true, force: true });
 const outDir = new URL(`${version}/`, outRoot);
 mkdirSync(outDir, { recursive: true });
 
-for (const file of ["maplibre-gl-worker.mjs", "maplibre-gl-shared.mjs"]) {
-  copyFileSync(path.join(dist, file), new URL(file, outDir));
-}
+const file = "maplibre-gl-worker.mjs";
+copyFileSync(path.join(dist, file), new URL(file, outDir));
 console.log(`MapLibre ${version} worker copied to public/maplibre/${version}/`);
