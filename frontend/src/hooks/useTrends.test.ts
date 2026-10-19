@@ -1,6 +1,8 @@
-import { describe, expect, it, vi } from "vitest";
-import { renderHook } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { act, renderHook } from "@testing-library/react";
+import { keepPreviousData } from "@tanstack/react-query";
 import { wrapper } from "@/test/wrappers";
+import { CADENCES } from "@/lib/queryCadences";
 import { useTrends } from "./useTrends";
 
 // Mock the generated hook
@@ -10,6 +12,14 @@ vi.mock("@/generated/observations/observations", () => ({
 
 import { useListObservations } from "@/generated/observations/observations";
 const mockUseListObservations = vi.mocked(useListObservations);
+
+function latestCall() {
+  const call = mockUseListObservations.mock.calls.at(-1);
+  return {
+    params: call?.[0] as { start?: string },
+    options: call?.[1] as { query?: { refetchInterval?: number | false; placeholderData?: unknown } },
+  };
+}
 
 describe("useTrends", () => {
   it("returns null trends when no data", () => {
@@ -101,5 +111,36 @@ describe("useTrends", () => {
     const { result } = renderHook(() => useTrends(), { wrapper });
     expect(result.current.temp_outdoor).toBeNull();
     expect(result.current.wind_speed).toBe("up");
+  });
+
+  describe("query window", () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date("2026-04-05T12:00:30Z"));
+      mockUseListObservations.mockReturnValue({ data: undefined } as ReturnType<typeof useListObservations>);
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it("advances the 15-minute window each minute without another render", () => {
+      renderHook(() => useTrends(), { wrapper });
+      expect(latestCall().params.start).toBe("2026-04-05T11:45:00.000Z");
+
+      act(() => {
+        vi.advanceTimersByTime(60_000);
+      });
+
+      expect(latestCall().params.start).toBe("2026-04-05T11:46:00.000Z");
+    });
+
+    it("keeps the previous trends while the next window loads", () => {
+      renderHook(() => useTrends(), { wrapper });
+      expect(latestCall().options.query).toMatchObject({
+        refetchInterval: CADENCES.summary,
+        placeholderData: keepPreviousData,
+      });
+    });
   });
 });

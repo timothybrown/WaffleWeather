@@ -11,6 +11,7 @@ import { useListStations } from "@/generated/stations/stations";
 import { useWebSocket } from "@/providers/WebSocketProvider";
 import { useUnits } from "@/providers/UnitsProvider";
 import { useRollingTimeRange } from "@/hooks/useRollingTimeRange";
+import { useTimeBucket } from "@/hooks/useTimeBucket";
 import { useTrends } from "@/hooks/useTrends";
 import { CADENCES } from "@/lib/queryCadences";
 import { fmt, degToCompass } from "@/lib/utils";
@@ -113,7 +114,7 @@ export default function ConsolePage() {
   }, []);
 
   // ── Sun data ──────────────────────────────────────────────────
-  const minuteKey = Math.floor(Date.now() / 60000);
+  const minuteKey = useTimeBucket(60_000);
   const sunData = useMemo(() => {
     if (!hasLocation) return null;
     const lat = station!.latitude!;

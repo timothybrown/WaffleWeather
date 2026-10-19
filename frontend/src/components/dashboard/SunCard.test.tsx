@@ -1,8 +1,12 @@
-import { describe, expect, it, vi } from "vitest";
-import { screen } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { act, screen } from "@testing-library/react";
 import { renderWithProviders } from "@/test/wrappers";
 import { makeObservation } from "@/test/fixtures";
 import SunCard from "./SunCard";
+
+const mocks = vi.hoisted(() => ({
+  altitudeAt: vi.fn<(date: Date) => number>(() => 45),
+}));
 
 // SunCalc 2 is ESM with named exports (no default), and reports angles in
 // degrees rather than radians.
@@ -13,8 +17,8 @@ vi.mock("suncalc", () => ({
     solarNoon: new Date("2026-04-05T12:22:00"),
     goldenHour: new Date("2026-04-05T17:30:00"),
   }),
-  getPosition: () => ({
-    altitude: 45,
+  getPosition: (date: Date) => ({
+    altitude: mocks.altitudeAt(date),
   }),
 }));
 
@@ -109,5 +113,27 @@ describe("SunCard", () => {
     );
     const glowCircle = container.querySelector('[data-testid="sun-glow"]');
     expect(glowCircle?.getAttribute("r")).toBe("6");
+  });
+
+  describe("minute tick", () => {
+    afterEach(() => {
+      vi.useRealTimers();
+      mocks.altitudeAt.mockReset();
+    });
+
+    it("advances the sun position each minute without another render", () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date(2026, 3, 5, 12, 0, 30)); // local midday on the mocked day
+      mocks.altitudeAt.mockImplementation((date) => 10 + date.getMinutes());
+
+      renderWithProviders(<SunCard data={null} solarTrend={null} uvTrend={null} />);
+      expect(screen.getByText("10°")).toBeInTheDocument();
+
+      act(() => {
+        vi.advanceTimersByTime(60_000);
+      });
+
+      expect(screen.getByText("11°")).toBeInTheDocument();
+    });
   });
 });

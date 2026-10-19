@@ -6,6 +6,7 @@ import { RiSunLine } from "@remixicon/react";
 import { useListStations } from "@/generated/stations/stations";
 import type { Station, Observation, BrokenRecord } from "@/generated/models";
 import type { TrendDirection } from "@/hooks/useTrends";
+import { useTimeBucket } from "@/hooks/useTimeBucket";
 import { cn, fmt } from "@/lib/utils";
 import { CADENCES } from "@/lib/queryCadences";
 import WeatherCard from "./WeatherCard";
@@ -40,7 +41,7 @@ export default function SunCard({ data, solarTrend, uvTrend, brokenRecords }: { 
   const station = stations?.[0];
   const hasLocation = station?.latitude != null && station?.longitude != null;
 
-  const minuteKey = Math.floor(Date.now() / 60000);
+  const minuteKey = useTimeBucket(60_000);
 
   const sunData = useMemo(() => {
     if (!hasLocation) return null;

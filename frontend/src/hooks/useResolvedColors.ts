@@ -24,6 +24,9 @@ export function useResolvedColors(varNames: string[]): Record<string, string> {
     };
   }, []);
 
+  // Key on the contents so an inline array literal doesn't re-resolve every render.
+  const varKey = varNames.join(",");
+
   return useMemo(() => {
     const style = typeof document !== "undefined"
       ? getComputedStyle(document.documentElement)
@@ -34,5 +37,5 @@ export function useResolvedColors(varNames: string[]): Record<string, string> {
     }
     return colors;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [revision, ...varNames]);
+  }, [revision, varKey]);
 }
