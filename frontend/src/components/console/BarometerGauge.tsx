@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import type { AggregatedObservation } from "@/generated/models";
 import type { TrendDirection } from "@/hooks/useTrends";
+import { useTimeBucket } from "@/hooks/useTimeBucket";
 import { fmt } from "@/lib/utils";
 import { convertPressure } from "@/lib/units";
 import type { UnitSystem } from "@/lib/units";
@@ -67,7 +68,7 @@ export default function BarometerGauge({
   const decimals = 2;
   const current = convertPressure(pressure, system);
 
-  const minuteKey = Math.floor(Date.now() / 60_000);
+  const minuteKey = useTimeBucket(60_000);
   const points = useMemo(
     () => toHourlyPoints(history, system),
     // eslint-disable-next-line react-hooks/exhaustive-deps

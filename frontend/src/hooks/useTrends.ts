@@ -1,9 +1,11 @@
 "use client";
 
 import { useMemo } from "react";
+import { keepPreviousData } from "@tanstack/react-query";
 import { useListObservations } from "@/generated/observations/observations";
 import type { Observation, ObservationPage } from "@/generated/models";
 import { CADENCES } from "@/lib/queryCadences";
+import { useRollingTimeRange } from "@/hooks/useRollingTimeRange";
 
 export type TrendDirection = "up" | "down" | "flat" | null;
 
@@ -49,16 +51,11 @@ const EMPTY_TRENDS: Trends = {
 };
 
 export function useTrends(): Trends {
-  const start = useMemo(
-    () => new Date(Date.now() - 15 * 60 * 1000).toISOString(),
-    // Re-compute every 60 seconds rather than every render
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [Math.floor(Date.now() / 60_000)],
-  );
+  const { start } = useRollingTimeRange(15 * 60 * 1000);
 
   const { data: response } = useListObservations(
     { start, limit: 1000 },
-    { query: { refetchInterval: CADENCES.summary } },
+    { query: { refetchInterval: CADENCES.summary, placeholderData: keepPreviousData } },
   );
 
   return useMemo(() => {
