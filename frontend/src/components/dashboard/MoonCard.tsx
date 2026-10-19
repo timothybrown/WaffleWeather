@@ -113,17 +113,14 @@ export default function MoonCard() {
     let set: Date | undefined;
 
     if (hasLocation) {
-      // SunCalc 2 scans the UTC calendar day of the instant it's given; v1 took
-      // an `inUTC` flag and scanned the local day. Passing local midnight keeps
-      // the window pinned to today's local date instead of rolling over to the
-      // next UTC day during the evening.
-      const localMidnight = new Date(now);
-      localMidnight.setHours(0, 0, 0, 0);
-
+      // Without a UTC offset SunCalc scans the solar day (nadir to nadir), which
+      // starts after local midnight in most zones and so returns yesterday's
+      // events. Passing the browser's offset scans today's local calendar day.
       const times = SunCalc.getMoonTimes(
-        localMidnight,
+        now,
         station!.latitude!,
         station!.longitude!,
+        -now.getTimezoneOffset(),
       );
       rise = times.rise;
       set = times.set;
