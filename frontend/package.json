@@ -1,6 +1,6 @@
 {
   "name": "frontend",
-  "version": "2026.10.4.1",
+  "version": "2026.10.19.1",
   "private": true,
   "scripts": {
     "predev": "node scripts/copy-maplibre-worker.mjs",
