@@ -7,6 +7,8 @@ Type=exec
 User=waffleweather
 WorkingDirectory=/opt/waffleweather/frontend
 ExecStart=/usr/bin/node .next/standalone/server.js
+# Next.js exits with 143 (128 + SIGTERM) on a normal stop; treat it as clean
+SuccessExitStatus=143
 Environment=PORT=3000
 Environment=HOSTNAME=127.0.0.1
 Restart=always
